@@ -14,7 +14,7 @@ export default function Services() {
           <div className="max-w-3xl">
             <h1 className="text-4xl md:text-5xl font-playfair font-bold text-[#9a7d62] mb-6">Our Premium Services</h1>
             <p className="text-lg text-gray-700">
-              Explore our comprehensive range of luxury pet care services designed to pamper and care for your beloved companions.
+              Explore our comprehensive range of luxury pet care services designed to pamper and care for your beloved companions. Please contact us directly for pricing details.
             </p>
           </div>
         </div>
