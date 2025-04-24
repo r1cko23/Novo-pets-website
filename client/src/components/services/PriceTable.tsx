@@ -78,7 +78,7 @@ export default function PriceTable({ data, type, activeSize = "all" }: PriceTabl
               )}
               <TableCell className="text-right text-sm">
                 <Link href="/booking">
-                  <a className="text-[#9a7d62] hover:text-[#436e4f]">Book</a>
+                  <a className="text-[#8C636A] hover:text-[#8C636A]/80">Book</a>
                 </Link>
               </TableCell>
             </TableRow>
@@ -124,7 +124,7 @@ export default function PriceTable({ data, type, activeSize = "all" }: PriceTabl
               )}
               <TableCell className="text-right text-sm">
                 <Link href="/booking">
-                  <a className="text-[#9a7d62] hover:text-[#436e4f]">Book</a>
+                  <a className="text-[#8C636A] hover:text-[#8C636A]/80">Book</a>
                 </Link>
               </TableCell>
             </TableRow>
@@ -153,7 +153,7 @@ export default function PriceTable({ data, type, activeSize = "all" }: PriceTabl
               <TableCell className="text-sm text-gray-500">{item.notes}</TableCell>
               <TableCell className="text-right text-sm">
                 <Link href="/booking">
-                  <a className="text-[#9a7d62] hover:text-[#436e4f]">Book</a>
+                  <a className="text-[#8C636A] hover:text-[#8C636A]/80">Book</a>
                 </Link>
               </TableCell>
             </TableRow>
@@ -166,7 +166,7 @@ export default function PriceTable({ data, type, activeSize = "all" }: PriceTabl
   if (type === "transport") {
     return (
       <Table>
-        <TableHeader className="bg-[#9a7d62]">
+        <TableHeader className="bg-[#8C636A]">
           <TableRow>
             <TableHead className="text-white">Service</TableHead>
             <TableHead className="text-white text-center">Price (₱)</TableHead>
@@ -185,7 +185,7 @@ export default function PriceTable({ data, type, activeSize = "all" }: PriceTabl
               <TableCell className="text-sm text-gray-500">{item.notes}</TableCell>
               <TableCell className="text-right text-sm">
                 <Link href="/booking">
-                  <a className="text-[#9a7d62] hover:text-[#436e4f]">Book</a>
+                  <a className="text-[#8C636A] hover:text-[#8C636A]/80">Book</a>
                 </Link>
               </TableCell>
             </TableRow>
@@ -198,7 +198,7 @@ export default function PriceTable({ data, type, activeSize = "all" }: PriceTabl
   if (type === "treats") {
     return (
       <Table>
-        <TableHeader className="bg-[#9a7d62]">
+        <TableHeader className="bg-[#8C636A]">
           <TableRow>
             <TableHead className="text-white">Type</TableHead>
             <TableHead className="text-white text-center">Price (₱)</TableHead>
@@ -214,7 +214,7 @@ export default function PriceTable({ data, type, activeSize = "all" }: PriceTabl
               <TableCell className="text-sm text-gray-500">{item.description}</TableCell>
               <TableCell className="text-right text-sm">
                 <Link href="/booking">
-                  <a className="text-[#9a7d62] hover:text-[#436e4f]">Order</a>
+                  <a className="text-[#8C636A] hover:text-[#8C636A]/80">Order</a>
                 </Link>
               </TableCell>
             </TableRow>
