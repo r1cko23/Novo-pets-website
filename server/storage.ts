@@ -7,6 +7,8 @@ import {
   type InsertBooking,
   type ContactFormValues
 } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
   // User methods (keeping original)
@@ -23,58 +25,49 @@ export interface IStorage {
   submitContactForm(form: ContactFormValues): Promise<boolean>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private bookings: Map<number, Booking>;
-  userCurrentId: number;
-  bookingCurrentId: number;
-
-  constructor() {
-    this.users = new Map();
-    this.bookings = new Map();
-    this.userCurrentId = 1;
-    this.bookingCurrentId = 1;
-  }
-
+export class DatabaseStorage implements IStorage {
   // User methods
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.userCurrentId++;
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
+    const [user] = await db
+      .insert(users)
+      .values(insertUser)
+      .returning();
     return user;
   }
   
   // Booking methods
   async getBookings(): Promise<Booking[]> {
-    return Array.from(this.bookings.values());
+    return await db.select().from(bookings);
   }
   
   async getBooking(id: number): Promise<Booking | undefined> {
-    return this.bookings.get(id);
+    const [booking] = await db.select().from(bookings).where(eq(bookings.id, id));
+    return booking || undefined;
   }
   
   async createBooking(insertBooking: InsertBooking): Promise<Booking> {
-    const id = this.bookingCurrentId++;
-    const now = new Date();
-    
-    const booking: Booking = { 
-      ...insertBooking, 
-      id,
-      status: insertBooking.status || "confirmed",
-      createdAt: now 
+    // Set default values if not provided
+    const bookingData = {
+      ...insertBooking,
+      specialRequests: insertBooking.specialRequests || null,
+      status: insertBooking.status || "confirmed"
     };
     
-    this.bookings.set(id, booking);
+    const [booking] = await db
+      .insert(bookings)
+      .values(bookingData)
+      .returning();
+    
     return booking;
   }
   
@@ -87,4 +80,4 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
