@@ -70,7 +70,7 @@ export default function Navbar() {
             <div className="flex items-center">
               <Link href="/booking">
                 <Button 
-                  className="hidden md:block bg-[#9a7d62] hover:bg-[#9a7d62]/90 text-white"
+                  className="hidden md:block bg-[#8C636A] hover:bg-[#8C636A]/90 text-white"
                 >
                   Book an Appointment
                 </Button>
@@ -84,9 +84,9 @@ export default function Navbar() {
                 aria-label="Toggle menu"
               >
                 {mobileMenuOpen ? (
-                  <X className="h-6 w-6 text-[#262220]" />
+                  <X className="h-6 w-6 text-[#8C636A]" />
                 ) : (
-                  <Menu className="h-6 w-6 text-[#262220]" />
+                  <Menu className="h-6 w-6 text-[#8C636A]" />
                 )}
               </Button>
             </div>
@@ -94,7 +94,7 @@ export default function Navbar() {
         </div>
         
         {/* Mobile menu */}
-        <div className={`md:hidden bg-white ${mobileMenuOpen ? 'block' : 'hidden'}`}>
+        <div className={`md:hidden bg-[#faf7ee] ${mobileMenuOpen ? 'block' : 'hidden'}`}>
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
             <MobileNavLink href="/" active={isActive("/")} onClick={closeMobileMenu}>
               Home
@@ -112,9 +112,9 @@ export default function Navbar() {
               Contact
             </MobileNavLink>
           </div>
-          <div className="pt-4 pb-3 border-t border-gray-200">
+          <div className="pt-4 pb-3 border-t border-[#e3dcd9]">
             <Link href="/booking" onClick={closeMobileMenu}>
-              <Button className="w-full bg-[#9a7d62] hover:bg-[#9a7d62]/90 text-white mx-2">
+              <Button className="w-full bg-[#8C636A] hover:bg-[#8C636A]/90 text-white mx-2">
                 Book an Appointment
               </Button>
             </Link>

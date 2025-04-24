@@ -39,7 +39,7 @@ export default function PriceTable({ data, type, activeSize = "all" }: PriceTabl
   if (type === "grooming") {
     return (
       <Table>
-        <TableHeader className="bg-[#9a7d62]">
+        <TableHeader className="bg-[#8C636A]">
           <TableRow>
             <TableHead className="text-white">Service</TableHead>
             {(activeSize === "all" || activeSize === "small") && (
@@ -91,7 +91,7 @@ export default function PriceTable({ data, type, activeSize = "all" }: PriceTabl
   if (type === "hotel") {
     return (
       <Table>
-        <TableHeader className="bg-[#9a7d62]">
+        <TableHeader className="bg-[#8C636A]">
           <TableRow>
             <TableHead className="text-white">Accommodation Type</TableHead>
             {(activeSize === "all" || activeSize === "small") && (
@@ -137,7 +137,7 @@ export default function PriceTable({ data, type, activeSize = "all" }: PriceTabl
   if (type === "daycare") {
     return (
       <Table>
-        <TableHeader className="bg-[#9a7d62]">
+        <TableHeader className="bg-[#8C636A]">
           <TableRow>
             <TableHead className="text-white">Pet Size</TableHead>
             <TableHead className="text-white text-center">Hourly Rate (₱)</TableHead>
