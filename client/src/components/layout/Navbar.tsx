@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import novoLogo from "../../assets/Novos logo final.png";
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -33,7 +34,7 @@ export default function Navbar() {
   return (
     <header className="relative">
       <nav className={cn(
-        "bg-white fixed w-full z-50 transition-all duration-300",
+        "bg-[#faf7ee] fixed w-full z-50 transition-all duration-300",
         scrolled ? "shadow-md" : ""
       )}>
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -41,9 +42,11 @@ export default function Navbar() {
             <div className="flex items-center">
               <div className="flex-shrink-0 flex items-center">
                 <Link href="/">
-                  <h1 className="text-2xl font-playfair font-bold text-[#9a7d62]">
-                    Novo<span className="text-[#436e4f]">Pets</span>
-                  </h1>
+                  <img 
+                    src={novoLogo} 
+                    alt="Novo Pets" 
+                    className="h-12 w-auto" 
+                  />
                 </Link>
               </div>
               <div className="hidden md:ml-10 md:flex md:space-x-8">
@@ -135,8 +138,8 @@ function NavLink({ href, active, children, onClick }: NavLinkProps) {
       <a className={cn(
         "font-montserrat px-1 pt-1 font-medium",
         active 
-          ? "text-[#9a7d62] border-b-2 border-[#9a7d62]" 
-          : "text-[#262220] hover:text-[#9a7d62]"
+          ? "text-[#8C636A] border-b-2 border-[#8C636A]" 
+          : "text-[#8C636A]/80 hover:text-[#8C636A]"
       )}>
         {children}
       </a>
@@ -150,8 +153,8 @@ function MobileNavLink({ href, active, children, onClick }: NavLinkProps) {
       <a className={cn(
         "block px-3 py-2 font-medium",
         active 
-          ? "text-[#9a7d62]" 
-          : "text-[#262220] hover:text-[#9a7d62]"
+          ? "text-[#8C636A]" 
+          : "text-[#8C636A]/80 hover:text-[#8C636A]"
       )}>
         {children}
       </a>

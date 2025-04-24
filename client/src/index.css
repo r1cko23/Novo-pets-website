@@ -3,28 +3,30 @@
 @tailwind utilities;
 
 :root {
-  --background: 33 25% 97%;
-  --foreground: 20 14.3% 4.1%;
-  --muted: 60 4.8% 95.9%;
-  --muted-foreground: 25 5.3% 44.7%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 20 14.3% 4.1%;
-  --card: 0 0% 100%;
-  --card-foreground: 20 14.3% 4.1%;
-  --border: 20 5.9% 90%;
-  --input: 20 5.9% 90%;
-  --primary: 25 35% 50%; /* #9a7d62 */
-  --primary-foreground: 60 9.1% 97.8%;
-  --secondary: 140 25% 35%; /* #436e4f */
-  --secondary-foreground: 0 0% 98%;
-  --accent: 30 40% 64%; /* #c2a083 */
-  --accent-foreground: 24 9.8% 10%;
+  --background: 48 33% 97%; /* #faf7ee - Cream background */
+  --foreground: 347 16% 40%; /* #8C636A - Mauve text */
+  --muted: 12 13% 85%; /* #e3dcd9 - Light gray for boxes */
+  --muted-foreground: 347 16% 40%; /* #8C636A */
+  --popover: 48 33% 97%;
+  --popover-foreground: 347 16% 40%;
+  --card: 12 13% 85%; /* Light gray for service boxes */
+  --card-foreground: 347 16% 40%;
+  --border: 12 13% 85%;
+  --input: 12 13% 85%;
+  --primary: 347 16% 40%; /* #8C636A - Mauve used in text */
+  --primary-foreground: 48 33% 97%;
+  --secondary: 12 13% 85%; /* #e3dcd9 - Light gray */
+  --secondary-foreground: 347 16% 40%;
+  --accent: 227 33% 85%; /* #d1d5ea - Light blue/silver for stars */
+  --accent-foreground: 347 16% 40%;
   --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 60 9.1% 97.8%;
-  --ring: 25 35% 50%;
+  --destructive-foreground: 48 33% 97%;
+  --ring: 347 16% 40%;
   --radius: 0.5rem;
-  --cream: 40 33% 97%; /* #f8f5f2 */
-  --dark: 20 10% 14%; /* #262220 */
+  --cream: 48 33% 97%; /* #faf7ee - Cream background */
+  --mauve: 347 16% 40%; /* #8C636A - Mauve text */
+  --lightgray: 12 13% 85%; /* #e3dcd9 - Light gray for boxes */
+  --star: 227 33% 85%; /* #d1d5ea - Light blue/silver for stars */
   --success: 148 35% 63%;
   --error: 0 70% 62%;
 }
@@ -57,7 +59,7 @@
   }
 
   body {
-    @apply font-sans antialiased bg-[#f8f5f2] text-[#262220];
+    @apply font-sans antialiased bg-[#faf7ee] text-[#8C636A];
   }
   
   h1, h2, h3, h4, h5, h6 {
