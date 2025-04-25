@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useToast } from "@/hooks/use-toast";
@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { 
   Select,
   SelectContent,
@@ -32,7 +33,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { format } from "date-fns";
-import { CalendarIcon, Check, CreditCard, Landmark, BanknoteIcon } from "lucide-react";
+import { CalendarIcon, Check, CreditCard, Landmark, BanknoteIcon, Loader2 } from "lucide-react";
 import { 
   bookingFormSchema, 
   ServiceType, 
@@ -42,32 +43,111 @@ import {
 } from "@shared/schema";
 import { cn, generateTimeSlots, getBookingReference } from "@/lib/utils";
 import PetDetails from "./PetDetails";
+import type { TimeSlot } from "@/types";
 
 export default function BookingForm() {
   const [step, setStep] = useState(1);
   const [bookingReference, setBookingReference] = useState("");
+  const [availableTimeSlots, setAvailableTimeSlots] = useState<TimeSlot[]>([]);
+  const [selectedGroomer, setSelectedGroomer] = useState<string | null>(null);
+  const [fullyBookedDates, setFullyBookedDates] = useState<string[]>([]);
   const { toast } = useToast();
   
-  const timeSlots = generateTimeSlots();
+  // Default time slots (will be filtered based on availability)
+  const defaultTimeSlots = generateTimeSlots();
 
   // Form definition
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
       serviceType: ServiceType.GROOMING,
+      groomingService: "",
+      accommodationType: "",
+      durationHours: undefined,
+      durationDays: undefined,
       appointmentDate: "",
       appointmentTime: "",
       petName: "",
       petBreed: "",
       petSize: PetSize.SMALL,
+      addOnServices: [],
       specialRequests: "",
       needsTransport: false,
+      transportType: "",
+      pickupAddress: "",
+      includeTreats: false,
+      treatType: "",
       customerName: "",
       customerPhone: "",
       customerEmail: "",
       paymentMethod: PaymentMethod.CASH,
     },
   });
+  
+  // Get the selected date from the form
+  const selectedDate = form.watch("appointmentDate");
+  
+  // Function to check if a date is fully booked
+  const checkDateAvailability = async (date: string) => {
+    try {
+      const formattedDate = format(new Date(date), "yyyy-MM-dd");
+      const response = await apiRequest("GET", `/api/availability?date=${formattedDate}`);
+      const data = await response.json();
+      
+      return data.availableTimeSlots && data.availableTimeSlots.length > 0;
+    } catch (error) {
+      console.error("Error checking date availability:", error);
+      return true; // Assume there are slots available in case of error
+    }
+  };
+  
+  // Query to fetch available time slots when date changes
+  const { data: availabilityData, isLoading: isLoadingAvailability, refetch: refetchAvailability } = useQuery({
+    queryKey: ["availability", selectedDate],
+    queryFn: async () => {
+      if (!selectedDate) return { availableTimeSlots: [] };
+      
+      const formattedDate = format(new Date(selectedDate), "yyyy-MM-dd");
+      const response = await apiRequest("GET", `/api/availability?date=${formattedDate}`);
+      const result = await response.json();
+      console.log("Fetched availability data:", result);
+      return result;
+    },
+    enabled: !!selectedDate, // Only run query when a date is selected
+    staleTime: 0, // Always refetch when the date changes to ensure up-to-date availability
+    gcTime: 0 // Don't cache availability data to ensure freshness
+  });
+  
+  // Update available time slots when data changes
+  useEffect(() => {
+    if (availabilityData?.availableTimeSlots) {
+      // Explicitly type the data coming from the API
+      const typedTimeSlots: TimeSlot[] = availabilityData.availableTimeSlots;
+      console.log("Setting available time slots:", typedTimeSlots);
+      setAvailableTimeSlots(typedTimeSlots);
+      
+      // Reset the time selection if the previously selected time is no longer available
+      const currentTime = form.getValues("appointmentTime");
+      if (currentTime && !typedTimeSlots.some(slot => slot.time === currentTime)) {
+        form.setValue("appointmentTime", "");
+      }
+    } else {
+      // Clear available time slots if no data is available
+      setAvailableTimeSlots([]);
+    }
+  }, [availabilityData, form]);
+  
+  // Group time slots by groomer
+  const timeSlotsByGroomer = availableTimeSlots.reduce((acc, slot) => {
+    if (!acc[slot.groomer]) {
+      acc[slot.groomer] = [];
+    }
+    acc[slot.groomer].push(slot);
+    return acc;
+  }, {} as Record<string, TimeSlot[]>);
+
+  // Get list of groomers with available slots
+  const groomersWithSlots = Object.keys(timeSlotsByGroomer);
   
   // Mutation for submitting form
   const mutation = useMutation({
@@ -76,6 +156,10 @@ export default function BookingForm() {
       return response.json();
     },
     onSuccess: (data) => {
+      // After successful booking, invalidate and refetch availability data
+      // to make sure it's updated for all users
+      refetchAvailability();
+      
       setBookingReference(getBookingReference());
       setStep(5); // Move to confirmation step
       toast({
@@ -101,7 +185,7 @@ export default function BookingForm() {
       1: ["serviceType"],
       2: ["appointmentDate", "appointmentTime"],
       3: ["petName", "petBreed", "petSize"],
-      4: ["customerName", "customerPhone", "customerEmail", "paymentMethod"],
+      4: ["customerName", "customerPhone", "customerEmail"],
     };
     
     const currentStepFields = fieldsByStep[step as keyof typeof fieldsByStep] || [];
@@ -152,7 +236,7 @@ export default function BookingForm() {
             <StepIndicator 
               number={4} 
               title="Confirm Booking" 
-              description="Complete your contact and payment details" 
+              description="Complete your contact details" 
               active={step === 4}
               completed={step > 4}
             />
@@ -198,24 +282,6 @@ export default function BookingForm() {
                               description="Comfortable accommodations for your pet"
                               checked={field.value === ServiceType.HOTEL}
                             />
-                            <ServiceRadioItem
-                              value={ServiceType.DAYCARE}
-                              title="Daycare & Playcare"
-                              description="Supervised activities and socialization"
-                              checked={field.value === ServiceType.DAYCARE}
-                            />
-                            <ServiceRadioItem
-                              value={ServiceType.TRANSPORT}
-                              title="Transport Service"
-                              description="Pick-up and/or drop-off service"
-                              checked={field.value === ServiceType.TRANSPORT}
-                            />
-                            <ServiceRadioItem
-                              value={ServiceType.TREATS}
-                              title="Frozen Yogurt Treats"
-                              description="Pet-friendly frozen treats"
-                              checked={field.value === ServiceType.TREATS}
-                            />
                           </RadioGroup>
                         </FormControl>
                         <FormMessage />
@@ -245,8 +311,8 @@ export default function BookingForm() {
                       control={form.control}
                       name="appointmentDate"
                       render={({ field }) => (
-                        <FormItem className="flex flex-col">
-                          <FormLabel>Appointment Date</FormLabel>
+                        <FormItem className="flex flex-col w-full">
+                          <FormLabel className="mb-2">Appointment Date</FormLabel>
                           <Popover>
                             <PopoverTrigger asChild>
                               <FormControl>
@@ -270,8 +336,29 @@ export default function BookingForm() {
                               <Calendar
                                 mode="single"
                                 selected={field.value ? new Date(field.value) : undefined}
-                                onSelect={(date) => {
-                                  field.onChange(date ? date.toISOString() : "");
+                                onSelect={async (date) => {
+                                  if (date) {
+                                    const dateString = date.toISOString();
+                                    field.onChange(dateString);
+                                    
+                                    // Force refetch the availability data for this date
+                                    await refetchAvailability();
+                                    
+                                    // Check availability for the selected date
+                                    const hasAvailability = await checkDateAvailability(dateString);
+                                    if (!hasAvailability) {
+                                      toast({
+                                        title: "No Available Slots",
+                                        description: "All appointments for this date are booked. Please select another date.",
+                                        variant: "destructive",
+                                      });
+                                    }
+                                    
+                                    // Reset time when date changes
+                                    form.setValue("appointmentTime", "");
+                                  } else {
+                                    field.onChange("");
+                                  }
                                 }}
                                 disabled={(date) => {
                                   // Disable past dates and Sundays
@@ -289,34 +376,122 @@ export default function BookingForm() {
                       )}
                     />
                     
-                    <FormField
-                      control={form.control}
-                      name="appointmentTime"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Preferred Time</FormLabel>
-                          <Select
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select a time slot" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {timeSlots.map((slot) => (
-                                <SelectItem key={slot} value={slot}>
-                                  {slot}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    <div className="space-y-6">
+                      <FormField
+                        control={form.control}
+                        name="groomer"
+                        render={({ field }) => (
+                          <FormItem className="w-full">
+                            <FormLabel className="mb-2">Groomer</FormLabel>
+                            <Select
+                              onValueChange={(value) => {
+                                field.onChange(value);
+                                setSelectedGroomer(value);
+                                // Reset time when groomer changes
+                                form.setValue("appointmentTime", "");
+                              }}
+                              value={field.value}
+                              disabled={!selectedDate || isLoadingAvailability}
+                              onOpenChange={(open) => {
+                                // Refetch availability data when the dropdown is opened
+                                if (open && selectedDate) {
+                                  refetchAvailability();
+                                }
+                              }}
+                            >
+                              <FormControl>
+                                <SelectTrigger className="w-full">
+                                  {isLoadingAvailability ? (
+                                    <div className="flex items-center justify-center space-x-2">
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                      <span>Loading...</span>
+                                    </div>
+                                  ) : (
+                                    <SelectValue placeholder={selectedDate ? "Select a groomer" : "First select a date"} />
+                                  )}
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {groomersWithSlots.length > 0 ? (
+                                  groomersWithSlots.map((groomer) => (
+                                    <SelectItem key={groomer} value={groomer}>
+                                      {groomer}
+                                    </SelectItem>
+                                  ))
+                                ) : (
+                                  <div className="px-4 py-6 text-center">
+                                    {selectedDate && !isLoadingAvailability ? (
+                                      <div className="flex flex-col items-center">
+                                        <p className="text-sm text-red-500 font-semibold">No available slots for this date</p>
+                                        <p className="text-xs text-gray-500 mt-1">Please select another date</p>
+                                      </div>
+                                    ) : (
+                                      <p className="text-sm text-gray-500">Please select a date first</p>
+                                    )}
+                                  </div>
+                                )}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                   </div>
+                  
+                  <FormField
+                    control={form.control}
+                    name="appointmentTime"
+                    render={({ field }) => (
+                      <FormItem className="w-full mt-6">
+                        <FormLabel className="mb-2">Available Times</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value}
+                          disabled={!selectedDate || !selectedGroomer || isLoadingAvailability}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="w-full">
+                              {isLoadingAvailability ? (
+                                <div className="flex items-center justify-center space-x-2">
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  <span>Loading...</span>
+                                </div>
+                              ) : (
+                                <SelectValue placeholder={selectedGroomer ? "Select a time slot" : "First select a groomer"} />
+                              )}
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {selectedGroomer && timeSlotsByGroomer[selectedGroomer]?.length > 0 ? (
+                              timeSlotsByGroomer[selectedGroomer].map((slot: TimeSlot) => (
+                                <SelectItem key={`${slot.time}-${slot.groomer}`} value={slot.time}>
+                                  {slot.time}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <div className="px-4 py-6 text-center">
+                                {selectedGroomer && !isLoadingAvailability ? (
+                                  <div className="flex flex-col items-center">
+                                    <p className="text-sm text-red-500 font-semibold">No available slots for this groomer</p>
+                                    <p className="text-xs text-gray-500 mt-1">Please select another groomer</p>
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-gray-500">Please select a groomer first</p>
+                                )}
+                              </div>
+                            )}
+                          </SelectContent>
+                        </Select>
+                        {selectedDate && !selectedGroomer && (
+                          <p className="text-sm text-amber-500 mt-1">
+                            Please select a groomer to see available time slots.
+                          </p>
+                        )}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   
                   <div className="mt-8 flex justify-between">
                     <Button
@@ -330,6 +505,7 @@ export default function BookingForm() {
                       type="button"
                       className="bg-[#9a7d62] hover:bg-[#9a7d62]/90 text-white"
                       onClick={nextStep}
+                      disabled={!selectedDate || !form.getValues("appointmentTime")}
                     >
                       Continue
                     </Button>
@@ -339,17 +515,197 @@ export default function BookingForm() {
               
               {/* Step 3: Pet Details */}
               {step === 3 && (
-                <PetDetails 
-                  form={form} 
-                  onPrevStep={prevStep} 
-                  onNextStep={nextStep}
-                />
+                <div className="space-y-6">
+                  <h3 className="font-playfair text-xl font-semibold text-[#9a7d62] mb-6">Tell Us About Your Pet</h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <FormField
+                      control={form.control}
+                      name="petName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Pet Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. Max" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="petBreed"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Pet Breed</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. Golden Retriever" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
+                  <FormField
+                    control={form.control}
+                    name="petSize"
+                    render={({ field }) => (
+                      <FormItem className="space-y-3">
+                        <FormLabel>Pet Size</FormLabel>
+                        <FormControl>
+                          <RadioGroup
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                            className="grid grid-cols-2 md:grid-cols-4 gap-4"
+                          >
+                            <SizeRadioItem
+                              value={PetSize.SMALL}
+                              title="Small"
+                              description="Up to 10kg"
+                              checked={field.value === PetSize.SMALL}
+                            />
+                            <SizeRadioItem
+                              value={PetSize.MEDIUM}
+                              title="Medium"
+                              description="10-25kg"
+                              checked={field.value === PetSize.MEDIUM}
+                            />
+                            <SizeRadioItem
+                              value={PetSize.LARGE}
+                              title="Large"
+                              description="25-40kg"
+                              checked={field.value === PetSize.LARGE}
+                            />
+                            <SizeRadioItem
+                              value={PetSize.GIANT}
+                              title="Giant"
+                              description="40kg+"
+                              checked={field.value === PetSize.GIANT}
+                            />
+                          </RadioGroup>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="specialRequests"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Special Requests or Notes</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Any special instructions or health concerns we should know about" 
+                            className="min-h-[100px]"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <div className="p-4 border rounded-md">
+                    <FormField
+                      control={form.control}
+                      name="needsTransport"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>
+                              Add Transport Service
+                            </FormLabel>
+                            <FormDescription>
+                              I would like to add pick-up/drop-off service
+                            </FormDescription>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                    
+                    {form.watch("needsTransport") && (
+                      <div className="mt-4 pl-7">
+                        <FormField
+                          control={form.control}
+                          name="transportType"
+                          render={({ field }) => (
+                            <FormItem className="space-y-3">
+                              <FormLabel>Transport Type</FormLabel>
+                              <FormControl>
+                                <RadioGroup
+                                  onValueChange={field.onChange}
+                                  value={field.value}
+                                  className="space-y-2"
+                                >
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="one_way" id="one_way" />
+                                    <Label htmlFor="one_way">One-way Transport (₱280)</Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="round_trip" id="round_trip" />
+                                    <Label htmlFor="round_trip">Round-trip Transport (₱380)</Label>
+                                  </div>
+                                </RadioGroup>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="pickupAddress"
+                          render={({ field }) => (
+                            <FormItem className="mt-4">
+                              <FormLabel>Pickup Address</FormLabel>
+                              <FormControl>
+                                <Textarea 
+                                  placeholder="Enter your complete address for pickup" 
+                                  className="min-h-[80px]"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex justify-between mt-8">
+                    <Button 
+                      type="button" 
+                      variant="outline"
+                      onClick={prevStep}
+                    >
+                      Back
+                    </Button>
+                    <Button 
+                      type="button" 
+                      className="bg-[#9a7d62] hover:bg-[#9a7d62]/90 text-white"
+                      onClick={nextStep}
+                    >
+                      Continue
+                    </Button>
+                  </div>
+                </div>
               )}
               
               {/* Step 4: Contact & Payment */}
               {step === 4 && (
                 <div className="space-y-6">
-                  <h3 className="font-playfair text-xl font-semibold text-[#9a7d62] mb-6">Contact & Payment Details</h3>
+                  <h3 className="font-playfair text-xl font-semibold text-[#9a7d62] mb-6">Contact Details</h3>
                   
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -394,84 +750,6 @@ export default function BookingForm() {
                               type="email"
                               {...field} 
                             />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="paymentMethod"
-                      render={({ field }) => (
-                        <FormItem className="space-y-3">
-                          <FormLabel>Payment Method</FormLabel>
-                          <FormControl>
-                            <RadioGroup
-                              onValueChange={field.onChange}
-                              defaultValue={field.value}
-                              className="grid grid-cols-1 md:grid-cols-3 gap-4"
-                            >
-                              <div className={cn(
-                                "border rounded-md p-3 cursor-pointer",
-                                field.value === PaymentMethod.CASH
-                                  ? "border-[#9a7d62] bg-[#9a7d62]/5"
-                                  : "border-gray-200 hover:border-[#9a7d62] hover:bg-[#9a7d62]/5"
-                              )}>
-                                <RadioGroupItem
-                                  value={PaymentMethod.CASH}
-                                  id="cash"
-                                  className="hidden"
-                                />
-                                <label
-                                  htmlFor="cash"
-                                  className="flex items-center cursor-pointer"
-                                >
-                                  <BanknoteIcon className="h-4 w-4 text-green-600 mr-2" />
-                                  <span className="text-sm font-medium text-gray-900">Cash on Delivery</span>
-                                </label>
-                              </div>
-                              
-                              <div className={cn(
-                                "border rounded-md p-3 cursor-pointer",
-                                field.value === PaymentMethod.BANK_TRANSFER
-                                  ? "border-[#9a7d62] bg-[#9a7d62]/5"
-                                  : "border-gray-200 hover:border-[#9a7d62] hover:bg-[#9a7d62]/5"
-                              )}>
-                                <RadioGroupItem
-                                  value={PaymentMethod.BANK_TRANSFER}
-                                  id="bank"
-                                  className="hidden"
-                                />
-                                <label
-                                  htmlFor="bank"
-                                  className="flex items-center cursor-pointer"
-                                >
-                                  <Landmark className="h-4 w-4 text-blue-600 mr-2" />
-                                  <span className="text-sm font-medium text-gray-900">Bank Transfer</span>
-                                </label>
-                              </div>
-                              
-                              <div className={cn(
-                                "border rounded-md p-3 cursor-pointer",
-                                field.value === PaymentMethod.ONLINE
-                                  ? "border-[#9a7d62] bg-[#9a7d62]/5"
-                                  : "border-gray-200 hover:border-[#9a7d62] hover:bg-[#9a7d62]/5"
-                              )}>
-                                <RadioGroupItem
-                                  value={PaymentMethod.ONLINE}
-                                  id="online"
-                                  className="hidden"
-                                />
-                                <label
-                                  htmlFor="online"
-                                  className="flex items-center cursor-pointer"
-                                >
-                                  <CreditCard className="h-4 w-4 text-purple-600 mr-2" />
-                                  <span className="text-sm font-medium text-gray-900">Online Payment</span>
-                                </label>
-                              </div>
-                            </RadioGroup>
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -588,7 +866,7 @@ function StepIndicator({ number, title, description, active, completed }: StepIn
           completed 
             ? "bg-white/40 text-white" 
             : "bg-white text-[#9a7d62]",
-          active && !completed
+          active || completed
             ? "ring-4 ring-white/30"
             : ""
         )}
@@ -635,6 +913,31 @@ function ServiceRadioItem({ value, title, description, checked }: ServiceRadioIt
           <span className="block text-sm text-gray-500 mt-1">{description}</span>
         </label>
       </div>
+    </div>
+  );
+}
+
+// Add SizeRadioItem component
+interface SizeRadioItemProps {
+  value: string;
+  title: string;
+  description: string;
+  checked: boolean;
+}
+
+function SizeRadioItem({ value, title, description, checked }: SizeRadioItemProps) {
+  return (
+    <div className={cn(
+      "border rounded-md p-3 cursor-pointer text-center",
+      checked 
+        ? "border-[#9a7d62] bg-[#9a7d62]/5" 
+        : "border-gray-200 hover:border-[#9a7d62] hover:bg-[#9a7d62]/5"
+    )}>
+      <RadioGroupItem value={value} id={value} className="hidden" />
+      <label htmlFor={value} className="cursor-pointer block">
+        <span className="block font-montserrat font-medium text-gray-900">{title}</span>
+        <span className="block text-xs text-gray-500 mt-1">{description}</span>
+      </label>
     </div>
   );
 }

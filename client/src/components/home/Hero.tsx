@@ -17,10 +17,10 @@ export default function Hero() {
           <div className="container mx-auto px-6 md:px-12">
             <div className="w-full lg:w-2/3">
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-playfair font-bold text-white leading-tight">
-                Premium Pet Spa & Wellness Experience
+                Novo Pets Premium Pet Spa & Wellness
               </h1>
               <p className="mt-6 text-white text-lg md:text-xl opacity-90 max-w-xl">
-                Luxury grooming, daycare, and hotel services for the special four-legged member of your family.
+                Where Pets Feel at Home
               </p>
               <div className="mt-8 flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
                 <Link href="/booking">

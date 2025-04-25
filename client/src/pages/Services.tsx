@@ -109,7 +109,7 @@ export default function Services() {
                   variant="outline" 
                   className="w-full border-[#9a7d62] text-[#9a7d62] hover:bg-[#9a7d62]/10"
                 >
-                  View Pricing
+                  View Services
                 </Button>
               </Link>
             </div>
@@ -152,7 +152,7 @@ export default function Services() {
                   variant="outline" 
                   className="w-full border-[#9a7d62] text-[#9a7d62] hover:bg-[#9a7d62]/10"
                 >
-                  View Pricing
+                  View Services
                 </Button>
               </Link>
             </div>
@@ -195,7 +195,7 @@ export default function Services() {
                   variant="outline" 
                   className="w-full border-[#9a7d62] text-[#9a7d62] hover:bg-[#9a7d62]/10"
                 >
-                  View Pricing
+                  View Services
                 </Button>
               </Link>
             </div>
@@ -238,7 +238,7 @@ export default function Services() {
                   variant="outline" 
                   className="w-full border-[#9a7d62] text-[#9a7d62] hover:bg-[#9a7d62]/10"
                 >
-                  View Pricing
+                  View Services
                 </Button>
               </Link>
             </div>
@@ -281,7 +281,7 @@ export default function Services() {
                   variant="outline" 
                   className="w-full border-[#9a7d62] text-[#9a7d62] hover:bg-[#9a7d62]/10"
                 >
-                  View Pricing
+                  View Services
                 </Button>
               </Link>
             </div>
@@ -324,7 +324,7 @@ export default function Services() {
                   variant="outline" 
                   className="w-full border-[#9a7d62] text-[#9a7d62] hover:bg-[#9a7d62]/10"
                 >
-                  View Pricing
+                  View Services
                 </Button>
               </Link>
             </div>

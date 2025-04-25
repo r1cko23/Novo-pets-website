@@ -37,7 +37,7 @@ export default function Contact() {
           <div className="max-w-6xl mx-auto">
             <div className="bg-white rounded-lg shadow-lg overflow-hidden">
               <div className="md:flex">
-                <div className="md:w-1/2">
+                <div className="md:w-1/2 md:border-r border-gray-200">
                   <Map />
                 </div>
                 

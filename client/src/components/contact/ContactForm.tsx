@@ -65,14 +65,16 @@ export default function ContactForm() {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <h3 className="font-playfair text-xl font-semibold text-[#9a7d62] mb-6">Send Us a Message</h3>
+        
         <FormField
           control={form.control}
           name="name"
           render={({ field }) => (
-            <FormItem>
-              <FormLabel>Your Name</FormLabel>
+            <FormItem className="mb-4">
+              <FormLabel className="font-medium">Your Name</FormLabel>
               <FormControl>
-                <Input placeholder="Full Name" {...field} />
+                <Input placeholder="Full Name" {...field} className="mt-1" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -83,10 +85,10 @@ export default function ContactForm() {
           control={form.control}
           name="email"
           render={({ field }) => (
-            <FormItem>
-              <FormLabel>Email Address</FormLabel>
+            <FormItem className="mb-4">
+              <FormLabel className="font-medium">Email Address</FormLabel>
               <FormControl>
-                <Input placeholder="Your Email" type="email" {...field} />
+                <Input placeholder="Your Email" type="email" {...field} className="mt-1" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -97,14 +99,14 @@ export default function ContactForm() {
           control={form.control}
           name="subject"
           render={({ field }) => (
-            <FormItem>
-              <FormLabel>Subject</FormLabel>
+            <FormItem className="mb-4">
+              <FormLabel className="font-medium">Subject</FormLabel>
               <Select
                 onValueChange={field.onChange}
                 defaultValue={field.value}
               >
                 <FormControl>
-                  <SelectTrigger>
+                  <SelectTrigger className="mt-1">
                     <SelectValue placeholder="Select a subject" />
                   </SelectTrigger>
                 </FormControl>
@@ -125,13 +127,14 @@ export default function ContactForm() {
           control={form.control}
           name="message"
           render={({ field }) => (
-            <FormItem>
-              <FormLabel>Your Message</FormLabel>
+            <FormItem className="mb-6">
+              <FormLabel className="font-medium">Your Message</FormLabel>
               <FormControl>
                 <Textarea 
                   placeholder="How can we help you?" 
                   rows={4}
-                  {...field} 
+                  {...field}
+                  className="mt-1" 
                 />
               </FormControl>
               <FormMessage />

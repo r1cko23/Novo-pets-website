@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { googleSheetsConfig } from "./config";
 
 const app = express();
 app.use(express.json());
@@ -37,6 +38,13 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Check if Google Sheets configuration is available
+  if (googleSheetsConfig.credentials.spreadsheetId) {
+    log(`🔄 Using Google Sheets as database (Spreadsheet ID: ${googleSheetsConfig.credentials.spreadsheetId})`);
+  } else {
+    log(`⚠️ Google Sheets configuration is missing. Please set up the required environment variables.`);
+  }
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

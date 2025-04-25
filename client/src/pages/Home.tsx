@@ -1,6 +1,7 @@
 import Hero from "@/components/home/Hero";
 import ServicesOverview from "@/components/home/ServicesOverview";
 import Testimonials from "@/components/home/Testimonials";
+import MapContainer from "@/components/contact/MapContainer";
 import { Link } from "wouter";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -56,6 +57,19 @@ export default function Home() {
       </section>
       
       <Testimonials />
+      
+      {/* Location Map Section */}
+      <section className="py-16 bg-white">
+        <div className="container mx-auto px-6">
+          <h2 className="text-3xl md:text-4xl font-playfair font-bold text-[#9a7d62] mb-6 text-center">Find Us</h2>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto mb-8 text-center">
+            Visit our luxury pet care center at White Plains, Katipunan Avenue.
+          </p>
+          <div className="max-w-4xl mx-auto">
+            <MapContainer height="400px" className="rounded-lg shadow-xl w-full" />
+          </div>
+        </div>
+      </section>
       
       {/* CTA Section */}
       <section className="py-16 bg-white">

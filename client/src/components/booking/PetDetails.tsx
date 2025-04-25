@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { RadioGroup } from "@/components/ui/radio-group";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -65,32 +65,28 @@ export default function PetDetails({ form, onPrevStep, onNextStep }: PetDetailsP
               <FormControl>
                 <RadioGroup
                   onValueChange={field.onChange}
-                  defaultValue={field.value}
+                  value={field.value}
                   className="grid grid-cols-2 md:grid-cols-4 gap-4"
                 >
                   <PetSizeOption 
                     value={PetSize.SMALL} 
                     label="Small" 
-                    description="Up to 10kg" 
-                    checked={field.value === PetSize.SMALL}
+                    description="Up to 10kg"
                   />
                   <PetSizeOption 
                     value={PetSize.MEDIUM} 
                     label="Medium" 
-                    description="10-25kg" 
-                    checked={field.value === PetSize.MEDIUM}
+                    description="10-25kg"
                   />
                   <PetSizeOption 
                     value={PetSize.LARGE} 
                     label="Large" 
-                    description="25-40kg" 
-                    checked={field.value === PetSize.LARGE}
+                    description="25-40kg"
                   />
                   <PetSizeOption 
                     value={PetSize.GIANT} 
                     label="Giant" 
-                    description="40kg+" 
-                    checked={field.value === PetSize.GIANT}
+                    description="40kg+"
                   />
                 </RadioGroup>
               </FormControl>
@@ -165,25 +161,24 @@ interface PetSizeOptionProps {
   value: string;
   label: string;
   description: string;
-  checked: boolean;
 }
 
-function PetSizeOption({ value, label, description, checked }: PetSizeOptionProps) {
+function PetSizeOption({ value, label, description }: PetSizeOptionProps) {
   return (
-    <div className={cn(
-      "border rounded-md p-3 cursor-pointer text-center",
-      checked 
-        ? "border-[#9a7d62] bg-[#9a7d62]/5" 
-        : "border-gray-200 hover:border-[#9a7d62] hover:bg-[#9a7d62]/5"
-    )}>
-      <input 
-        type="radio" 
-        name="pet-size" 
-        id={value} 
-        value={value}
-        className="hidden" 
+    <div className="relative">
+      <RadioGroupItem 
+        value={value} 
+        id={`pet-size-${value}`}
+        className="peer sr-only"
       />
-      <label htmlFor={value} className="flex flex-col items-center cursor-pointer">
+      <label
+        htmlFor={`pet-size-${value}`}
+        className={cn(
+          "flex flex-col items-center justify-center rounded-md border-2 border-gray-200 p-4 cursor-pointer",
+          "peer-data-[state=checked]:border-[#9a7d62] peer-data-[state=checked]:bg-[#9a7d62]/5",
+          "hover:border-[#9a7d62] hover:bg-[#9a7d62]/5"
+        )}
+      >
         <span className="text-sm font-medium text-gray-900">{label}</span>
         <span className="text-xs text-gray-500">{description}</span>
       </label>

@@ -34,22 +34,22 @@ export default function Navbar() {
   return (
     <header className="relative">
       <nav className={cn(
-        "bg-[#faf7ee] fixed w-full z-50 transition-all duration-300",
+        "bg-[#fcf7eb] fixed w-full z-50 transition-all duration-300",
         scrolled ? "shadow-md" : ""
       )}>
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-20">
-            <div className="flex items-center">
+          <div className="flex justify-between items-center h-28">
+            <div className="flex items-center gap-8">
               <div className="flex-shrink-0 flex items-center">
                 <Link href="/">
                   <img 
                     src={novoLogo} 
                     alt="Novo Pets" 
-                    className="h-12 w-auto" 
+                    className="h-24 w-auto" 
                   />
                 </Link>
               </div>
-              <div className="hidden md:ml-10 md:flex md:space-x-8">
+              <div className="hidden md:flex md:space-x-10">
                 <NavLink href="/" active={isActive("/")} onClick={closeMobileMenu}>
                   Home
                 </NavLink>
@@ -70,7 +70,7 @@ export default function Navbar() {
             <div className="flex items-center">
               <Link href="/booking">
                 <Button 
-                  className="hidden md:block bg-[#8C636A] hover:bg-[#8C636A]/90 text-white"
+                  className="hidden md:block bg-[#8C636A] hover:bg-[#8C636A]/90 text-white font-medium px-6 py-2.5 rounded-md"
                 >
                   Book an Appointment
                 </Button>
@@ -82,11 +82,12 @@ export default function Navbar() {
                 size="icon" 
                 onClick={toggleMobileMenu}
                 aria-label="Toggle menu"
+                className="text-[#8C636A]"
               >
                 {mobileMenuOpen ? (
-                  <X className="h-6 w-6 text-[#8C636A]" />
+                  <X className="h-6 w-6" />
                 ) : (
-                  <Menu className="h-6 w-6 text-[#8C636A]" />
+                  <Menu className="h-6 w-6" />
                 )}
               </Button>
             </div>
@@ -94,8 +95,8 @@ export default function Navbar() {
         </div>
         
         {/* Mobile menu */}
-        <div className={`md:hidden bg-[#faf7ee] ${mobileMenuOpen ? 'block' : 'hidden'}`}>
-          <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+        <div className={`md:hidden bg-[#fcf7eb] ${mobileMenuOpen ? 'block' : 'hidden'} border-t border-[#8C636A]/10`}>
+          <div className="px-4 pt-3 pb-4 space-y-2 sm:px-6">
             <MobileNavLink href="/" active={isActive("/")} onClick={closeMobileMenu}>
               Home
             </MobileNavLink>
@@ -112,9 +113,9 @@ export default function Navbar() {
               Contact
             </MobileNavLink>
           </div>
-          <div className="pt-4 pb-3 border-t border-[#e3dcd9]">
+          <div className="pt-4 pb-5 border-t border-[#8C636A]/10 px-4 sm:px-6">
             <Link href="/booking" onClick={closeMobileMenu}>
-              <Button className="w-full bg-[#8C636A] hover:bg-[#8C636A]/90 text-white mx-2">
+              <Button className="w-full bg-[#8C636A] hover:bg-[#8C636A]/90 text-white font-medium py-2.5">
                 Book an Appointment
               </Button>
             </Link>
@@ -136,10 +137,10 @@ function NavLink({ href, active, children, onClick }: NavLinkProps) {
   return (
     <Link href={href} onClick={onClick}>
       <a className={cn(
-        "font-montserrat px-1 pt-1 font-medium",
+        "font-montserrat text-base px-1 py-2 font-medium transition-colors duration-200",
         active 
           ? "text-[#8C636A] border-b-2 border-[#8C636A]" 
-          : "text-[#8C636A]/80 hover:text-[#8C636A]"
+          : "text-[#8C636A]/90 hover:text-[#8C636A] hover:border-b-2 hover:border-[#8C636A]/30"
       )}>
         {children}
       </a>
@@ -151,10 +152,10 @@ function MobileNavLink({ href, active, children, onClick }: NavLinkProps) {
   return (
     <Link href={href} onClick={onClick}>
       <a className={cn(
-        "block px-3 py-2 font-medium",
+        "block px-3 py-2.5 rounded-md font-medium text-base transition-colors duration-200",
         active 
-          ? "text-[#8C636A]" 
-          : "text-[#8C636A]/80 hover:text-[#8C636A]"
+          ? "text-[#8C636A] bg-[#8C636A]/5" 
+          : "text-[#8C636A]/80 hover:text-[#8C636A] hover:bg-[#8C636A]/5"
       )}>
         {children}
       </a>

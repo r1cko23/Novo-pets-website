@@ -30,6 +30,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       console.error("Error creating booking:", error);
+      
+      // Check if the error is for unavailable time slot
+      if (error instanceof Error && error.message.includes("is not available")) {
+        return res.status(409).json({ 
+          success: false, 
+          message: error.message 
+        });
+      }
+      
       return res.status(500).json({ 
         success: false, 
         message: "Failed to create booking" 
@@ -68,6 +77,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ 
         success: false, 
         message: "Failed to fetch booking" 
+      });
+    }
+  });
+  
+  // Get available time slots for a specific date
+  app.get("/api/availability", async (req: Request, res: Response) => {
+    try {
+      const { date } = req.query;
+      
+      if (!date || typeof date !== 'string') {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Date parameter is required" 
+        });
+      }
+      
+      const availableTimeSlots = await storage.getAvailableTimeSlots(date);
+      
+      return res.status(200).json({ 
+        success: true, 
+        availableTimeSlots 
+      });
+    } catch (error) {
+      console.error("Error fetching availability:", error);
+      return res.status(500).json({ 
+        success: false, 
+        message: "Failed to fetch availability" 
       });
     }
   });

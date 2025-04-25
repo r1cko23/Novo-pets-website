@@ -60,7 +60,7 @@ export default function Testimonials() {
     <section className="py-16 bg-[#9a7d62]/5">
       <div className="container mx-auto px-6">
         <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-playfair font-bold text-[#9a7d62]">What Pet Parents Say</h2>
+          <h2 className="text-3xl md:text-4xl font-playfair font-bold text-[#9a7d62]">What Fur Parents Say</h2>
           <p className="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">Hear from our happy customers and their furry friends</p>
         </div>
         
