@@ -9,8 +9,8 @@ export default function Map() {
         <h3 className="font-montserrat font-semibold text-lg">Our Location</h3>
       </div>
       
-      <div className="flex-grow p-0">
-        <MapContainer height="400px" className="w-full" />
+      <div className="flex-grow relative" style={{ minHeight: "400px" }}>
+        <MapContainer height="100%" className="w-full absolute inset-0" />
       </div>
     </div>
   );
