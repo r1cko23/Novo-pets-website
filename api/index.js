@@ -72,74 +72,70 @@ app.get('/api/availability', async (req, res) => {
   }
 });
 
-// Add bookings endpoint to handle booking creation
+// Book a new appointment
 app.post('/api/bookings', async (req, res) => {
   try {
-    console.log('Received booking request:', req.body);
+    console.log('Booking request received:', req.body);
     
-    // Basic validation
-    const { 
-      serviceType, appointmentDate, appointmentTime, 
-      petName, petBreed, petSize,
-      customerName, customerEmail, customerPhone 
-    } = req.body;
+    // Validate required fields
+    const requiredFields = ['appointmentDate', 'appointmentTime', 'petName', 'customerName', 'customerEmail'];
+    const missingFields = requiredFields.filter(field => !req.body[field]);
     
-    if (!serviceType || !appointmentDate || !appointmentTime || 
-        !petName || !petBreed || !petSize ||
-        !customerName || !customerEmail || !customerPhone) {
+    if (missingFields.length > 0) {
       return res.status(400).json({
         success: false,
-        message: "Missing required booking information"
+        message: `Missing required fields: ${missingFields.join(', ')}`
       });
     }
     
-    // Use the storage implementation to create the booking
+    // Create booking
     const booking = await storage.createBooking(req.body);
     
-    // Return success response
     return res.status(201).json({
       success: true,
-      message: "Booking created successfully",
-      data: booking
+      booking
     });
   } catch (error) {
     console.error("Error creating booking:", error);
+    
+    // Check for specific error types to provide better responses
+    if (error.message && error.message.includes('not available')) {
+      return res.status(409).json({
+        success: false,
+        message: error.message
+      });
+    }
+    
     return res.status(500).json({
       success: false,
-      message: "Failed to create booking"
+      message: error.message || "Failed to create booking"
     });
   }
 });
 
-// Add contact form submission endpoint
+// Submit contact form
 app.post('/api/contact', async (req, res) => {
   try {
-    console.log('Received contact form submission:', req.body);
+    console.log('Contact form submission received:', req.body);
     
-    // Basic validation
-    const { name, email, subject, message } = req.body;
+    // Validate required fields
+    const requiredFields = ['name', 'email', 'message'];
+    const missingFields = requiredFields.filter(field => !req.body[field]);
     
-    if (!name || !email || !subject || !message) {
+    if (missingFields.length > 0) {
       return res.status(400).json({
         success: false,
-        message: "Missing required contact information"
+        message: `Missing required fields: ${missingFields.join(', ')}`
       });
     }
     
-    // Submit the contact form
+    // Submit the form
     const result = await storage.submitContactForm(req.body);
     
-    if (result) {
-      return res.status(200).json({
-        success: true,
-        message: "Contact form submitted successfully"
-      });
-    } else {
-      return res.status(500).json({
-        success: false,
-        message: "Failed to submit contact form"
-      });
-    }
+    return res.status(201).json({
+      success: true,
+      message: "Contact form submitted successfully"
+    });
   } catch (error) {
     console.error("Error submitting contact form:", error);
     return res.status(500).json({
@@ -172,5 +168,13 @@ if (fs.existsSync(staticDir)) {
   });
 }
 
-// Export the Express app as Vercel serverless function
+// Start the server if running directly
+if (process.env.NODE_ENV !== 'test') {
+  const PORT = process.env.PORT || 3001;
+  app.listen(PORT, () => {
+    console.log(`API server listening on port ${PORT}`);
+  });
+}
+
+// Export for testing and Vercel
 export default app; 

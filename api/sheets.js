@@ -152,7 +152,45 @@ export async function getRows(sheetName) {
     const rows = response.data.values.slice(1).map(row => {
       const rowObj = {};
       headers.forEach((header, index) => {
-        rowObj[header] = index < row.length ? row[index] : '';
+        // Get the value or default to empty string
+        let value = index < row.length ? row[index] : '';
+        
+        // Clean up appointment times (e.g. convert "9.00" to "09:00")
+        if (header === 'appointment_time' && value) {
+          // Remove any non-digit or colon characters
+          value = value.toString().trim();
+          
+          // Handle potential format issues
+          if (value.includes('.')) {
+            value = value.replace('.', ':');
+          }
+          
+          // Ensure the time has a leading zero for hours less than 10
+          if (value.length === 4 && value[1] === ':') {
+            value = `0${value}`;
+          }
+          
+          // Make sure it's in 24-hour format
+          if (value.toLowerCase().includes('am')) {
+            value = value.toLowerCase().replace('am', '').trim();
+            if (value.length === 4 && value[1] === ':') {
+              value = `0${value}`;
+            }
+          } else if (value.toLowerCase().includes('pm')) {
+            value = value.toLowerCase().replace('pm', '').trim();
+            // Convert to 24-hour format if it's PM
+            const parts = value.split(':');
+            if (parts.length === 2) {
+              let hour = parseInt(parts[0]);
+              if (hour < 12) {
+                hour += 12;
+              }
+              value = `${hour}:${parts[1]}`;
+            }
+          }
+        }
+        
+        rowObj[header] = value;
       });
       return rowObj;
     });

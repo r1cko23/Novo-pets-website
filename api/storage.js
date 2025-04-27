@@ -53,15 +53,18 @@ export async function getAvailableTimeSlots(date) {
     
     // Debug log all bookings to see their format
     bookings.forEach((booking, index) => {
-      console.log(`Booking ${index}: Date=${booking.appointment_date}, Time=${booking.appointment_time}, Groomer=${booking.groomer}, Status=${booking.status}`);
+      console.log(`Booking ${index}: Date=${booking.appointment_date}, Time=${booking.appointment_time}, Groomer=${booking.groomer || 'Not specified'}, Status=${booking.status || 'Not specified'}`);
     });
     
     // Filter bookings for the requested date with status confirmed or pending
     const bookingsForDate = bookings.filter(booking => {
+      // Ensure we normalize the booking date consistently
       const bookingDate = normalizeDate(booking.appointment_date);
       const isMatchingDate = bookingDate === normalizedDate;
-      const isValidStatus = booking.status === "confirmed" || booking.status === "pending" || booking.status === "";
-      const isGroomingService = booking.service_type === "grooming" || booking.service_type === "";
+      // Consider empty status as valid (pending)
+      const isValidStatus = !booking.status || booking.status === "confirmed" || booking.status === "pending" || booking.status === "";
+      // Consider empty service type as grooming
+      const isGroomingService = !booking.service_type || booking.service_type === "grooming" || booking.service_type === "";
       
       console.log(`Checking booking: Date=${bookingDate} (Match=${isMatchingDate}), Status=${booking.status} (Valid=${isValidStatus}), Service=${booking.service_type} (Grooming=${isGroomingService})`);
       
@@ -85,8 +88,14 @@ export async function getAvailableTimeSlots(date) {
     
     // Populate booked slots for each groomer
     bookingsForDate.forEach(booking => {
-      // Make sure to trim any whitespace that might exist in the time value
-      const bookedTime = (booking.appointment_time || "").trim();
+      // Make sure to trim any whitespace that might exist in the time value and handle format variations (9:00 vs 09:00)
+      let bookedTime = (booking.appointment_time || "").trim();
+      
+      // Normalize time format (e.g., "9:00" to "09:00")
+      if (bookedTime.length === 4 && bookedTime[1] === ':') {
+        bookedTime = `0${bookedTime}`;
+      }
+      
       // Default to Groomer 1 if not specified or empty
       const assignedGroomer = (booking.groomer && booking.groomer.trim()) || "Groomer 1";
       
@@ -98,7 +107,7 @@ export async function getAvailableTimeSlots(date) {
     
     // Log the booked slots for each groomer
     GROOMERS.forEach(groomer => {
-      console.log(`Booked slots for ${groomer}: ${[...bookedSlotsByGroomer[groomer]].join(', ')}`);
+      console.log(`Booked slots for ${groomer}: ${Array.from(bookedSlotsByGroomer[groomer]).join(', ')}`);
     });
     
     // Create map of available slots for each groomer
@@ -147,7 +156,9 @@ export async function getAvailableTimeSlots(date) {
 // Get all bookings from Google Sheets
 async function getBookings() {
   try {
-    return await getRows(sheetsConfig.SHEET_NAMES.BOOKINGS);
+    const bookings = await getRows(sheetsConfig.SHEET_NAMES.BOOKINGS);
+    console.log(`Retrieved ${bookings.length} bookings from Google Sheets`);
+    return bookings;
   } catch (error) {
     console.error("Error getting bookings:", error);
     return [];
@@ -161,12 +172,19 @@ export async function createBooking(bookingData) {
     const normalizedDate = normalizeDate(bookingData.appointmentDate || '');
     
     // Ensure time format is consistent (no extra spaces)
-    const normalizedTime = (bookingData.appointmentTime || '').trim();
+    let normalizedTime = (bookingData.appointmentTime || '').trim();
+    
+    // Normalize time format (e.g., "9:00" to "09:00")
+    if (normalizedTime.length === 4 && normalizedTime[1] === ':') {
+      normalizedTime = `0${normalizedTime}`;
+    }
     
     console.log(`Creating booking for ${normalizedDate} at ${normalizedTime}`);
     
     // Check if this slot is actually available before creating the booking
     const availableSlots = await getAvailableTimeSlots(normalizedDate);
+    console.log(`Available slots for booking: ${JSON.stringify(availableSlots)}`);
+    
     const requestedSlot = availableSlots.find(
       slot => slot.time === normalizedTime && 
              (!bookingData.groomer || slot.groomer === bookingData.groomer)
@@ -189,6 +207,7 @@ export async function createBooking(bookingData) {
       pet_name: bookingData.petName || '',
       pet_breed: bookingData.petBreed || '',
       pet_size: bookingData.petSize || '',
+      special_requests: bookingData.specialRequests || '',
       customer_name: bookingData.customerName || '',
       customer_email: bookingData.customerEmail || '',
       customer_phone: bookingData.customerPhone || '',
@@ -198,7 +217,7 @@ export async function createBooking(bookingData) {
     };
     
     // Add additional fields if present
-    if (bookingData.specialRequests) rowData.special_requests = bookingData.specialRequests;
+    if (bookingData.needs_transport) rowData.needs_transport = bookingData.needs_transport;
     if (bookingData.addOnServices) rowData.add_on_services = bookingData.addOnServices;
     
     console.log('Sending booking data to Google Sheets:', rowData);
@@ -208,13 +227,14 @@ export async function createBooking(bookingData) {
     
     // Return a properly formatted booking object
     return {
-      id: parseInt(rowData.id),
+      id: rowData.id,
       serviceType: rowData.service_type,
       appointmentDate: rowData.appointment_date,
       appointmentTime: rowData.appointment_time,
       petName: rowData.pet_name,
       petBreed: rowData.pet_breed,
       petSize: rowData.pet_size,
+      specialRequests: rowData.special_requests,
       customerName: rowData.customer_name,
       customerEmail: rowData.customer_email,
       customerPhone: rowData.customer_phone,
@@ -224,22 +244,7 @@ export async function createBooking(bookingData) {
     };
   } catch (error) {
     console.error("Error creating booking:", error);
-    // Return a mock booking in case of error to avoid breaking the client
-    return {
-      id: Date.now(),
-      serviceType: bookingData.serviceType,
-      appointmentDate: bookingData.appointmentDate,
-      appointmentTime: bookingData.appointmentTime,
-      petName: bookingData.petName,
-      petBreed: bookingData.petBreed,
-      petSize: bookingData.petSize,
-      customerName: bookingData.customerName,
-      customerEmail: bookingData.customerEmail,
-      customerPhone: bookingData.customerPhone,
-      groomer: bookingData.groomer,
-      status: 'pending',
-      createdAt: new Date().toISOString()
-    };
+    throw error; // Rethrow the error to be handled by the API endpoint
   }
 }
 
