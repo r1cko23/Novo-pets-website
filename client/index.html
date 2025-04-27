@@ -3,20 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval'; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src * 'unsafe-inline'; img-src * data: blob: 'unsafe-inline'; frame-src *; style-src * 'unsafe-inline';" />
     <title>Novo Pets - Premium Pet Spa & Wellness</title>
     <meta name="description" content="Novo Pets offers luxury pet grooming, spa treatments, hotel accommodations, and daycare services in White Plains, Katipunan Avenue, Philippines.">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <!-- Favicon -->
-    <link rel="icon" href="/favicon.ico" sizes="any">
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-    <link rel="manifest" href="/site.webmanifest">
+    <link rel="icon" href="./favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="./favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
+    <link rel="manifest" href="./site.webmanifest">
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-    <script type="text/javascript" src="https://replit.com/public/js/replit-dev-banner.js"></script>
+    <script type="module" src="./src/main.tsx"></script>
+    <!-- Remove replit dev banner for production -->
+    <!-- <script type="text/javascript" src="https://replit.com/public/js/replit-dev-banner.js"></script> -->
   </body>
 </html>
