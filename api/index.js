@@ -44,40 +44,35 @@ app.get('/api/sheets-status', (req, res) => {
   });
 });
 
-// Use the proper implementation for availability endpoint
+// Get available time slots for a specific date
 app.get('/api/availability', async (req, res) => {
   try {
     const { date } = req.query;
     
-    if (!date || typeof date !== 'string') {
-      return res.status(400).json({ 
-        success: false, 
-        message: "Date parameter is required" 
+    if (!date) {
+      return res.status(400).json({
+        success: false,
+        message: "Date parameter is required"
       });
     }
     
-    console.log(`Availability request for date: ${date}`);
-    const availableTimeSlots = await storage.getAvailableTimeSlots(date);
-    
-    // Set cache control headers to prevent caching
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    // Set strong cache control headers to prevent browser caching
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
     
-    const timestamp = new Date().toISOString();
-    console.log(`Returning availability data at ${timestamp}`);
+    const availableTimeSlots = await storage.getAvailableTimeSlots(date);
     
-    return res.status(200).json({ 
-      success: true, 
-      availableTimeSlots,
-      timestamp: timestamp,
-      message: `Data fetched at ${timestamp}`
+    return res.status(200).json({
+      success: true,
+      availableTimeSlots
     });
   } catch (error) {
     console.error("Error fetching availability:", error);
-    return res.status(500).json({ 
-      success: false, 
-      message: "Failed to fetch availability" 
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to fetch availability"
     });
   }
 });

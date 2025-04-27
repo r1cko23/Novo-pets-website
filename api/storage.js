@@ -235,9 +235,9 @@ export async function getAvailableTimeSlots(date) {
       const bookingDate = normalizeDate(booking.appointment_date);
       const isMatchingDate = bookingDate === normalizedDate;
       
-      // Consider a booking valid (meaning the slot is taken) if it's either "confirmed" or "expired"
-      // We don't want to show slots that are marked as "expired" in the database as available
-      const isValidStatus = booking.status === "confirmed" || booking.status === "expired";
+      // Consider a booking valid (meaning the slot is taken) if it's either "confirmed" or "expired" or "pending"
+      // Include "pending" to immediately show the slot as booked once someone starts the booking process
+      const isValidStatus = booking.status === "confirmed" || booking.status === "expired" || booking.status === "pending";
       
       // Consider empty service type as grooming
       const isGroomingService = !booking.service_type || booking.service_type === "grooming" || booking.service_type === "";
@@ -327,6 +327,7 @@ export async function getAvailableTimeSlots(date) {
       console.log(`Final slot: Time=${slot.time}, Groomer=${slot.groomer}, Available=${slot.available}`);
     });
     
+    // Set no-cache headers for this response
     return result;
   } catch (error) {
     console.error("Error getting available time slots:", error);
@@ -418,7 +419,7 @@ export async function createBooking(bookingData) {
       removeReservation(normalizedDate, normalizedTime, groomerToCheck);
     } else {
       // Double-check by getting all current bookings directly
-      const allBookings = await getBookings();
+      const allBookings = await getBookings(true); // Force refresh to get latest data
       const existingBooking = allBookings.find(booking => {
         const bookingDate = normalizeDate(booking.appointment_date);
         const bookingTime = normalizeTime(booking.appointment_time);
@@ -468,7 +469,7 @@ export async function createBooking(bookingData) {
       customer_email: bookingData.customerEmail || '',
       customer_phone: bookingData.customerPhone || '',
       groomer: groomerToCheck,
-      status: 'confirmed',
+      status: 'confirmed', // Set to confirmed immediately
       created_at: new Date().toISOString()
     };
     

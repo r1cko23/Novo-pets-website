@@ -105,7 +105,7 @@ export default function BookingForm() {
       const response = await apiRequest("GET", `/api/availability?date=${formattedDate}`);
       const data = await response.json();
       
-      return data.availableTimeSlots && data.availableTimeSlots.some(slot => slot.available);
+      return data.availableTimeSlots && data.availableTimeSlots.some((slot: { available: boolean }) => slot.available);
     } catch (error) {
       console.error("Error checking date availability:", error);
       return true; // Assume there are slots available in case of error
@@ -148,14 +148,14 @@ export default function BookingForm() {
       // Add timestamp to prevent caching
       const timestamp = new Date().getTime();
       const formattedDate = format(new Date(selectedDate), "yyyy-MM-dd");
-      const response = await apiRequest("GET", `/api/availability?date=${formattedDate}&_=${timestamp}`);
+      const response = await apiRequest("GET", `/api/availability?date=${formattedDate}&_=${timestamp}`, undefined, { cache: 'no-store' });
       const result = await response.json();
       console.log("Fetched availability data:", result);
       return result;
     },
     enabled: !!selectedDate, // Only run query when a date is selected
-    staleTime: 1000 * 15, // Consider data stale after 15 seconds
-    gcTime: 1000 * 60, // Cache for 1 minute
+    staleTime: 1000 * 5, // Consider data stale after just 5 seconds to force more frequent updates
+    gcTime: 1000 * 30, // Cache for 30 seconds
     refetchOnMount: true, // Refetch when the component mounts
     refetchOnWindowFocus: true, // Refetch when the window regains focus
     refetchInterval: refetchInterval, // Dynamic refetch interval

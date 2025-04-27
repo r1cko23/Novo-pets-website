@@ -15,6 +15,7 @@ export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
+  options?: RequestInit
 ): Promise<Response> {
   try {
     const res = await fetch(url, {
@@ -22,6 +23,7 @@ export async function apiRequest(
       headers: data ? { "Content-Type": "application/json" } : {},
       body: data ? JSON.stringify(data) : undefined,
       credentials: "include",
+      ...options
     });
 
     await throwIfResNotOk(res);
