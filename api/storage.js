@@ -110,42 +110,38 @@ export async function getAvailableTimeSlots(date) {
       console.log(`Booked slots for ${groomer}: ${Array.from(bookedSlotsByGroomer[groomer]).join(', ')}`);
     });
     
-    // Create map of available slots for each groomer
-    const availableSlotsByGroomer = {};
-    
-    // For each groomer, determine available slots
-    GROOMERS.forEach(groomer => {
-      availableSlotsByGroomer[groomer] = TIME_SLOTS.filter(
-        timeSlot => !bookedSlotsByGroomer[groomer].has(timeSlot)
-      );
-      console.log(`Available slots for ${groomer}: ${availableSlotsByGroomer[groomer].join(', ')}`);
-    });
-    
     // Format the result
     const result = [];
     
-    // Add available slots for each groomer to the result
+    // Add ALL time slots for each groomer to the result (both available and booked)
     for (const groomer of GROOMERS) {
-      const slots = availableSlotsByGroomer[groomer];
-      slots.forEach(slot => {
+      for (const timeSlot of TIME_SLOTS) {
+        const isAvailable = !bookedSlotsByGroomer[groomer].has(timeSlot);
         result.push({
-          time: slot,
-          groomer: groomer
+          time: timeSlot,
+          groomer: groomer,
+          available: isAvailable // Explicitly set available property
         });
-      });
+      }
     }
     
     console.log(`Returning ${result.length} available slots for ${normalizedDate}`);
+    // Debug the final result being returned
+    result.forEach(slot => {
+      console.log(`Final slot: Time=${slot.time}, Groomer=${slot.groomer}, Available=${slot.available}`);
+    });
+    
     return result;
   } catch (error) {
     console.error("Error getting available time slots:", error);
-    // Fallback to returning all time slots if there's an error
+    // Fallback to returning all time slots as available if there's an error
     const result = [];
     for (const groomer of GROOMERS) {
       for (const timeSlot of TIME_SLOTS) {
         result.push({
           time: timeSlot,
-          groomer: groomer
+          groomer: groomer,
+          available: true // Explicitly set all as available in case of error
         });
       }
     }

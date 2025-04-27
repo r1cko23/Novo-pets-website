@@ -43,7 +43,7 @@ import {
 } from "@shared/schema";
 import { cn, generateTimeSlots, getBookingReference } from "@/lib/utils";
 import PetDetails from "./PetDetails";
-import type { TimeSlot } from "@/types";
+import { TimeSlot } from "@/types";
 
 export default function BookingForm() {
   const [step, setStep] = useState(1);
@@ -124,6 +124,12 @@ export default function BookingForm() {
       // Explicitly type the data coming from the API
       const typedTimeSlots: TimeSlot[] = availabilityData.availableTimeSlots;
       console.log("Setting available time slots:", typedTimeSlots);
+      
+      // DEBUG: Check the 'available' property on each slot
+      typedTimeSlots.forEach(slot => {
+        console.log(`DEBUG slot: Time=${slot.time}, Groomer=${slot.groomer}, Available=${slot.available}`);
+      });
+      
       setAvailableTimeSlots(typedTimeSlots);
       
       // Reset the time selection if the previously selected time is no longer available
@@ -147,7 +153,7 @@ export default function BookingForm() {
     }
   }, [availabilityData, form, selectedGroomer]);
   
-  // Group time slots by groomer
+  // Group time slots by groomer and sort to put available slots first
   const timeSlotsByGroomer = availableTimeSlots.reduce((acc, slot) => {
     if (!acc[slot.groomer]) {
       acc[slot.groomer] = [];
@@ -155,6 +161,20 @@ export default function BookingForm() {
     acc[slot.groomer].push(slot);
     return acc;
   }, {} as Record<string, TimeSlot[]>);
+  
+  // Sort time slots within each groomer to put available slots first
+  Object.keys(timeSlotsByGroomer).forEach(groomer => {
+    timeSlotsByGroomer[groomer].sort((a, b) => {
+      // Available slots come first
+      if (a.available && !b.available) return -1;
+      if (!a.available && b.available) return 1;
+      // Otherwise sort by time
+      return a.time.localeCompare(b.time);
+    });
+  });
+
+  // Debug: Print grouped time slots
+  console.log("DEBUG timeSlotsByGroomer:", JSON.stringify(timeSlotsByGroomer, null, 2));
 
   // Get list of groomers with slots
   const groomersWithSlots = Object.keys(timeSlotsByGroomer);
@@ -491,23 +511,35 @@ export default function BookingForm() {
                           </FormControl>
                           <SelectContent>
                             {selectedGroomer ? (
-                              timeSlotsByGroomer[selectedGroomer].map((slot) => (
-                                <SelectItem 
-                                  key={`${slot.time}-${slot.groomer}`} 
-                                  value={slot.time}
-                                  disabled={!slot.available}
-                                  className={cn(
-                                    !slot.available && "opacity-70 line-through text-red-400 cursor-not-allowed bg-gray-100 relative"
-                                  )}
-                                >
-                                  <div className="flex justify-between w-full items-center">
-                                    <span>{slot.time}</span>
-                                    {!slot.available && (
-                                      <span className="text-red-500 text-xs font-medium ml-2">(Booked)</span>
+                              // Check if there are any slots at all
+                              timeSlotsByGroomer[selectedGroomer]?.length > 0 ? (
+                                // Map through and display the slots
+                                timeSlotsByGroomer[selectedGroomer].map((slot) => (
+                                  <SelectItem 
+                                    key={`${slot.time}-${slot.groomer}`} 
+                                    value={slot.time}
+                                    disabled={!slot.available}
+                                    className={cn(
+                                      !slot.available && "opacity-70 line-through text-red-400 cursor-not-allowed bg-gray-100 relative"
                                     )}
+                                  >
+                                    <div className="flex justify-between w-full items-center">
+                                      <span>{slot.time}</span>
+                                      {!slot.available && (
+                                        <span className="text-red-500 text-xs font-medium ml-2">(Booked)</span>
+                                      )}
+                                    </div>
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                // No slots for this groomer
+                                <div className="px-4 py-6 text-center">
+                                  <div className="flex flex-col items-center">
+                                    <p className="text-sm text-red-500 font-semibold">No slots available</p>
+                                    <p className="text-xs text-gray-500 mt-1">Please select another groomer or date</p>
                                   </div>
-                                </SelectItem>
-                              ))
+                                </div>
+                              )
                             ) : (
                               <div className="px-4 py-6 text-center">
                                 {selectedGroomer && !isLoadingAvailability ? (

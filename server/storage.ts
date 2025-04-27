@@ -51,7 +51,7 @@ export interface IStorage {
   getBookings(): Promise<Booking[]>;
   getBooking(id: number): Promise<Booking | null>;
   createBooking(booking: InsertBooking): Promise<Booking>;
-  getAvailableTimeSlots(date: string): Promise<Array<{time: string, groomer: string, available?: boolean}>>;
+  getAvailableTimeSlots(date: string): Promise<Array<{time: string, groomer: string, available: boolean}>>;
   
   // Contact form methods
   submitContactForm(form: ContactFormValues): Promise<boolean>;
@@ -142,7 +142,7 @@ export class GoogleSheetsStorage implements IStorage {
     }
   }
   
-  async getAvailableTimeSlots(date: string): Promise<Array<{time: string, groomer: string, available?: boolean}>> {
+  async getAvailableTimeSlots(date: string): Promise<Array<{time: string, groomer: string, available: boolean}>> {
     try {
       // Normalize date format
       const normalizedDate = normalizeDate(date);
@@ -150,15 +150,31 @@ export class GoogleSheetsStorage implements IStorage {
 
       // Get all bookings for the specified date
       const bookings = await this.getBookings();
+      console.log(`Total bookings found: ${bookings.length}`);
+      
+      // Debug: Print all bookings to see their structure
+      bookings.forEach((booking, index) => {
+        console.log(`DEBUG Booking ${index}: Date=${booking.appointmentDate}, Time=${booking.appointmentTime}, Status=${booking.status}, Service=${booking.serviceType}, Groomer=${booking.groomer || 'Not specified'}`);
+      });
       
       // Filter bookings for the requested date with status confirmed or pending
-      const bookingsForDate = bookings.filter(booking => 
-        normalizeDate(booking.appointmentDate) === normalizedDate && 
-        (booking.status === "confirmed" || booking.status === "pending") &&
-        booking.serviceType === "grooming"
-      );
+      const bookingsForDate = bookings.filter(booking => {
+        const bookingDate = normalizeDate(booking.appointmentDate);
+        const isMatchingDate = bookingDate === normalizedDate;
+        const isValidStatus = booking.status === "confirmed" || booking.status === "pending";
+        const isGroomingService = booking.serviceType === "grooming";
+        
+        console.log(`DEBUG Checking booking: Date=${bookingDate} (Match=${isMatchingDate}), Status=${booking.status} (Valid=${isValidStatus}), Service=${booking.serviceType} (Grooming=${isGroomingService})`);
+        
+        return isMatchingDate && isValidStatus && isGroomingService;
+      });
       
       console.log(`Found ${bookingsForDate.length} bookings for date ${normalizedDate}`);
+      
+      // Debug: Print filtered bookings
+      bookingsForDate.forEach((booking, index) => {
+        console.log(`DEBUG Filtered booking ${index}: Time=${booking.appointmentTime}, Groomer=${booking.groomer || "Groomer 1"}`);
+      });
       
       // Track booked slots for each groomer
       const bookedSlotsByGroomer: Record<string, Set<string>> = {};
@@ -174,8 +190,14 @@ export class GoogleSheetsStorage implements IStorage {
         const assignedGroomer = booking.groomer || "Groomer 1"; // Default to Groomer 1 if not specified
         
         if (bookedSlotsByGroomer[assignedGroomer]) {
+          console.log(`DEBUG Marking time slot ${bookedTime} as booked for ${assignedGroomer}`);
           bookedSlotsByGroomer[assignedGroomer].add(bookedTime);
         }
+      });
+      
+      // Debug: Log all booked slots for each groomer
+      GROOMERS.forEach(groomer => {
+        console.log(`DEBUG Booked slots for ${groomer}: ${Array.from(bookedSlotsByGroomer[groomer]).join(', ')}`);
       });
       
       // Format the result
@@ -193,10 +215,26 @@ export class GoogleSheetsStorage implements IStorage {
         }
       }
       
+      // Debug: Log the final available slots being returned
+      result.forEach(slot => {
+        console.log(`DEBUG Final slot: Time=${slot.time}, Groomer=${slot.groomer}, Available=${slot.available}`);
+      });
+      
       return result;
     } catch (error) {
       console.error("Error getting available time slots:", error);
-      return [];
+      // Fallback to returning all time slots as available if there's an error
+      const result: Array<{time: string, groomer: string, available: boolean}> = [];
+      for (const groomer of GROOMERS) {
+        for (const timeSlot of TIME_SLOTS) {
+          result.push({
+            time: timeSlot,
+            groomer: groomer,
+            available: true // Set all slots to available in case of error
+          });
+        }
+      }
+      return result;
     }
   }
   
