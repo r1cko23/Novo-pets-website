@@ -140,16 +140,14 @@ export async function getAvailableTimeSlots(date) {
       const bookingDate = normalizeDate(booking.appointment_date);
       const isMatchingDate = bookingDate === normalizedDate;
       
-      // Check if the pending booking has expired
-      const isPendingExpired = booking.status === 'pending' && hasPendingBookingExpired(booking);
-      
-      // Only include confirmed bookings or non-expired pending bookings
-      const isValidStatus = booking.status === "confirmed" || (booking.status === "pending" && !isPendingExpired);
+      // Consider a booking valid (meaning the slot is taken) if it's either "confirmed" or "expired"
+      // We don't want to show slots that are marked as "expired" in the database as available
+      const isValidStatus = booking.status === "confirmed" || booking.status === "expired";
       
       // Consider empty service type as grooming
       const isGroomingService = !booking.service_type || booking.service_type === "grooming" || booking.service_type === "";
       
-      console.log(`Checking booking: Date=${bookingDate} (Match=${isMatchingDate}), Status=${booking.status} (Valid=${isValidStatus}), Service=${booking.service_type} (Grooming=${isGroomingService}), Expired=${isPendingExpired}`);
+      console.log(`Checking booking: Date=${bookingDate} (Match=${isMatchingDate}), Status=${booking.status} (Valid=${isValidStatus}), Service=${booking.service_type} (Grooming=${isGroomingService})`);
       
       return isMatchingDate && isValidStatus && isGroomingService;
     });

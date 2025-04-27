@@ -575,7 +575,37 @@ export default function BookingForm() {
                     name="appointmentTime"
                     render={({ field }) => (
                       <FormItem className="w-full mt-6">
-                        <FormLabel className="mb-2">Available Times</FormLabel>
+                        <div className="flex justify-between items-center mb-2">
+                          <FormLabel>Available Times</FormLabel>
+                          {selectedDate && selectedGroomer && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-8 text-xs" 
+                              onClick={(e) => {
+                                e.preventDefault();
+                                refetchAvailability();
+                                toast({
+                                  title: "Refreshed",
+                                  description: "Available time slots have been refreshed.",
+                                });
+                              }}
+                              disabled={isLoadingAvailability}
+                            >
+                              {isLoadingAvailability ? (
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" 
+                                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" 
+                                  className="mr-1">
+                                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                                  <path d="M3 3v5h5" />
+                                </svg>
+                              )}
+                              Refresh
+                            </Button>
+                          )}
+                        </div>
                         <Select
                           onValueChange={field.onChange}
                           value={field.value}
