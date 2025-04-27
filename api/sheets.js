@@ -206,6 +206,63 @@ export async function getRows(sheetName, options = {}) {
   }
 }
 
+// Update a specific row in a sheet
+export async function updateRow(sheetName, rowIndex, rowData) {
+  try {
+    const sheets = await getGoogleSheetsClient();
+    if (!sheets) {
+      console.error('Failed to initialize Google Sheets client');
+      return null;
+    }
+
+    // Get headers to ensure proper order of values
+    const headers = await getSheetHeaders(sheetName);
+    if (!headers || headers.length === 0) {
+      console.error('Failed to get sheet headers');
+      return null;
+    }
+
+    // Prepare row values based on headers
+    const values = headers.map(header => {
+      const key = header.toLowerCase().replace(/\s+/g, '_');
+      return rowData[key] !== undefined ? rowData[key].toString() : '';
+    });
+
+    // Row indices in the API are 1-based, and row 1 is typically headers,
+    // so the actual data starts at row 2, meaning rowIndex 0 corresponds to row 2 in the sheet
+    const actualRowNumber = rowIndex + 2; 
+
+    // Update the specific row
+    const response = await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${sheetName}!A${actualRowNumber}:${getColumnLetter(values.length)}${actualRowNumber}`,
+      valueInputOption: 'USER_ENTERED',
+      resource: {
+        values: [values]
+      }
+    });
+
+    console.log(`Updated row ${rowIndex} in ${sheetName}:`, response.data);
+    return rowData;
+  } catch (error) {
+    console.error(`Error updating row ${rowIndex} in ${sheetName}:`, error);
+    throw error;
+  }
+}
+
+// Convert column number to letter (e.g., 1 -> A, 26 -> Z, 27 -> AA)
+function getColumnLetter(columnNumber) {
+  let letter = '';
+  
+  while (columnNumber > 0) {
+    const remainder = (columnNumber - 1) % 26;
+    letter = String.fromCharCode(65 + remainder) + letter;
+    columnNumber = Math.floor((columnNumber - 1) / 26);
+  }
+  
+  return letter;
+}
+
 export const sheetsConfig = {
   SHEET_NAMES
 }; 

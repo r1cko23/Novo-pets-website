@@ -149,6 +149,62 @@ export class GoogleSheetsService {
       throw error;
     }
   }
+
+  /**
+   * Update a specific row in a sheet
+   * 
+   * @param sheetName - Name of the sheet to update
+   * @param rowIndex - Index of the row to update (0-based)
+   * @param data - Object containing the updated data
+   * @returns The updated row data
+   */
+  async updateRow(sheetName: string, rowIndex: number, data: Record<string, any>): Promise<Record<string, any>> {
+    try {
+      const headers = await this.getHeaders(sheetName);
+      
+      // Format the row according to the headers
+      const formattedRow = headers.map(header => {
+        return data[header] !== undefined ? data[header] : '';
+      });
+      
+      // Row indices in Sheets API are 1-based, and row 1 is headers,
+      // so actual data starts at row 2
+      const actualRowIndex = rowIndex + 2;
+      
+      // Update the row
+      await this.sheets.spreadsheets.values.update({
+        spreadsheetId: this.spreadsheetId,
+        range: `${sheetName}!A${actualRowIndex}:${this.getColumnLetter(headers.length)}${actualRowIndex}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: [formattedRow],
+        },
+      });
+      
+      return data;
+    } catch (error) {
+      console.error(`Error updating row ${rowIndex} in ${sheetName}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Convert column number to letter (e.g., 1 -> A, 26 -> Z, 27 -> AA)
+   * 
+   * @param columnNumber - The column number to convert
+   * @returns The column letter(s)
+   */
+  private getColumnLetter(columnNumber: number): string {
+    let letter = '';
+    
+    while (columnNumber > 0) {
+      const remainder = (columnNumber - 1) % 26;
+      letter = String.fromCharCode(65 + remainder) + letter;
+      columnNumber = Math.floor((columnNumber - 1) / 26);
+    }
+    
+    return letter;
+  }
 }
 
 export const googleSheetsService = new GoogleSheetsService(); 

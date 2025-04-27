@@ -52,6 +52,7 @@ export interface IStorage {
   getBooking(id: number): Promise<Booking | null>;
   createBooking(booking: InsertBooking): Promise<Booking>;
   getAvailableTimeSlots(date: string): Promise<Array<{time: string, groomer: string, available: boolean}>>;
+  updateBookingStatus(id: number, status: string): Promise<Booking>;
   
   // Contact form methods
   submitContactForm(form: ContactFormValues): Promise<boolean>;
@@ -321,6 +322,66 @@ export class GoogleSheetsStorage implements IStorage {
       };
     } catch (error) {
       console.error("Error creating booking:", error);
+      throw error;
+    }
+  }
+  
+  async updateBookingStatus(id: number, status: string): Promise<Booking> {
+    try {
+      console.log(`Updating booking ${id} to status ${status}`);
+      
+      // Get all bookings
+      const rows = await googleSheetsService.getRows(googleSheetsConfig.sheets.bookings);
+      
+      // Find the booking with the given ID
+      const bookingIndex = rows.findIndex(row => parseInt(row.id) === id);
+      
+      if (bookingIndex === -1) {
+        throw new Error(`Booking with ID ${id} not found`);
+      }
+      
+      const booking = rows[bookingIndex];
+      
+      // Update the status in the booking object
+      booking.status = status;
+      
+      // Update the row in Google Sheets
+      await googleSheetsService.updateRow(googleSheetsConfig.sheets.bookings, bookingIndex, booking);
+      
+      console.log(`Successfully updated booking ${id} to status ${status}`);
+      
+      // Return the updated booking
+      return {
+        id: parseInt(booking.id),
+        serviceType: booking.service_type,
+        groomingService: booking.grooming_service || null,
+        accommodationType: booking.accommodation_type || null,
+        durationHours: booking.duration_hours ? parseInt(booking.duration_hours) : null,
+        durationDays: booking.duration_days ? parseInt(booking.duration_days) : null,
+        appointmentDate: booking.appointment_date,
+        appointmentTime: booking.appointment_time,
+        petName: booking.pet_name,
+        petBreed: booking.pet_breed,
+        petSize: booking.pet_size,
+        addOnServices: booking.add_on_services || null,
+        specialRequests: booking.special_requests || null,
+        needsTransport: booking.needs_transport === 'true',
+        transportType: booking.transport_type || null,
+        pickupAddress: booking.pickup_address || null,
+        includeTreats: booking.include_treats === 'true',
+        treatType: booking.treat_type || null,
+        customerName: booking.customer_name,
+        customerPhone: booking.customer_phone,
+        customerEmail: booking.customer_email,
+        paymentMethod: booking.payment_method,
+        groomer: booking.groomer || null,
+        status: booking.status,
+        totalPrice: booking.total_price ? parseInt(booking.total_price) : null,
+        reference: booking.reference || null,
+        createdAt: booking.created_at ? new Date(booking.created_at) : new Date()
+      };
+    } catch (error) {
+      console.error(`Error updating booking status for ${id}:`, error);
       throw error;
     }
   }
