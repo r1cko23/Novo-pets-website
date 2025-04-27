@@ -7,21 +7,35 @@ export class GoogleSheetsService {
   private readonly spreadsheetId: string | undefined;
 
   constructor() {
+    // Log important info for debugging
+    console.log('GoogleSheetsService initializing...');
+    console.log(`Client email exists: ${!!googleSheetsConfig.credentials.clientEmail}`);
+    console.log(`Private key exists: ${!!googleSheetsConfig.credentials.privateKey}`);
+    console.log(`Spreadsheet ID exists: ${!!googleSheetsConfig.credentials.spreadsheetId}`);
+    
     // Initialize the Google Sheets client
     if (!googleSheetsConfig.credentials.clientEmail || 
         !googleSheetsConfig.credentials.privateKey || 
         !googleSheetsConfig.credentials.spreadsheetId) {
-      throw new Error('Google Sheets credentials are missing. Please check your environment variables.');
+      const error = new Error('Google Sheets credentials are missing. Please check your environment variables.');
+      console.error(error);
+      throw error;
     }
 
-    const auth = new JWT({
-      email: googleSheetsConfig.credentials.clientEmail,
-      key: googleSheetsConfig.credentials.privateKey,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-    });
+    try {
+      const auth = new JWT({
+        email: googleSheetsConfig.credentials.clientEmail,
+        key: googleSheetsConfig.credentials.privateKey,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+      });
 
-    this.sheets = google.sheets({ version: 'v4', auth });
-    this.spreadsheetId = googleSheetsConfig.credentials.spreadsheetId;
+      this.sheets = google.sheets({ version: 'v4', auth });
+      this.spreadsheetId = googleSheetsConfig.credentials.spreadsheetId;
+      console.log('GoogleSheetsService initialized successfully');
+    } catch (error) {
+      console.error('Error initializing GoogleSheetsService:', error);
+      throw error;
+    }
   }
 
   /**
