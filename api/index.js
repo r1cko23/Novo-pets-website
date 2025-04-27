@@ -72,6 +72,83 @@ app.get('/api/availability', async (req, res) => {
   }
 });
 
+// Add bookings endpoint to handle booking creation
+app.post('/api/bookings', async (req, res) => {
+  try {
+    console.log('Received booking request:', req.body);
+    
+    // Basic validation
+    const { 
+      serviceType, appointmentDate, appointmentTime, 
+      petName, petBreed, petSize,
+      customerName, customerEmail, customerPhone 
+    } = req.body;
+    
+    if (!serviceType || !appointmentDate || !appointmentTime || 
+        !petName || !petBreed || !petSize ||
+        !customerName || !customerEmail || !customerPhone) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required booking information"
+      });
+    }
+    
+    // Use the storage implementation to create the booking
+    const booking = await storage.createBooking(req.body);
+    
+    // Return success response
+    return res.status(201).json({
+      success: true,
+      message: "Booking created successfully",
+      data: booking
+    });
+  } catch (error) {
+    console.error("Error creating booking:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to create booking"
+    });
+  }
+});
+
+// Add contact form submission endpoint
+app.post('/api/contact', async (req, res) => {
+  try {
+    console.log('Received contact form submission:', req.body);
+    
+    // Basic validation
+    const { name, email, subject, message } = req.body;
+    
+    if (!name || !email || !subject || !message) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required contact information"
+      });
+    }
+    
+    // Submit the contact form
+    const result = await storage.submitContactForm(req.body);
+    
+    if (result) {
+      return res.status(200).json({
+        success: true,
+        message: "Contact form submitted successfully"
+      });
+    } else {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to submit contact form"
+      });
+    }
+  } catch (error) {
+    console.error("Error submitting contact form:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to submit contact form"
+    });
+  }
+});
+
 // Handle errors
 app.use((err, _req, res, _next) => {
   console.error(err);

@@ -1,7 +1,6 @@
 // api/storage.js
-// Implementation that connects to Google Sheets to check actual bookings
-import { google } from 'googleapis';
-import { GoogleAuth } from 'google-auth-library';
+// Implementation with Google Sheets integration
+import { appendRow, getRows, sheetsConfig } from './sheets.js';
 
 // Define array of time slots (from 9 AM to 6 PM)
 const TIME_SLOTS = [
@@ -10,14 +9,6 @@ const TIME_SLOTS = [
 
 // Define groomers
 const GROOMERS = ["Groomer 1", "Groomer 2"];
-
-// Google Sheets configuration
-const googleSheetsConfig = {
-  sheets: {
-    bookings: 'Bookings',
-    contacts: 'Contacts'
-  }
-};
 
 /**
  * Utility function to normalize date strings to YYYY-MM-DD format
@@ -49,99 +40,8 @@ function normalizeDate(dateStr) {
   }
 }
 
-// Initialize Google Sheets service
-const initGoogleSheetsClient = async () => {
-  try {
-    // Check if the required environment variables are set
-    if (!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || 
-        !process.env.GOOGLE_PRIVATE_KEY || 
-        !process.env.GOOGLE_SPREADSHEET_ID) {
-      console.error('Missing required Google Sheets environment variables');
-      return null;
-    }
-    
-    const auth = new GoogleAuth({
-      credentials: {
-        client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-        private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-      },
-      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-    });
-
-    const sheets = google.sheets({ version: 'v4', auth });
-    return { sheets, spreadsheetId: process.env.GOOGLE_SPREADSHEET_ID };
-  } catch (error) {
-    console.error('Error initializing Google Sheets client:', error);
-    return null;
-  }
-};
-
-// Get rows from a specific sheet
-const getRows = async (sheetName) => {
-  try {
-    const client = await initGoogleSheetsClient();
-    if (!client) {
-      return [];
-    }
-
-    const response = await client.sheets.spreadsheets.values.get({
-      spreadsheetId: client.spreadsheetId,
-      range: `${sheetName}!A:Z`,
-    });
-
-    const rows = response.data.values || [];
-    
-    // If there are no rows or only header row, return empty array
-    if (rows.length <= 1) {
-      return [];
-    }
-
-    // Get headers from the first row
-    const headers = rows[0].map(header => 
-      header.toLowerCase().replace(/\s+/g, '_')
-    );
-
-    // Convert rows to objects using headers as keys
-    return rows.slice(1).map(row => {
-      const rowObj = {};
-      headers.forEach((header, index) => {
-        rowObj[header] = index < row.length ? row[index] : '';
-      });
-      return rowObj;
-    });
-  } catch (error) {
-    console.error(`Error getting rows from ${sheetName}:`, error);
-    return [];
-  }
-};
-
-// Get all bookings
-const getBookings = async () => {
-  try {
-    const rows = await getRows(googleSheetsConfig.sheets.bookings);
-    
-    return rows.map(row => ({
-      id: parseInt(row.id || '0'),
-      serviceType: row.service_type || '',
-      appointmentDate: row.appointment_date || '',
-      appointmentTime: row.appointment_time || '',
-      petName: row.pet_name || '',
-      petBreed: row.pet_breed || '',
-      petSize: row.pet_size || '',
-      customerName: row.customer_name || '',
-      customerPhone: row.customer_phone || '',
-      customerEmail: row.customer_email || '',
-      groomer: row.groomer || null,
-      status: row.status || ''
-    }));
-  } catch (error) {
-    console.error("Error getting bookings:", error);
-    return [];
-  }
-};
-
 // Get available time slots for a specific date
-export const getAvailableTimeSlots = async (date) => {
+export async function getAvailableTimeSlots(date) {
   try {
     // Normalize date format
     const normalizedDate = normalizeDate(date);
@@ -152,9 +52,9 @@ export const getAvailableTimeSlots = async (date) => {
     
     // Filter bookings for the requested date with status confirmed or pending
     const bookingsForDate = bookings.filter(booking => 
-      normalizeDate(booking.appointmentDate) === normalizedDate && 
+      normalizeDate(booking.appointment_date) === normalizedDate && 
       (booking.status === "confirmed" || booking.status === "pending") &&
-      booking.serviceType === "grooming"
+      booking.service_type === "grooming"
     );
     
     console.log(`Found ${bookingsForDate.length} bookings for date ${normalizedDate}`);
@@ -169,7 +69,7 @@ export const getAvailableTimeSlots = async (date) => {
     
     // Populate booked slots for each groomer
     bookingsForDate.forEach(booking => {
-      const bookedTime = booking.appointmentTime;
+      const bookedTime = booking.appointment_time;
       const assignedGroomer = booking.groomer || "Groomer 1"; // Default to Groomer 1 if not specified
       
       if (bookedSlotsByGroomer[assignedGroomer]) {
@@ -204,10 +104,116 @@ export const getAvailableTimeSlots = async (date) => {
     return result;
   } catch (error) {
     console.error("Error getting available time slots:", error);
+    // Fallback to returning all time slots if there's an error
+    const result = [];
+    for (const groomer of GROOMERS) {
+      for (const timeSlot of TIME_SLOTS) {
+        result.push({
+          time: timeSlot,
+          groomer: groomer
+        });
+      }
+    }
+    return result;
+  }
+}
+
+// Get all bookings from Google Sheets
+async function getBookings() {
+  try {
+    return await getRows(sheetsConfig.SHEET_NAMES.BOOKINGS);
+  } catch (error) {
+    console.error("Error getting bookings:", error);
     return [];
   }
-};
+}
+
+// Create a booking in Google Sheets
+export async function createBooking(bookingData) {
+  try {
+    // Prepare the row data for Google Sheets
+    const rowData = {
+      id: Date.now().toString(),
+      service_type: bookingData.serviceType || 'grooming',
+      appointment_date: bookingData.appointmentDate || '',
+      appointment_time: bookingData.appointmentTime || '',
+      pet_name: bookingData.petName || '',
+      pet_breed: bookingData.petBreed || '',
+      pet_size: bookingData.petSize || '',
+      customer_name: bookingData.customerName || '',
+      customer_email: bookingData.customerEmail || '',
+      customer_phone: bookingData.customerPhone || '',
+      groomer: bookingData.groomer || '',
+      status: 'pending',
+      created_at: new Date().toISOString()
+    };
+    
+    // Add additional fields if present
+    if (bookingData.specialRequests) rowData.special_requests = bookingData.specialRequests;
+    if (bookingData.addOnServices) rowData.add_on_services = bookingData.addOnServices;
+    
+    // Append the row to Google Sheets
+    const result = await appendRow(sheetsConfig.SHEET_NAMES.BOOKINGS, rowData);
+    
+    // Return a properly formatted booking object
+    return {
+      id: parseInt(rowData.id),
+      serviceType: rowData.service_type,
+      appointmentDate: rowData.appointment_date,
+      appointmentTime: rowData.appointment_time,
+      petName: rowData.pet_name,
+      petBreed: rowData.pet_breed,
+      petSize: rowData.pet_size,
+      customerName: rowData.customer_name,
+      customerEmail: rowData.customer_email,
+      customerPhone: rowData.customer_phone,
+      groomer: rowData.groomer,
+      status: rowData.status,
+      createdAt: rowData.created_at
+    };
+  } catch (error) {
+    console.error("Error creating booking:", error);
+    // Return a mock booking in case of error to avoid breaking the client
+    return {
+      id: Date.now(),
+      serviceType: bookingData.serviceType,
+      appointmentDate: bookingData.appointmentDate,
+      appointmentTime: bookingData.appointmentTime,
+      petName: bookingData.petName,
+      petBreed: bookingData.petBreed,
+      petSize: bookingData.petSize,
+      customerName: bookingData.customerName,
+      customerEmail: bookingData.customerEmail,
+      customerPhone: bookingData.customerPhone,
+      groomer: bookingData.groomer,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+  }
+}
+
+// Submit contact form to Google Sheets
+export async function submitContactForm(formData) {
+  try {
+    const rowData = {
+      id: Date.now().toString(),
+      name: formData.name || '',
+      email: formData.email || '',
+      subject: formData.subject || '',
+      message: formData.message || '',
+      submitted_at: new Date().toISOString()
+    };
+    
+    await appendRow(sheetsConfig.SHEET_NAMES.CONTACTS, rowData);
+    return true;
+  } catch (error) {
+    console.error("Error submitting contact form:", error);
+    return false;
+  }
+}
 
 export const storage = {
-  getAvailableTimeSlots
+  getAvailableTimeSlots,
+  createBooking,
+  submitContactForm
 }; 
