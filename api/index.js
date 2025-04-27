@@ -3,7 +3,7 @@ import express from 'express';
 // Use direct JS imports
 import fs from 'fs';
 import path from 'path';
-import { storage } from '../server/storage.js';
+import { storage } from './storage.js';
 
 const app = express();
 app.use(express.json());

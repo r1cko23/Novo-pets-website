@@ -3,7 +3,7 @@ import {
   type InsertBooking,
   type ContactFormValues,
   PetSize
-} from "@shared/schema";
+} from "../shared/schema";
 import { googleSheetsService } from "./googleSheets";
 import { googleSheetsConfig } from "./config";
 
