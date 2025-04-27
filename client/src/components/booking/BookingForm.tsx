@@ -116,9 +116,11 @@ export default function BookingForm() {
       return result;
     },
     enabled: !!selectedDate, // Only run query when a date is selected
-    staleTime: 0, // Always refetch when the date changes to ensure up-to-date availability
-    gcTime: 5000, // Only keep cached data for 5 seconds
-    refetchInterval: 30000 // Refetch every 30 seconds to keep data fresh
+    staleTime: 0, // Always consider data stale
+    gcTime: 0, // Don't cache at all
+    refetchOnMount: true, // Refetch when the component mounts
+    refetchOnWindowFocus: true, // Refetch when the window regains focus
+    refetchInterval: 5000 // Refetch every 5 seconds to keep data fresh
   });
   
   // Update available time slots when data changes
@@ -233,19 +235,49 @@ export default function BookingForm() {
         // Reset the time selection since it's no longer available
         form.setValue("appointmentTime", "");
         
-        // Refresh availability data to get the latest slot information
+        // If we know which time slot was attempted, manually mark it as unavailable in the UI
+        // to provide immediate feedback
+        const attemptedTime = form.getValues("appointmentTime");
+        const attemptedGroomer = selectedGroomer;
+        
+        if (attemptedTime && attemptedGroomer && availableTimeSlots.length > 0) {
+          // Update the local state to mark this slot as unavailable
+          const updatedTimeSlots = availableTimeSlots.map(slot => {
+            if (slot.time === attemptedTime && slot.groomer === attemptedGroomer) {
+              return { ...slot, available: false };
+            }
+            return slot;
+          });
+          
+          setAvailableTimeSlots(updatedTimeSlots);
+          console.log(`Manually marked slot ${attemptedTime} for ${attemptedGroomer} as unavailable`);
+        }
+        
+        // Use a more aggressive approach to refresh availability data
         if (selectedDate) {
           const formattedDate = format(new Date(selectedDate), "yyyy-MM-dd");
+          
+          // Invalidate the cache for this date
           invalidateAvailabilityQueries(formattedDate);
+          
+          // Force an immediate refetch with a unique timestamp to bypass any caching
+          setTimeout(() => {
+            refetchAvailability();
+          }, 100);
         }
-        refetchAvailability();
+        
+        toast({
+          title: "Time Slot Unavailable",
+          description: "This time slot has just been booked by someone else. Please select another time.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Booking Failed",
+          description: errorMessage,
+          variant: "destructive",
+        });
       }
-      
-      toast({
-        title: "Booking Failed",
-        description: errorMessage,
-        variant: "destructive",
-      });
     },
   });
   
@@ -548,6 +580,13 @@ export default function BookingForm() {
                           onValueChange={field.onChange}
                           value={field.value}
                           disabled={!selectedDate || !selectedGroomer || isLoadingAvailability}
+                          onOpenChange={(open) => {
+                            // Refetch availability data when the dropdown is opened
+                            if (open && selectedDate) {
+                              // Force a fresh refetch to ensure we have the latest availability
+                              refetchAvailability();
+                            }
+                          }}
                         >
                           <FormControl>
                             <SelectTrigger className="w-full">

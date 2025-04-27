@@ -64,10 +64,14 @@ app.get('/api/availability', async (req, res) => {
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
     
+    const timestamp = new Date().toISOString();
+    console.log(`Returning availability data at ${timestamp}`);
+    
     return res.status(200).json({ 
       success: true, 
       availableTimeSlots,
-      timestamp: new Date().toISOString() // Add timestamp to help debug cache issues
+      timestamp: timestamp,
+      message: `Data fetched at ${timestamp}`
     });
   } catch (error) {
     console.error("Error fetching availability:", error);
