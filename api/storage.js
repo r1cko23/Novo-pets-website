@@ -1,6 +1,6 @@
 // api/storage.js
 // Implementation with Google Sheets integration
-import { appendRow, getRows, sheetsConfig } from './sheets.js';
+import { appendRow, getRows, updateRow, sheetsConfig } from './sheets.js';
 
 // Define array of time slots (from 9 AM to 6 PM)
 const TIME_SLOTS = [
@@ -9,6 +9,9 @@ const TIME_SLOTS = [
 
 // Define groomers
 const GROOMERS = ["Groomer 1", "Groomer 2"];
+
+// Define the timeout for pending bookings in minutes
+const PENDING_BOOKING_TIMEOUT_MINUTES = 15;
 
 /**
  * Utility function to normalize date strings to YYYY-MM-DD format
@@ -90,6 +93,31 @@ function normalizeTime(timeStr) {
   return timeStr;
 }
 
+/**
+ * Check if a pending booking has expired
+ * @param {Object} booking - The booking object
+ * @returns {boolean} - True if the booking has expired
+ */
+function hasPendingBookingExpired(booking) {
+  if (!booking || booking.status !== 'pending') {
+    return false;
+  }
+  
+  try {
+    const createdAt = new Date(booking.created_at);
+    const now = new Date();
+    
+    // Calculate the difference in minutes
+    const diffMinutes = (now.getTime() - createdAt.getTime()) / (1000 * 60);
+    
+    // Check if the booking has expired based on the timeout
+    return diffMinutes > PENDING_BOOKING_TIMEOUT_MINUTES;
+  } catch (error) {
+    console.error("Error checking if pending booking has expired:", error);
+    return false;
+  }
+}
+
 // Get available time slots for a specific date
 export async function getAvailableTimeSlots(date) {
   try {
@@ -106,22 +134,27 @@ export async function getAvailableTimeSlots(date) {
       console.log(`Booking ${index}: Date=${booking.appointment_date}, Time=${booking.appointment_time}, Groomer=${booking.groomer || 'Not specified'}, Status=${booking.status || 'Not specified'}`);
     });
     
-    // Filter bookings for the requested date with status confirmed or pending
+    // Filter bookings for the requested date
     const bookingsForDate = bookings.filter(booking => {
       // Ensure we normalize the booking date consistently
       const bookingDate = normalizeDate(booking.appointment_date);
       const isMatchingDate = bookingDate === normalizedDate;
-      // Consider empty status as valid (pending)
-      const isValidStatus = !booking.status || booking.status === "confirmed" || booking.status === "pending" || booking.status === "";
+      
+      // Check if the pending booking has expired
+      const isPendingExpired = booking.status === 'pending' && hasPendingBookingExpired(booking);
+      
+      // Only include confirmed bookings or non-expired pending bookings
+      const isValidStatus = booking.status === "confirmed" || (booking.status === "pending" && !isPendingExpired);
+      
       // Consider empty service type as grooming
       const isGroomingService = !booking.service_type || booking.service_type === "grooming" || booking.service_type === "";
       
-      console.log(`Checking booking: Date=${bookingDate} (Match=${isMatchingDate}), Status=${booking.status} (Valid=${isValidStatus}), Service=${booking.service_type} (Grooming=${isGroomingService})`);
+      console.log(`Checking booking: Date=${bookingDate} (Match=${isMatchingDate}), Status=${booking.status} (Valid=${isValidStatus}), Service=${booking.service_type} (Grooming=${isGroomingService}), Expired=${isPendingExpired}`);
       
       return isMatchingDate && isValidStatus && isGroomingService;
     });
     
-    console.log(`Found ${bookingsForDate.length} bookings for date ${normalizedDate}`);
+    console.log(`Found ${bookingsForDate.length} valid bookings for date ${normalizedDate}`);
     
     // Debug log the filtered bookings
     bookingsForDate.forEach((booking, index) => {
@@ -215,6 +248,28 @@ async function getBookings(forceRefresh = false) {
     const options = forceRefresh ? { noCache: true } : {};
     const bookings = await getRows(sheetsConfig.SHEET_NAMES.BOOKINGS, options);
     console.log(`Retrieved ${bookings.length} bookings from Google Sheets`);
+    
+    // Check for expired pending bookings and update their status
+    const now = new Date();
+    const expiredBookings = bookings.filter(booking => 
+      booking.status === 'pending' && hasPendingBookingExpired(booking)
+    );
+    
+    // Log expired bookings for debugging
+    if (expiredBookings.length > 0) {
+      console.log(`Found ${expiredBookings.length} expired pending bookings`);
+      
+      // Update each expired booking to 'expired' status
+      // This is done asynchronously, but we don't wait for it to complete
+      expiredBookings.forEach(async (booking) => {
+        try {
+          await updateBookingStatus(booking.id, 'expired');
+        } catch (error) {
+          console.error(`Error updating expired booking ${booking.id}:`, error);
+        }
+      });
+    }
+    
     return bookings;
   } catch (error) {
     console.error("Error getting bookings:", error);
@@ -266,7 +321,7 @@ export async function createBooking(bookingData) {
     console.log(`Available slots for booking: ${JSON.stringify(availableSlots)}`);
     
     // Determine which groomer to use
-    const groomerToCheck = bookingData.groomer || "Groomer 1"; // Default to Groomer 1 if not specified
+    const groomerToCheck = bookingData.groomer || "Groomer 1";
     
     // Find the exact slot for the requested time and groomer
     const requestedSlot = availableSlots.find(
@@ -294,7 +349,7 @@ export async function createBooking(bookingData) {
       customer_email: bookingData.customerEmail || '',
       customer_phone: bookingData.customerPhone || '',
       groomer: groomerToCheck,
-      status: 'pending',
+      status: 'confirmed',
       created_at: new Date().toISOString()
     };
     
@@ -330,7 +385,59 @@ export async function createBooking(bookingData) {
   }
 }
 
-// Submit contact form to Google Sheets
+/**
+ * Update the status of a booking
+ * @param {string} bookingId - The ID of the booking to update
+ * @param {string} newStatus - The new status ('confirmed', 'canceled', 'expired', etc.)
+ * @returns {Promise<Object>} - The updated booking
+ */
+export async function updateBookingStatus(bookingId, newStatus) {
+  try {
+    console.log(`Updating booking ${bookingId} to status ${newStatus}`);
+    
+    // Get all bookings
+    const bookings = await getBookings(true); // Force refresh
+    
+    // Find the booking with the given ID
+    const bookingIndex = bookings.findIndex(booking => booking.id.toString() === bookingId.toString());
+    
+    if (bookingIndex === -1) {
+      throw new Error(`Booking with ID ${bookingId} not found`);
+    }
+    
+    const booking = bookings[bookingIndex];
+    
+    // Update the status in the booking object
+    booking.status = newStatus;
+    
+    // Update the row in Google Sheets
+    await updateRow(sheetsConfig.SHEET_NAMES.BOOKINGS, bookingIndex, booking);
+    
+    console.log(`Successfully updated booking ${bookingId} to status ${newStatus}`);
+    
+    // Return the updated booking
+    return {
+      id: booking.id,
+      serviceType: booking.service_type,
+      appointmentDate: booking.appointment_date,
+      appointmentTime: booking.appointment_time,
+      petName: booking.pet_name,
+      petBreed: booking.pet_breed,
+      petSize: booking.pet_size,
+      specialRequests: booking.special_requests,
+      customerName: booking.customer_name,
+      customerEmail: booking.customer_email,
+      customerPhone: booking.customer_phone,
+      groomer: booking.groomer,
+      status: booking.status,
+      createdAt: booking.created_at
+    };
+  } catch (error) {
+    console.error(`Error updating booking status for ${bookingId}:`, error);
+    throw error;
+  }
+}
+
 export async function submitContactForm(formData) {
   try {
     const rowData = {
@@ -353,5 +460,6 @@ export async function submitContactForm(formData) {
 export const storage = {
   getAvailableTimeSlots,
   createBooking,
+  updateBookingStatus,
   submitContactForm
 }; 

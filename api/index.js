@@ -122,6 +122,43 @@ app.post('/api/bookings', async (req, res) => {
   }
 });
 
+// Update booking status
+app.put('/api/bookings/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Booking ID is required"
+      });
+    }
+    
+    if (!status || !['confirmed', 'canceled', 'completed'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid status is required (confirmed, canceled, or completed)"
+      });
+    }
+    
+    // Update the booking status
+    const updatedBooking = await storage.updateBookingStatus(id, status);
+    
+    return res.status(200).json({
+      success: true,
+      message: `Booking status updated to ${status}`,
+      booking: updatedBooking
+    });
+  } catch (error) {
+    console.error("Error updating booking status:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to update booking status"
+    });
+  }
+});
+
 // Submit contact form
 app.post('/api/contact', async (req, res) => {
   try {

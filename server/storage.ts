@@ -161,7 +161,7 @@ export class GoogleSheetsStorage implements IStorage {
       const bookingsForDate = bookings.filter(booking => {
         const bookingDate = normalizeDate(booking.appointmentDate);
         const isMatchingDate = bookingDate === normalizedDate;
-        const isValidStatus = booking.status === "confirmed" || booking.status === "pending";
+        const isValidStatus = booking.status === "confirmed"; // Only consider confirmed bookings
         const isGroomingService = booking.serviceType === "grooming";
         
         console.log(`DEBUG Checking booking: Date=${bookingDate} (Match=${isMatchingDate}), Status=${booking.status} (Valid=${isValidStatus}), Service=${booking.serviceType} (Grooming=${isGroomingService})`);
@@ -282,7 +282,7 @@ export class GoogleSheetsStorage implements IStorage {
         customer_email: insertBooking.customerEmail || 'Not provided',
         payment_method: insertBooking.paymentMethod || 'cash',
         groomer: insertBooking.groomer || null,
-        status: insertBooking.status || 'pending',
+        status: insertBooking.status || 'confirmed',
         created_at: new Date().toISOString()
       };
       
