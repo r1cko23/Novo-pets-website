@@ -25,7 +25,7 @@ export default function MapContainer({
       {height ? (
         <div className="w-full h-full relative">
           <iframe 
-            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3861.216!2d121.0754!3d14.6325!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3397b7ae893641a3%3A0xa606b4bb5c0312c1!2sCaltex!5e0!3m2!1sen!2sus!4v1698755982291!5m2!1sen!2sus"
+            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3861.2267361964193!2d121.07297801744384!3d14.632503899999991!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3397b7ae6f9eec0f%3A0x3a3ea4f2222c56ff!2sCaltex%20White%20Plains!5e0!3m2!1sen!2sus!4v1710997384815!5m2!1sen!2sus"
             width="100%" 
             height="100%" 
             style={{ border: 0 }} 
@@ -59,7 +59,7 @@ export default function MapContainer({
       ) : (
         <AspectRatio ratio={aspectRatio} className="flex-grow">
           <iframe 
-            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3861.216!2d121.0754!3d14.6325!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3397b7ae893641a3%3A0xa606b4bb5c0312c1!2sCaltex!5e0!3m2!1sen!2sus!4v1698755982291!5m2!1sen!2sus"
+            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3861.2267361964193!2d121.07297801744384!3d14.632503899999991!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3397b7ae6f9eec0f%3A0x3a3ea4f2222c56ff!2sCaltex%20White%20Plains!5e0!3m2!1sen!2sus!4v1710997384815!5m2!1sen!2sus"
             width="100%" 
             height="100%" 
             style={{ border: 0 }} 
