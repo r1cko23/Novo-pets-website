@@ -1,13 +1,16 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 
+// Import the background image
+import novoBgImage from '../../../assets/novo_bg.jpeg';
+
 export default function Hero() {
   return (
     <section className="relative overflow-hidden">
       <div 
         className="relative bg-cover bg-center h-[600px]" 
         style={{
-          backgroundImage: `url('/images/novo_bg.jpeg')`
+          backgroundImage: `url(${novoBgImage})`
         }}
       >
         {/* Gradient Overlay */}

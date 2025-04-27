@@ -205,6 +205,23 @@ export default function BookingForm() {
     setStep(prev => prev - 1);
   };
   
+  // Function to display all possible time slots, including booked ones
+  const getTimeSlotDisplay = (groomer: string) => {
+    // All possible time slots
+    const allTimeSlots = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
+    
+    // Set of available times for this groomer
+    const availableTimesSet = new Set(
+      timeSlotsByGroomer[groomer]?.map(slot => slot.time) || []
+    );
+    
+    return allTimeSlots.map(time => ({
+      time,
+      groomer,
+      available: availableTimesSet.has(time)
+    }));
+  };
+  
   return (
     <div className="max-w-4xl mx-auto bg-[#f8f5f2] rounded-lg shadow-lg overflow-hidden">
       <div className="md:flex">
@@ -464,9 +481,14 @@ export default function BookingForm() {
                           </FormControl>
                           <SelectContent>
                             {selectedGroomer && timeSlotsByGroomer[selectedGroomer]?.length > 0 ? (
-                              timeSlotsByGroomer[selectedGroomer].map((slot: TimeSlot) => (
-                                <SelectItem key={`${slot.time}-${slot.groomer}`} value={slot.time}>
-                                  {slot.time}
+                              getTimeSlotDisplay(selectedGroomer).map((slot) => (
+                                <SelectItem 
+                                  key={`${slot.time}-${slot.groomer}`} 
+                                  value={slot.time}
+                                  disabled={!slot.available}
+                                  className={!slot.available ? "opacity-50 line-through cursor-not-allowed" : ""}
+                                >
+                                  {slot.time} {!slot.available && "(Booked)"}
                                 </SelectItem>
                               ))
                             ) : (
