@@ -121,6 +121,22 @@ export default function ServiceTabs() {
           
           {/* Hotel Services */}
           <TabsContent value="hotel">
+            <div className="grid grid-cols-1 gap-6 mb-6">
+              <div className="bg-[#f8f5f2] p-6 rounded-lg shadow-md">
+                <div className="mb-4 overflow-hidden rounded-md h-64">
+                  <img 
+                    src="/images/services/pet_hotel.jpg" 
+                    alt="Pet hotel accommodations" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <h3 className="text-xl font-playfair font-bold text-[#9a7d62] mb-4">Luxury Pet Accommodations</h3>
+                <p className="text-gray-700 mb-4">
+                  Our pet hotel offers comfortable, spacious accommodations with personalized care for your furry family members. We provide a home-away-from-home experience where your pet will receive attention, exercise, and proper care during their stay.
+                </p>
+              </div>
+            </div>
+            
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {hotelPrices.map((service, index) => (
                 <div key={index} className="bg-[#f8f5f2] p-6 rounded-lg shadow-md">
@@ -169,7 +185,7 @@ export default function ServiceTabs() {
               <div className="bg-[#f8f5f2] p-6 rounded-lg shadow-md">
                 <div className="mb-4 overflow-hidden rounded-md h-64">
                   <img 
-                    src="/images/services/daycare3.jpg" 
+                    src="/images/services/pet_daycare.jpg" 
                     alt="Pets in daycare" 
                     className="w-full h-full object-cover"
                   />
@@ -226,6 +242,22 @@ export default function ServiceTabs() {
           
           {/* Transport Services */}
           <TabsContent value="transport">
+            <div className="grid grid-cols-1 gap-6 mb-6">
+              <div className="bg-[#f8f5f2] p-6 rounded-lg shadow-md">
+                <div className="mb-4 overflow-hidden rounded-md h-64">
+                  <img 
+                    src="/images/services/paw-pickup.jpg" 
+                    alt="Pet transport service" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <h3 className="text-xl font-playfair font-bold text-[#9a7d62] mb-4">Paw Pickup & Drop-off Service</h3>
+                <p className="text-gray-700 mb-4">
+                  Our convenient transport service makes pet care hassle-free. We'll pick up your pet from your home and return them after their appointment, saving you time and ensuring your pet arrives safely and comfortably.
+                </p>
+              </div>
+            </div>
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {transportPrices.map((service, index) => (
                 <div key={index} className="bg-[#f8f5f2] p-6 rounded-lg shadow-md">

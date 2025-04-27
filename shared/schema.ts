@@ -476,17 +476,17 @@ export const serviceOverviewItems = [
   {
     title: "Boutique Pet Hotel",
     description: "Comfortable accommodations with personalized care for your pet's staycation needs.",
-    image: "https://images.unsplash.com/photo-1616668983570-a971956d8928?q=80&w=800&auto=format&fit=crop"
+    image: "/images/services/pet_hotel.jpg"
   },
   {
     title: "Pet DayCare",
     description: "Fun and safe supervised activities in a social setting for your pet while you're away.",
-    image: "https://images.unsplash.com/photo-1647293513293-02f29172ccad?q=80&w=800&auto=format&fit=crop"
+    image: "/images/services/pet_daycare.jpg"
   },
   {
     title: "Paw Pickup & Drop-off",
     description: "Convenient transport service for your pet to and from our facility within a 3km radius.",
-    image: "https://images.unsplash.com/photo-1583512603806-077998240c7a?q=80&w=800&auto=format&fit=crop"
+    image: "/images/services/paw-pickup.jpg"
   }
 ];
 
