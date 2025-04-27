@@ -99,11 +99,14 @@ app.post('/api/bookings', async (req, res) => {
     console.error("Error creating booking:", error);
     
     // Check for specific error types to provide better responses
-    if (error.message && error.message.includes('not available')) {
-      return res.status(409).json({
-        success: false,
-        message: error.message
-      });
+    if (error.message) {
+      if (error.message.includes('not available') || error.message.includes('already booked')) {
+        return res.status(409).json({
+          success: false,
+          message: error.message,
+          errorCode: 'SLOT_UNAVAILABLE'
+        });
+      }
     }
     
     return res.status(500).json({

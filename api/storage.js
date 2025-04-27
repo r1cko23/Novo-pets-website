@@ -181,18 +181,20 @@ export async function createBooking(bookingData) {
     const availableSlots = await getAvailableTimeSlots(normalizedDate);
     console.log(`Available slots for booking: ${JSON.stringify(availableSlots)}`);
     
+    // Determine which groomer to use
+    const groomerToCheck = bookingData.groomer || "Groomer 1"; // Default to Groomer 1 if not specified
+    
+    // Find the exact slot for the requested time and groomer
     const requestedSlot = availableSlots.find(
       slot => slot.time === normalizedTime && 
-             (!bookingData.groomer || slot.groomer === bookingData.groomer)
+             slot.groomer === groomerToCheck &&
+             slot.available === true // Must be explicitly available
     );
     
     if (!requestedSlot) {
-      console.error(`Slot ${normalizedTime} is not available for booking on ${normalizedDate}`);
-      throw new Error(`The requested time slot ${normalizedTime} is not available.`);
+      console.error(`Slot ${normalizedTime} for ${groomerToCheck} is not available for booking on ${normalizedDate}`);
+      throw new Error(`The requested time slot ${normalizedTime} for ${groomerToCheck} is not available or already booked.`);
     }
-    
-    // If groomer wasn't specified, use the one from the available slot
-    const assignedGroomer = bookingData.groomer || requestedSlot.groomer;
     
     // Prepare the row data for Google Sheets
     const rowData = {
@@ -207,7 +209,7 @@ export async function createBooking(bookingData) {
       customer_name: bookingData.customerName || '',
       customer_email: bookingData.customerEmail || '',
       customer_phone: bookingData.customerPhone || '',
-      groomer: assignedGroomer,
+      groomer: groomerToCheck,
       status: 'pending',
       created_at: new Date().toISOString()
     };

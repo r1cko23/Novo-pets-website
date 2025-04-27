@@ -43,7 +43,7 @@ import {
 } from "@shared/schema";
 import { cn, generateTimeSlots, getBookingReference } from "@/lib/utils";
 import PetDetails from "./PetDetails";
-import { TimeSlot } from "@/types";
+import { TimeSlot } from "@/types/index";
 
 export default function BookingForm() {
   const [step, setStep] = useState(1);
@@ -145,6 +145,11 @@ export default function BookingForm() {
         
         if (!isStillAvailable) {
           form.setValue("appointmentTime", "");
+          toast({
+            title: "Time slot no longer available",
+            description: "The time slot you selected is no longer available. Please select another time.",
+            variant: "destructive",
+          });
         }
       }
     } else {
@@ -198,9 +203,19 @@ export default function BookingForm() {
       });
     },
     onError: (error) => {
+      // Check if the error message contains information about an unavailable time slot
+      const errorMessage = error instanceof Error ? error.message : "Please try again";
+      if (errorMessage.includes("not available") || errorMessage.includes("already booked")) {
+        // Reset the time selection since it's no longer available
+        form.setValue("appointmentTime", "");
+        
+        // Refresh availability data to get the latest slot information
+        refetchAvailability();
+      }
+      
       toast({
         title: "Booking Failed",
-        description: error instanceof Error ? error.message : "Please try again",
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -542,14 +557,7 @@ export default function BookingForm() {
                               )
                             ) : (
                               <div className="px-4 py-6 text-center">
-                                {selectedGroomer && !isLoadingAvailability ? (
-                                  <div className="flex flex-col items-center">
-                                    <p className="text-sm text-red-500 font-semibold">No available slots for this groomer</p>
-                                    <p className="text-xs text-gray-500 mt-1">Please select another groomer</p>
-                                  </div>
-                                ) : (
-                                  <p className="text-sm text-gray-500">Please select a groomer first</p>
-                                )}
+                                <p className="text-sm text-gray-500">Please select a groomer first</p>
                               </div>
                             )}
                           </SelectContent>
