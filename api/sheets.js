@@ -122,7 +122,7 @@ function getDefaultHeaders(sheetName) {
 }
 
 // Get all rows from a sheet
-export async function getRows(sheetName) {
+export async function getRows(sheetName, options = {}) {
   try {
     const sheets = await getGoogleSheetsClient();
     if (!sheets) {
@@ -130,9 +130,12 @@ export async function getRows(sheetName) {
       return [];
     }
 
+    // Add cache-busting query parameter if noCache is set
+    const cacheBuster = options.noCache ? `&_=${Date.now()}` : '';
+    
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${sheetName}!A:Z`
+      range: `${sheetName}!A:Z`,
     });
 
     if (!response.data.values || response.data.values.length <= 1) {

@@ -107,15 +107,18 @@ export default function BookingForm() {
     queryFn: async () => {
       if (!selectedDate) return { availableTimeSlots: [] };
       
+      // Add timestamp to prevent caching
+      const timestamp = new Date().getTime();
       const formattedDate = format(new Date(selectedDate), "yyyy-MM-dd");
-      const response = await apiRequest("GET", `/api/availability?date=${formattedDate}`);
+      const response = await apiRequest("GET", `/api/availability?date=${formattedDate}&_=${timestamp}`);
       const result = await response.json();
       console.log("Fetched availability data:", result);
       return result;
     },
     enabled: !!selectedDate, // Only run query when a date is selected
     staleTime: 0, // Always refetch when the date changes to ensure up-to-date availability
-    gcTime: 0 // Don't cache availability data to ensure freshness
+    gcTime: 5000, // Only keep cached data for 5 seconds
+    refetchInterval: 30000 // Refetch every 30 seconds to keep data fresh
   });
   
   // Update available time slots when data changes

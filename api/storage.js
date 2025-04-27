@@ -97,8 +97,8 @@ export async function getAvailableTimeSlots(date) {
     const normalizedDate = normalizeDate(date);
     console.log(`Getting available time slots for date: ${normalizedDate}`);
 
-    // Get all bookings
-    const bookings = await getBookings();
+    // IMPORTANT: Force a fresh fetch from Google Sheets each time to prevent stale data
+    const bookings = await getBookings(true); // Pass true to force refresh
     console.log(`Total bookings found in sheet: ${bookings.length}`);
     
     // Debug log all bookings to see their format
@@ -209,9 +209,11 @@ export async function getAvailableTimeSlots(date) {
 }
 
 // Get all bookings from Google Sheets
-async function getBookings() {
+async function getBookings(forceRefresh = false) {
   try {
-    const bookings = await getRows(sheetsConfig.SHEET_NAMES.BOOKINGS);
+    // Use a no-cache approach to force fresh data
+    const options = forceRefresh ? { noCache: true } : {};
+    const bookings = await getRows(sheetsConfig.SHEET_NAMES.BOOKINGS, options);
     console.log(`Retrieved ${bookings.length} bookings from Google Sheets`);
     return bookings;
   } catch (error) {

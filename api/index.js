@@ -59,9 +59,15 @@ app.get('/api/availability', async (req, res) => {
     console.log(`Availability request for date: ${date}`);
     const availableTimeSlots = await storage.getAvailableTimeSlots(date);
     
+    // Set cache control headers to prevent caching
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
     return res.status(200).json({ 
       success: true, 
-      availableTimeSlots 
+      availableTimeSlots,
+      timestamp: new Date().toISOString() // Add timestamp to help debug cache issues
     });
   } catch (error) {
     console.error("Error fetching availability:", error);
