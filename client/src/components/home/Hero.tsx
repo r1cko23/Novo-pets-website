@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 
 // Import the background image
-import novoBgImage from '../../../assets/novo_bg.jpeg';
+import novoBgImage from '@/assets/novo_bg.jpeg';
 
 export default function Hero() {
   return (
