@@ -167,6 +167,13 @@ export default function ServiceTabs() {
           <TabsContent value="daycare">
             <div className="grid grid-cols-1 gap-6">
               <div className="bg-[#f8f5f2] p-6 rounded-lg shadow-md">
+                <div className="mb-4 overflow-hidden rounded-md h-64">
+                  <img 
+                    src="/images/services/daycare3.jpg" 
+                    alt="Pets in daycare" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
                 <h3 className="text-xl font-playfair font-bold text-[#9a7d62] mb-2">Daily Daycare Service</h3>
                 <p className="text-gray-700 mb-4">
                   Our daycare services provide a safe, supervised environment where your pet can socialize, play, and exercise while you're away. 

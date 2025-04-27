@@ -56,7 +56,7 @@ export default function Services() {
                 className="rounded-lg shadow-md h-48 object-cover w-full"
               />
               <img 
-                src="https://images.unsplash.com/photo-1548199973-03cce0bbc87b?q=80&w=600&auto=format&fit=crop" 
+                src="/images/services/daycare1.jpg" 
                 alt="Pet Daycare Activities" 
                 className="rounded-lg shadow-md h-48 object-cover w-full"
               />
@@ -161,7 +161,7 @@ export default function Services() {
             <div className="bg-white p-6 rounded-lg shadow-md">
               <div className="h-48 mb-4 overflow-hidden rounded-md">
                 <img 
-                  src="https://images.unsplash.com/photo-1647293513293-02f29172ccad?q=80&w=800&auto=format&fit=crop" 
+                  src="/images/services/daycare2.jpg" 
                   alt="Pet Daycare" 
                   className="w-full h-full object-cover"
                 />
