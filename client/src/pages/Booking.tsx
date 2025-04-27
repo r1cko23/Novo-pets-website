@@ -72,7 +72,7 @@ export default function Booking() {
               </div>
               <h3 className="text-xl font-playfair font-semibold text-[#9a7d62] mb-3">Transport Service</h3>
               <p className="text-gray-700">
-                Optional pick-up and drop-off service within 5km radius for hassle-free pet care.
+                Optional pick-up and drop-off service within 3km radius for hassle-free pet care.
               </p>
             </div>
             
@@ -163,7 +163,7 @@ export default function Booking() {
             Book an appointment now or contact us if you have any questions about our services.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Link href="#booking-form">
+            <Link href="/booking">
               <Button size="lg" className="bg-[#9a7d62] hover:bg-[#9a7d62]/90 text-white">
                 Book an Appointment <ArrowRight className="ml-2 h-4 w-4" />
               </Button>

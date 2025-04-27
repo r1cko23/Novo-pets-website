@@ -33,25 +33,6 @@ export default function About() {
                   <p className="italic font-playfair">"Every pet deserves the royal treatment."</p>
                 </div>
               </div>
-              
-              <div className="mt-16 grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="bg-[#f8f5f2] p-6 rounded-lg shadow">
-                  <h3 className="text-xl font-playfair font-semibold text-[#9a7d62] mb-3">Facility Size</h3>
-                  <p className="text-gray-700">72 sqm of specially designed spa and wellness space for pets.</p>
-                </div>
-                <div className="bg-[#f8f5f2] p-6 rounded-lg shadow">
-                  <h3 className="text-xl font-playfair font-semibold text-[#9a7d62] mb-3">Expert Staff</h3>
-                  <p className="text-gray-700">4 dedicated employees including 2 professional groomers and additional spa care staff.</p>
-                </div>
-                <div className="bg-[#f8f5f2] p-6 rounded-lg shadow">
-                  <h3 className="text-xl font-playfair font-semibold text-[#9a7d62] mb-3">Operating Hours</h3>
-                  <p className="text-gray-700">9 AM - 6 PM daily, with last appointments at 5 PM.</p>
-                </div>
-                <div className="bg-[#f8f5f2] p-6 rounded-lg shadow">
-                  <h3 className="text-xl font-playfair font-semibold text-[#9a7d62] mb-3">Service Area</h3>
-                  <p className="text-gray-700">Located in White Plains, serving St. Ignatius, Corinthian Gardens, and Green Meadows.</p>
-                </div>
-              </div>
             </div>
             
             <div className="lg:w-1/2 space-y-8">

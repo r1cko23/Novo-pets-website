@@ -118,7 +118,7 @@ export default function Services() {
             <div className="bg-white p-6 rounded-lg shadow-md">
               <div className="h-48 mb-4 overflow-hidden rounded-md">
                 <img 
-                  src="https://images.unsplash.com/photo-1541599540903-216a046a8d00?q=80&w=800&auto=format&fit=crop" 
+                  src="https://images.unsplash.com/photo-1616668983570-a971956d8928?q=80&w=800&auto=format&fit=crop" 
                   alt="Pet Hotel" 
                   className="w-full h-full object-cover"
                 />
@@ -161,7 +161,7 @@ export default function Services() {
             <div className="bg-white p-6 rounded-lg shadow-md">
               <div className="h-48 mb-4 overflow-hidden rounded-md">
                 <img 
-                  src="https://images.unsplash.com/photo-1548199569-3e1c6aa8f469?q=80&w=800&auto=format&fit=crop" 
+                  src="https://images.unsplash.com/photo-1647293513293-02f29172ccad?q=80&w=800&auto=format&fit=crop" 
                   alt="Pet Daycare" 
                   className="w-full h-full object-cover"
                 />
@@ -220,7 +220,7 @@ export default function Services() {
                 </li>
                 <li className="flex items-center mb-1">
                   <span className="text-[#9a7d62] mr-2">✓</span>
-                  <span>Service within 5km radius</span>
+                  <span>Service within 3km radius</span>
                 </li>
                 <li className="flex items-center">
                   <span className="text-[#9a7d62] mr-2">✓</span>
@@ -231,49 +231,6 @@ export default function Services() {
                 href="#services" 
                 onClick={() => {
                   setActiveTab("transport");
-                  document.getElementById("services")?.scrollIntoView({ behavior: "smooth" });
-                }}
-              >
-                <Button 
-                  variant="outline" 
-                  className="w-full border-[#9a7d62] text-[#9a7d62] hover:bg-[#9a7d62]/10"
-                >
-                  View Services
-                </Button>
-              </Link>
-            </div>
-            
-            {/* Treats */}
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <div className="h-48 mb-4 overflow-hidden rounded-md">
-                <img 
-                  src="https://images.unsplash.com/photo-1600841867003-288a757a8631?q=80&w=800&auto=format&fit=crop" 
-                  alt="Frozen Yogurt Treats" 
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <h3 className="text-xl font-playfair font-bold text-[#9a7d62] mb-3">Frozen Yogurt Treats</h3>
-              <p className="text-gray-700 mb-4">
-                Our specially formulated frozen yogurt treats are a favorite among our pet clients. Made with pet-friendly ingredients, these delicious treats are the perfect way to reward your furry friend after their grooming session.
-              </p>
-              <ul className="mb-4 text-sm text-gray-700">
-                <li className="flex items-center mb-1">
-                  <span className="text-[#9a7d62] mr-2">✓</span>
-                  <span>Pet-safe ingredients</span>
-                </li>
-                <li className="flex items-center mb-1">
-                  <span className="text-[#9a7d62] mr-2">✓</span>
-                  <span>Human-grade options available</span>
-                </li>
-                <li className="flex items-center">
-                  <span className="text-[#9a7d62] mr-2">✓</span>
-                  <span>Premium flavors and toppings</span>
-                </li>
-              </ul>
-              <Link 
-                href="#services" 
-                onClick={() => {
-                  setActiveTab("treats");
                   document.getElementById("services")?.scrollIntoView({ behavior: "smooth" });
                 }}
               >

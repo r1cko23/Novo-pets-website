@@ -46,7 +46,7 @@ export default function Footer() {
               <FooterLink href="/services">Pet Hotel</FooterLink>
               <FooterLink href="/services">Daycare & Playcare</FooterLink>
               <FooterLink href="/services">Pick-up & Drop-off</FooterLink>
-              <FooterLink href="/services">Frozen Yogurt</FooterLink>
+              <FooterLink href="/services">Spa Add-Ons</FooterLink>
             </ul>
           </div>
           
@@ -59,11 +59,11 @@ export default function Footer() {
               </li>
               <li className="flex items-center">
                 <Phone className="mr-3 h-5 w-5" />
-                <span>(+63) 912-345-6789</span>
+                <span>09177151609 / 09052510937</span>
               </li>
               <li className="flex items-center">
                 <Mail className="mr-3 h-5 w-5" />
-                <span>info@novopets.com</span>
+                <span>novopetsph@gmail.com</span>
               </li>
               <li className="flex items-center">
                 <Clock className="mr-3 h-5 w-5" />

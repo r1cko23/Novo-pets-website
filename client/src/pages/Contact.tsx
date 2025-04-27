@@ -62,7 +62,7 @@ export default function Contact() {
                         </div>
                         <div className="ml-4">
                           <h4 className="font-montserrat font-semibold text-gray-900">Phone</h4>
-                          <p className="text-gray-600">(+63) 912-345-6789</p>
+                          <p className="text-gray-600">09177151609 / 09052510937</p>
                         </div>
                       </div>
                       
@@ -72,7 +72,7 @@ export default function Contact() {
                         </div>
                         <div className="ml-4">
                           <h4 className="font-montserrat font-semibold text-gray-900">Email</h4>
-                          <p className="text-gray-600">info@novopets.com</p>
+                          <p className="text-gray-600">novopetsph@gmail.com</p>
                         </div>
                       </div>
                       
@@ -110,7 +110,7 @@ export default function Contact() {
             <div className="space-y-2">
               <h3 className="text-lg font-montserrat font-semibold text-[#9a7d62]">What areas do you serve?</h3>
               <p className="text-gray-700">
-                Our facility is located in White Plains, and we primarily serve clients in White Plains, St. Ignatius, Corinthian Gardens, and Green Meadows. Our transport service covers a 5km radius from our location.
+                Our facility is located in White Plains, and we primarily serve clients in White Plains, St. Ignatius, Corinthian Gardens, and Green Meadows. Our transport service covers a 3km radius from our location.
               </p>
             </div>
             
