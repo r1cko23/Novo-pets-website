@@ -19,13 +19,46 @@ app.get('/api/healthcheck', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Add other API routes here
-app.get('/api/pets', (req, res) => {
-  res.json([
-    { id: 1, name: 'Fluffy', type: 'cat', size: 'small' },
-    { id: 2, name: 'Buddy', type: 'dog', size: 'medium' },
-    { id: 3, name: 'Rex', type: 'dog', size: 'large' }
-  ]);
+// Add the status endpoint to match our server/routes.ts file
+app.get('/api/status', (req, res) => {
+  console.log("Status API called - API is working");
+  return res.status(200).json({ 
+    status: "OK", 
+    message: "API is working",
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Google Sheets status check
+app.get('/api/sheets-status', (req, res) => {
+  // This endpoint will help diagnose if Google Sheets is connected
+  res.json({ 
+    status: 'checking', 
+    message: 'Google Sheets connection check - see Vercel logs for details',
+    env_vars_present: {
+      GOOGLE_SERVICE_ACCOUNT_EMAIL: !!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+      GOOGLE_PRIVATE_KEY: !!process.env.GOOGLE_PRIVATE_KEY,
+      GOOGLE_SPREADSHEET_ID: !!process.env.GOOGLE_SPREADSHEET_ID
+    }
+  });
+});
+
+// Add placeholder for availability endpoint
+app.get('/api/availability', (req, res) => {
+  const { date } = req.query;
+  console.log(`Availability request for date: ${date}`);
+  
+  // Return mock data for now
+  res.json({
+    success: true,
+    availableTimeSlots: [
+      { time: "09:00", groomer: "Groomer 1" },
+      { time: "10:00", groomer: "Groomer 1" },
+      { time: "11:00", groomer: "Groomer 2" },
+      { time: "13:00", groomer: "Groomer 2" },
+      { time: "14:00", groomer: "Groomer 1" }
+    ]
+  });
 });
 
 // Handle errors

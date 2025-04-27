@@ -6,8 +6,8 @@
   ],
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/index.js" },
-    { "src": "^/(.*)\\.(js|css|png|jpg|jpeg|gif|ico|json|svg|webp|mp4|webm|ogg|mp3|wav|pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar|7z)$", "dest": "/dist/public/$1.$2" },
     { "handle": "filesystem" },
+    { "src": "^/(.*)\\.(js|css|png|jpg|jpeg|gif|ico|json|svg|webp|mp4|webm|ogg|mp3|wav|pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar|7z)$", "dest": "/dist/public/$1.$2" },
     { "src": "/(.*)", "dest": "/api/index.js" }
   ]
 } 
