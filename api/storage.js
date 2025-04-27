@@ -15,8 +15,16 @@ const GROOMERS = ["Groomer 1", "Groomer 2"];
  */
 function normalizeDate(dateStr) {
   try {
+    if (!dateStr) return '';
+    
     // Create a Date object
     const date = new Date(dateStr);
+    
+    // Check for invalid date
+    if (isNaN(date.getTime())) {
+      console.error(`Invalid date string: ${dateStr}`);
+      return dateStr;
+    }
     
     // Format in local timezone as YYYY-MM-DD
     const year = date.getFullYear();
@@ -38,6 +46,48 @@ function normalizeDate(dateStr) {
     }
     return dateStr;
   }
+}
+
+/**
+ * Normalize time format to ensure consistent comparison
+ */
+function normalizeTime(timeStr) {
+  if (!timeStr) return '';
+  
+  // Convert to string and trim whitespace
+  timeStr = String(timeStr).trim();
+  
+  // Handle format with period instead of colon (e.g., "9.00")
+  if (timeStr.includes('.')) {
+    timeStr = timeStr.replace('.', ':');
+  }
+  
+  // Add leading zero for single-digit hours (e.g., "9:00" to "09:00")
+  if (timeStr.length === 4 && timeStr[1] === ':') {
+    timeStr = `0${timeStr}`;
+  }
+  
+  // Handle AM/PM format
+  if (timeStr.toLowerCase().includes('am')) {
+    timeStr = timeStr.toLowerCase().replace('am', '').trim();
+    // Add leading zero if needed
+    if (timeStr.length === 4 && timeStr[1] === ':') {
+      timeStr = `0${timeStr}`;
+    }
+  } else if (timeStr.toLowerCase().includes('pm')) {
+    timeStr = timeStr.toLowerCase().replace('pm', '').trim();
+    // Convert to 24-hour format
+    const parts = timeStr.split(':');
+    if (parts.length === 2) {
+      let hour = parseInt(parts[0]);
+      if (hour < 12) {
+        hour += 12;
+      }
+      timeStr = `${hour}:${parts[1]}`;
+    }
+  }
+  
+  return timeStr;
 }
 
 // Get available time slots for a specific date
@@ -88,20 +138,29 @@ export async function getAvailableTimeSlots(date) {
     
     // Populate booked slots for each groomer
     bookingsForDate.forEach(booking => {
-      // Make sure to trim any whitespace that might exist in the time value and handle format variations (9:00 vs 09:00)
-      let bookedTime = (booking.appointment_time || "").trim();
+      // Normalize time format consistently
+      const bookedTime = normalizeTime(booking.appointment_time);
       
-      // Normalize time format (e.g., "9:00" to "09:00")
-      if (bookedTime.length === 4 && bookedTime[1] === ':') {
-        bookedTime = `0${bookedTime}`;
+      // Skip if no valid time
+      if (!bookedTime) {
+        console.log(`Skipping booking with empty time: ${JSON.stringify(booking)}`);
+        return;
       }
       
       // Default to Groomer 1 if not specified or empty
       const assignedGroomer = (booking.groomer && booking.groomer.trim()) || "Groomer 1";
       
-      if (bookedSlotsByGroomer[assignedGroomer]) {
-        console.log(`Marking time slot ${bookedTime} as booked for ${assignedGroomer}`);
-        bookedSlotsByGroomer[assignedGroomer].add(bookedTime);
+      // Check if this groomer is in our predefined list (case insensitive comparison)
+      const matchedGroomer = GROOMERS.find(g => 
+        g.toLowerCase() === assignedGroomer.toLowerCase()
+      ) || "Groomer 1";
+      
+      if (bookedSlotsByGroomer[matchedGroomer]) {
+        console.log(`Marking time slot ${bookedTime} as booked for ${matchedGroomer}`);
+        bookedSlotsByGroomer[matchedGroomer].add(bookedTime);
+      } else {
+        console.error(`Unknown groomer: ${assignedGroomer}, defaulting to Groomer 1`);
+        bookedSlotsByGroomer["Groomer 1"].add(bookedTime);
       }
     });
     
@@ -166,16 +225,39 @@ export async function createBooking(bookingData) {
   try {
     // Normalize the appointment date
     const normalizedDate = normalizeDate(bookingData.appointmentDate || '');
+    if (!normalizedDate) {
+      throw new Error('Invalid appointment date');
+    }
     
-    // Ensure time format is consistent (no extra spaces)
-    let normalizedTime = (bookingData.appointmentTime || '').trim();
-    
-    // Normalize time format (e.g., "9:00" to "09:00")
-    if (normalizedTime.length === 4 && normalizedTime[1] === ':') {
-      normalizedTime = `0${normalizedTime}`;
+    // Normalize time format consistently
+    const normalizedTime = normalizeTime(bookingData.appointmentTime);
+    if (!normalizedTime) {
+      throw new Error('Invalid appointment time');
     }
     
     console.log(`Creating booking for ${normalizedDate} at ${normalizedTime}`);
+    
+    // Double-check by getting all current bookings directly
+    const allBookings = await getBookings();
+    const existingBooking = allBookings.find(booking => {
+      const bookingDate = normalizeDate(booking.appointment_date);
+      const bookingTime = normalizeTime(booking.appointment_time);
+      const groomer = booking.groomer?.trim() || "Groomer 1";
+      
+      const requestedGroomer = bookingData.groomer || "Groomer 1";
+      
+      // Check if this booking is for the same date, time, and groomer
+      return (
+        bookingDate === normalizedDate && 
+        bookingTime === normalizedTime &&
+        groomer.toLowerCase() === requestedGroomer.toLowerCase()
+      );
+    });
+    
+    if (existingBooking) {
+      console.error(`Slot ${normalizedTime} on ${normalizedDate} for ${bookingData.groomer || "Groomer 1"} is already booked`);
+      throw new Error(`This time slot is already booked. Please select another time or groomer.`);
+    }
     
     // Check if this slot is actually available before creating the booking
     const availableSlots = await getAvailableTimeSlots(normalizedDate);

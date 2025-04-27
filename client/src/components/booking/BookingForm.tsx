@@ -3,7 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, invalidateAvailabilityQueries } from "@/lib/queryClient";
 import { 
   Form, 
   FormControl, 
@@ -187,12 +187,33 @@ export default function BookingForm() {
   // Mutation for submitting form
   const mutation = useMutation({
     mutationFn: async (data: BookingFormValues) => {
-      const response = await apiRequest("POST", "/api/bookings", data);
+      // Make sure the groomer is included in the booking data
+      const bookingData = {
+        ...data,
+        groomer: selectedGroomer
+      };
+      
+      console.log("Submitting booking with data:", bookingData);
+      
+      const response = await apiRequest("POST", "/api/bookings", bookingData);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to book appointment");
+      }
+      
       return response.json();
     },
     onSuccess: (data) => {
       // After successful booking, invalidate and refetch availability data
       // to make sure it's updated for all users
+      if (selectedDate) {
+        const formattedDate = format(new Date(selectedDate), "yyyy-MM-dd");
+        invalidateAvailabilityQueries(formattedDate);
+      } else {
+        invalidateAvailabilityQueries();
+      }
+      
+      // Also force a direct refetch
       refetchAvailability();
       
       setBookingReference(getBookingReference());
@@ -210,6 +231,10 @@ export default function BookingForm() {
         form.setValue("appointmentTime", "");
         
         // Refresh availability data to get the latest slot information
+        if (selectedDate) {
+          const formattedDate = format(new Date(selectedDate), "yyyy-MM-dd");
+          invalidateAvailabilityQueries(formattedDate);
+        }
         refetchAvailability();
       }
       
@@ -222,6 +247,15 @@ export default function BookingForm() {
   });
   
   const onSubmit = (data: BookingFormValues) => {
+    if (!selectedGroomer) {
+      toast({
+        title: "Missing Groomer",
+        description: "Please select a groomer before confirming your booking.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     mutation.mutate(data);
   };
   

@@ -55,3 +55,13 @@ export const queryClient = new QueryClient({
     },
   },
 });
+
+export function invalidateAvailabilityQueries(date?: string) {
+  if (date) {
+    queryClient.invalidateQueries({ queryKey: ["availability", date] });
+    console.log(`Invalidated availability for date: ${date}`);
+  } else {
+    queryClient.invalidateQueries({ queryKey: ["availability"] });
+    console.log("Invalidated all availability queries");
+  }
+}
