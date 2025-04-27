@@ -247,7 +247,7 @@ export default function Services() {
             <div className="bg-white p-6 rounded-lg shadow-md">
               <div className="h-48 mb-4 overflow-hidden rounded-md">
                 <img 
-                  src="https://images.unsplash.com/photo-1567008252030-8b8b62f7f325?q=80&w=800&auto=format&fit=crop" 
+                  src="https://images.unsplash.com/photo-1596491221267-8789418d4e64?q=80&w=800&auto=format&fit=crop" 
                   alt="Spa Treatments" 
                   className="w-full h-full object-cover"
                 />

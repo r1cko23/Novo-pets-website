@@ -476,12 +476,12 @@ export const serviceOverviewItems = [
   {
     title: "Boutique Pet Hotel",
     description: "Comfortable accommodations with personalized care for your pet's staycation needs.",
-    image: "https://images.unsplash.com/photo-1541599540903-216a046a8d00?q=80&w=800&auto=format&fit=crop"
+    image: "https://images.unsplash.com/photo-1570566998157-0b13b5a7f950?q=80&w=800&auto=format&fit=crop"
   },
   {
     title: "Pet DayCare",
     description: "Fun and safe supervised activities in a social setting for your pet while you're away.",
-    image: "https://images.unsplash.com/photo-1548199569-3e1c6aa8f469?q=80&w=800&auto=format&fit=crop"
+    image: "https://images.unsplash.com/photo-1534361960057-19889db9621e?q=80&w=800&auto=format&fit=crop"
   },
   {
     title: "Paw Pickup & Drop-off",
