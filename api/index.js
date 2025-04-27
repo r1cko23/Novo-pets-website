@@ -36,7 +36,7 @@ app.use((err, _req, res, _next) => {
 
 // Serve static files
 const __dirname = path.dirname(new URL(import.meta.url).pathname);
-const staticDir = path.join(__dirname, '../dist/client');
+const staticDir = path.join(__dirname, '../dist/public');
 
 if (fs.existsSync(staticDir)) {
   app.use(express.static(staticDir));
