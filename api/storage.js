@@ -49,15 +49,31 @@ export async function getAvailableTimeSlots(date) {
 
     // Get all bookings
     const bookings = await getBookings();
+    console.log(`Total bookings found in sheet: ${bookings.length}`);
+    
+    // Debug log all bookings to see their format
+    bookings.forEach((booking, index) => {
+      console.log(`Booking ${index}: Date=${booking.appointment_date}, Time=${booking.appointment_time}, Groomer=${booking.groomer}, Status=${booking.status}`);
+    });
     
     // Filter bookings for the requested date with status confirmed or pending
-    const bookingsForDate = bookings.filter(booking => 
-      normalizeDate(booking.appointment_date) === normalizedDate && 
-      (booking.status === "confirmed" || booking.status === "pending") &&
-      booking.service_type === "grooming"
-    );
+    const bookingsForDate = bookings.filter(booking => {
+      const bookingDate = normalizeDate(booking.appointment_date);
+      const isMatchingDate = bookingDate === normalizedDate;
+      const isValidStatus = booking.status === "confirmed" || booking.status === "pending" || booking.status === "";
+      const isGroomingService = booking.service_type === "grooming" || booking.service_type === "";
+      
+      console.log(`Checking booking: Date=${bookingDate} (Match=${isMatchingDate}), Status=${booking.status} (Valid=${isValidStatus}), Service=${booking.service_type} (Grooming=${isGroomingService})`);
+      
+      return isMatchingDate && isValidStatus && isGroomingService;
+    });
     
     console.log(`Found ${bookingsForDate.length} bookings for date ${normalizedDate}`);
+    
+    // Debug log the filtered bookings
+    bookingsForDate.forEach((booking, index) => {
+      console.log(`Filtered booking ${index}: Time=${booking.appointment_time}, Groomer=${booking.groomer || "Groomer 1"}`);
+    });
     
     // Track booked slots for each groomer
     const bookedSlotsByGroomer = {};
@@ -69,12 +85,20 @@ export async function getAvailableTimeSlots(date) {
     
     // Populate booked slots for each groomer
     bookingsForDate.forEach(booking => {
-      const bookedTime = booking.appointment_time;
-      const assignedGroomer = booking.groomer || "Groomer 1"; // Default to Groomer 1 if not specified
+      // Make sure to trim any whitespace that might exist in the time value
+      const bookedTime = (booking.appointment_time || "").trim();
+      // Default to Groomer 1 if not specified or empty
+      const assignedGroomer = (booking.groomer && booking.groomer.trim()) || "Groomer 1";
       
       if (bookedSlotsByGroomer[assignedGroomer]) {
+        console.log(`Marking time slot ${bookedTime} as booked for ${assignedGroomer}`);
         bookedSlotsByGroomer[assignedGroomer].add(bookedTime);
       }
+    });
+    
+    // Log the booked slots for each groomer
+    GROOMERS.forEach(groomer => {
+      console.log(`Booked slots for ${groomer}: ${[...bookedSlotsByGroomer[groomer]].join(', ')}`);
     });
     
     // Create map of available slots for each groomer
@@ -85,6 +109,7 @@ export async function getAvailableTimeSlots(date) {
       availableSlotsByGroomer[groomer] = TIME_SLOTS.filter(
         timeSlot => !bookedSlotsByGroomer[groomer].has(timeSlot)
       );
+      console.log(`Available slots for ${groomer}: ${availableSlotsByGroomer[groomer].join(', ')}`);
     });
     
     // Format the result
@@ -101,6 +126,7 @@ export async function getAvailableTimeSlots(date) {
       });
     }
     
+    console.log(`Returning ${result.length} available slots for ${normalizedDate}`);
     return result;
   } catch (error) {
     console.error("Error getting available time slots:", error);
@@ -131,19 +157,42 @@ async function getBookings() {
 // Create a booking in Google Sheets
 export async function createBooking(bookingData) {
   try {
+    // Normalize the appointment date
+    const normalizedDate = normalizeDate(bookingData.appointmentDate || '');
+    
+    // Ensure time format is consistent (no extra spaces)
+    const normalizedTime = (bookingData.appointmentTime || '').trim();
+    
+    console.log(`Creating booking for ${normalizedDate} at ${normalizedTime}`);
+    
+    // Check if this slot is actually available before creating the booking
+    const availableSlots = await getAvailableTimeSlots(normalizedDate);
+    const requestedSlot = availableSlots.find(
+      slot => slot.time === normalizedTime && 
+             (!bookingData.groomer || slot.groomer === bookingData.groomer)
+    );
+    
+    if (!requestedSlot) {
+      console.error(`Slot ${normalizedTime} is not available for booking on ${normalizedDate}`);
+      throw new Error(`The requested time slot ${normalizedTime} is not available.`);
+    }
+    
+    // If groomer wasn't specified, use the one from the available slot
+    const assignedGroomer = bookingData.groomer || requestedSlot.groomer;
+    
     // Prepare the row data for Google Sheets
     const rowData = {
       id: Date.now().toString(),
       service_type: bookingData.serviceType || 'grooming',
-      appointment_date: bookingData.appointmentDate || '',
-      appointment_time: bookingData.appointmentTime || '',
+      appointment_date: normalizedDate,
+      appointment_time: normalizedTime,
       pet_name: bookingData.petName || '',
       pet_breed: bookingData.petBreed || '',
       pet_size: bookingData.petSize || '',
       customer_name: bookingData.customerName || '',
       customer_email: bookingData.customerEmail || '',
       customer_phone: bookingData.customerPhone || '',
-      groomer: bookingData.groomer || '',
+      groomer: assignedGroomer,
       status: 'pending',
       created_at: new Date().toISOString()
     };
@@ -151,6 +200,8 @@ export async function createBooking(bookingData) {
     // Add additional fields if present
     if (bookingData.specialRequests) rowData.special_requests = bookingData.specialRequests;
     if (bookingData.addOnServices) rowData.add_on_services = bookingData.addOnServices;
+    
+    console.log('Sending booking data to Google Sheets:', rowData);
     
     // Append the row to Google Sheets
     const result = await appendRow(sheetsConfig.SHEET_NAMES.BOOKINGS, rowData);

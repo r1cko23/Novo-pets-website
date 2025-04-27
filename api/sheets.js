@@ -136,20 +136,29 @@ export async function getRows(sheetName) {
     });
 
     if (!response.data.values || response.data.values.length <= 1) {
+      console.log(`No data found in sheet: ${sheetName}`);
       return [];
     }
+
+    // Log the raw data for debugging
+    console.log(`Raw data from ${sheetName}:`, JSON.stringify(response.data.values.slice(0, 3)));
 
     const headers = response.data.values[0].map(header => 
       header.toLowerCase().replace(/\s+/g, '_')
     );
+    
+    console.log(`Headers in ${sheetName}:`, headers.join(', '));
 
-    return response.data.values.slice(1).map(row => {
+    const rows = response.data.values.slice(1).map(row => {
       const rowObj = {};
       headers.forEach((header, index) => {
         rowObj[header] = index < row.length ? row[index] : '';
       });
       return rowObj;
     });
+    
+    console.log(`Fetched ${rows.length} rows from ${sheetName}`);
+    return rows;
   } catch (error) {
     console.error(`Error getting rows from ${sheetName}:`, error);
     return [];
