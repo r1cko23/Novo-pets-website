@@ -3,6 +3,7 @@ import express from 'express';
 // Use direct JS imports
 import fs from 'fs';
 import path from 'path';
+import { storage } from '../server/storage.js';
 
 const app = express();
 app.use(express.json());
@@ -43,22 +44,32 @@ app.get('/api/sheets-status', (req, res) => {
   });
 });
 
-// Add placeholder for availability endpoint
-app.get('/api/availability', (req, res) => {
-  const { date } = req.query;
-  console.log(`Availability request for date: ${date}`);
-  
-  // Return mock data for now
-  res.json({
-    success: true,
-    availableTimeSlots: [
-      { time: "09:00", groomer: "Groomer 1" },
-      { time: "10:00", groomer: "Groomer 1" },
-      { time: "11:00", groomer: "Groomer 2" },
-      { time: "13:00", groomer: "Groomer 2" },
-      { time: "14:00", groomer: "Groomer 1" }
-    ]
-  });
+// Use the proper implementation for availability endpoint
+app.get('/api/availability', async (req, res) => {
+  try {
+    const { date } = req.query;
+    
+    if (!date || typeof date !== 'string') {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Date parameter is required" 
+      });
+    }
+    
+    console.log(`Availability request for date: ${date}`);
+    const availableTimeSlots = await storage.getAvailableTimeSlots(date);
+    
+    return res.status(200).json({ 
+      success: true, 
+      availableTimeSlots 
+    });
+  } catch (error) {
+    console.error("Error fetching availability:", error);
+    return res.status(500).json({ 
+      success: false, 
+      message: "Failed to fetch availability" 
+    });
+  }
 });
 
 // Handle errors
