@@ -87,6 +87,22 @@ export default function ServiceTabs() {
           
           {/* Grooming Services */}
           <TabsContent value="grooming">
+            <div className="grid grid-cols-1 gap-6 mb-6">
+              <div className="bg-[#f8f5f2] p-6 rounded-lg shadow-md">
+                <div className="mb-4 overflow-hidden rounded-md h-64">
+                  <img 
+                    src="/images/services/pet_spa.jpg" 
+                    alt="Luxury pet spa treatments" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <h3 className="text-xl font-playfair font-bold text-[#9a7d62] mb-4">Exclusive Spa & Grooming</h3>
+                <p className="text-gray-700 mb-4">
+                  Our premium grooming services combine expert care with luxurious treatments to ensure your pet not only looks their best but feels their best. From aromatherapy to specialized treatments, we provide a relaxing spa experience for your beloved companion.
+                </p>
+              </div>
+            </div>
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {groomingPrices.map((service, index) => (
                 <div key={index} className="bg-[#f8f5f2] p-6 rounded-lg shadow-md">

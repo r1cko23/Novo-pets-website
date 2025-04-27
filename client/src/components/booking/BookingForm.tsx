@@ -128,14 +128,24 @@ export default function BookingForm() {
       
       // Reset the time selection if the previously selected time is no longer available
       const currentTime = form.getValues("appointmentTime");
-      if (currentTime && !typedTimeSlots.some(slot => slot.time === currentTime)) {
-        form.setValue("appointmentTime", "");
+      const currentGroomer = selectedGroomer;
+      
+      if (currentTime && currentGroomer) {
+        const isStillAvailable = typedTimeSlots.some(
+          slot => slot.time === currentTime && 
+                 slot.groomer === currentGroomer && 
+                 slot.available === true
+        );
+        
+        if (!isStillAvailable) {
+          form.setValue("appointmentTime", "");
+        }
       }
     } else {
       // Clear available time slots if no data is available
       setAvailableTimeSlots([]);
     }
-  }, [availabilityData, form]);
+  }, [availabilityData, form, selectedGroomer]);
   
   // Group time slots by groomer
   const timeSlotsByGroomer = availableTimeSlots.reduce((acc, slot) => {
@@ -146,7 +156,7 @@ export default function BookingForm() {
     return acc;
   }, {} as Record<string, TimeSlot[]>);
 
-  // Get list of groomers with available slots
+  // Get list of groomers with slots
   const groomersWithSlots = Object.keys(timeSlotsByGroomer);
   
   // Mutation for submitting form
@@ -480,15 +490,22 @@ export default function BookingForm() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {selectedGroomer && timeSlotsByGroomer[selectedGroomer]?.length > 0 ? (
-                              getTimeSlotDisplay(selectedGroomer).map((slot) => (
+                            {selectedGroomer ? (
+                              timeSlotsByGroomer[selectedGroomer].map((slot) => (
                                 <SelectItem 
                                   key={`${slot.time}-${slot.groomer}`} 
                                   value={slot.time}
                                   disabled={!slot.available}
-                                  className={!slot.available ? "opacity-50 line-through cursor-not-allowed" : ""}
+                                  className={cn(
+                                    !slot.available && "opacity-70 line-through text-red-400 cursor-not-allowed bg-gray-100 relative"
+                                  )}
                                 >
-                                  {slot.time} {!slot.available && "(Booked)"}
+                                  <div className="flex justify-between w-full items-center">
+                                    <span>{slot.time}</span>
+                                    {!slot.available && (
+                                      <span className="text-red-500 text-xs font-medium ml-2">(Booked)</span>
+                                    )}
+                                  </div>
                                 </SelectItem>
                               ))
                             ) : (

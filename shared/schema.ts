@@ -471,7 +471,7 @@ export const serviceOverviewItems = [
   {
     title: "Luxury Grooming & Spa",
     description: "Pamper your pet with our premium grooming services including aromatherapy and spa treatments.",
-    image: "https://images.unsplash.com/photo-1516734212186-a967f81ad0d7?q=80&w=800&auto=format&fit=crop"
+    image: "/images/services/pet_spa.jpg"
   },
   {
     title: "Boutique Pet Hotel",

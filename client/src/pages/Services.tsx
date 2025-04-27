@@ -41,12 +41,12 @@ export default function Services() {
             
             <div className="grid grid-cols-2 gap-4">
               <img 
-                src="https://images.unsplash.com/photo-1557495235-340eb888a9fb?q=80&w=600&auto=format&fit=crop" 
+                src="/images/services/pet_spa.jpg" 
                 alt="Luxury Pet Grooming" 
                 className="rounded-lg shadow-md h-48 object-cover w-full"
               />
               <img 
-                src="https://images.unsplash.com/photo-1596492784531-6e6eb5ea9993?q=80&w=600&auto=format&fit=crop" 
+                src="/images/services/pet_spa.jpg" 
                 alt="Pet Spa Treatment" 
                 className="rounded-lg shadow-md h-48 object-cover w-full"
               />
@@ -75,7 +75,7 @@ export default function Services() {
             <div className="bg-white p-6 rounded-lg shadow-md">
               <div className="h-48 mb-4 overflow-hidden rounded-md">
                 <img 
-                  src="https://images.unsplash.com/photo-1516734212186-a967f81ad0d7?q=80&w=800&auto=format&fit=crop" 
+                  src="/images/services/pet_spa.jpg" 
                   alt="Luxury Grooming" 
                   className="w-full h-full object-cover"
                 />
@@ -247,7 +247,7 @@ export default function Services() {
             <div className="bg-white p-6 rounded-lg shadow-md">
               <div className="h-48 mb-4 overflow-hidden rounded-md">
                 <img 
-                  src="https://images.unsplash.com/photo-1596491221267-8789418d4e64?q=80&w=800&auto=format&fit=crop" 
+                  src="/images/services/pet_spa.jpg" 
                   alt="Spa Treatments" 
                   className="w-full h-full object-cover"
                 />

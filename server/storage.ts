@@ -51,7 +51,7 @@ export interface IStorage {
   getBookings(): Promise<Booking[]>;
   getBooking(id: number): Promise<Booking | null>;
   createBooking(booking: InsertBooking): Promise<Booking>;
-  getAvailableTimeSlots(date: string): Promise<Array<{time: string, groomer: string}>>;
+  getAvailableTimeSlots(date: string): Promise<Array<{time: string, groomer: string, available?: boolean}>>;
   
   // Contact form methods
   submitContactForm(form: ContactFormValues): Promise<boolean>;
@@ -142,7 +142,7 @@ export class GoogleSheetsStorage implements IStorage {
     }
   }
   
-  async getAvailableTimeSlots(date: string): Promise<Array<{time: string, groomer: string}>> {
+  async getAvailableTimeSlots(date: string): Promise<Array<{time: string, groomer: string, available?: boolean}>> {
     try {
       // Normalize date format
       const normalizedDate = normalizeDate(date);
@@ -178,28 +178,19 @@ export class GoogleSheetsStorage implements IStorage {
         }
       });
       
-      // Create map of available slots for each groomer
-      const availableSlotsByGroomer: Record<string, string[]> = {};
-      
-      // For each groomer, determine available slots
-      GROOMERS.forEach(groomer => {
-        availableSlotsByGroomer[groomer] = TIME_SLOTS.filter(
-          timeSlot => !bookedSlotsByGroomer[groomer].has(timeSlot)
-        );
-      });
-      
       // Format the result
-      const result: Array<{time: string, groomer: string}> = [];
+      const result: Array<{time: string, groomer: string, available: boolean}> = [];
       
-      // Add available slots for each groomer to the result
+      // Add ALL time slots for each groomer to the result (both available and booked)
       for (const groomer of GROOMERS) {
-        const slots = availableSlotsByGroomer[groomer];
-        slots.forEach(slot => {
+        for (const timeSlot of TIME_SLOTS) {
+          const isAvailable = !bookedSlotsByGroomer[groomer].has(timeSlot);
           result.push({
-            time: slot,
-            groomer: groomer
+            time: timeSlot,
+            groomer: groomer,
+            available: isAvailable
           });
-        });
+        }
       }
       
       return result;
