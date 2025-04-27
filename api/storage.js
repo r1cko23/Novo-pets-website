@@ -13,6 +13,24 @@ const GROOMERS = ["Groomer 1", "Groomer 2"];
 // Define the timeout for pending bookings in minutes
 const PENDING_BOOKING_TIMEOUT_MINUTES = 15;
 
+// Define the temporary reservation timeout in minutes
+const RESERVATION_TIMEOUT_MINUTES = 5;
+
+// Map to track temporary reservations
+const reservations = new Map();
+
+// Cleanup interval for expired reservations (every minute)
+setInterval(() => {
+  const now = new Date();
+  for (const [key, reservation] of reservations.entries()) {
+    const diffMinutes = (now.getTime() - reservation.timestamp) / (1000 * 60);
+    if (diffMinutes > RESERVATION_TIMEOUT_MINUTES) {
+      console.log(`Removing expired reservation: ${key}`);
+      reservations.delete(key);
+    }
+  }
+}, 60000);
+
 /**
  * Utility function to normalize date strings to YYYY-MM-DD format
  */
@@ -118,6 +136,83 @@ function hasPendingBookingExpired(booking) {
   }
 }
 
+/**
+ * Create a temporary reservation for a time slot
+ * @param {string} date - The appointment date
+ * @param {string} time - The appointment time
+ * @param {string} groomer - The selected groomer
+ * @returns {string} - Reservation ID
+ */
+export function createReservation(date, time, groomer) {
+  const reservationId = `res_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  const normalizedDate = normalizeDate(date);
+  const normalizedTime = normalizeTime(time);
+  
+  const key = `${normalizedDate}_${normalizedTime}_${groomer}`;
+  reservations.set(key, {
+    id: reservationId,
+    timestamp: Date.now()
+  });
+  
+  console.log(`Created reservation ${reservationId} for ${key}`);
+  return reservationId;
+}
+
+/**
+ * Check if a reservation exists and is valid
+ * @param {string} date - The appointment date
+ * @param {string} time - The appointment time
+ * @param {string} groomer - The selected groomer
+ * @param {string} reservationId - The reservation ID to validate
+ * @returns {boolean} - Whether the reservation is valid
+ */
+export function validateReservation(date, time, groomer, reservationId) {
+  const normalizedDate = normalizeDate(date);
+  const normalizedTime = normalizeTime(time);
+  
+  const key = `${normalizedDate}_${normalizedTime}_${groomer}`;
+  const reservation = reservations.get(key);
+  
+  if (!reservation) {
+    console.log(`No reservation found for ${key}`);
+    return false;
+  }
+  
+  if (reservation.id !== reservationId) {
+    console.log(`Reservation ID mismatch for ${key}: expected ${reservation.id}, got ${reservationId}`);
+    return false;
+  }
+  
+  const now = new Date();
+  const diffMinutes = (now.getTime() - reservation.timestamp) / (1000 * 60);
+  if (diffMinutes > RESERVATION_TIMEOUT_MINUTES) {
+    console.log(`Reservation ${reservationId} for ${key} has expired`);
+    reservations.delete(key);
+    return false;
+  }
+  
+  return true;
+}
+
+/**
+ * Remove a reservation after it's been used or cancelled
+ * @param {string} date - The appointment date
+ * @param {string} time - The appointment time
+ * @param {string} groomer - The selected groomer
+ */
+export function removeReservation(date, time, groomer) {
+  const normalizedDate = normalizeDate(date);
+  const normalizedTime = normalizeTime(time);
+  
+  const key = `${normalizedDate}_${normalizedTime}_${groomer}`;
+  if (reservations.has(key)) {
+    console.log(`Removing reservation for ${key}`);
+    reservations.delete(key);
+    return true;
+  }
+  return false;
+}
+
 // Get available time slots for a specific date
 export async function getAvailableTimeSlots(date) {
   try {
@@ -199,6 +294,17 @@ export async function getAvailableTimeSlots(date) {
     GROOMERS.forEach(groomer => {
       console.log(`Booked slots for ${groomer}: ${Array.from(bookedSlotsByGroomer[groomer]).join(', ')}`);
     });
+    
+    // Also mark slots with active reservations as unavailable
+    for (const [key, reservation] of reservations.entries()) {
+      const [resDate, resTime, resGroomer] = key.split('_');
+      if (resDate === normalizedDate) {
+        console.log(`Marking reserved slot ${resTime} for ${resGroomer} as unavailable`);
+        if (bookedSlotsByGroomer[resGroomer]) {
+          bookedSlotsByGroomer[resGroomer].add(resTime);
+        }
+      }
+    }
     
     // Format the result
     const result = [];
@@ -292,45 +398,60 @@ export async function createBooking(bookingData) {
     
     console.log(`Creating booking for ${normalizedDate} at ${normalizedTime}`);
     
-    // Double-check by getting all current bookings directly
-    const allBookings = await getBookings();
-    const existingBooking = allBookings.find(booking => {
-      const bookingDate = normalizeDate(booking.appointment_date);
-      const bookingTime = normalizeTime(booking.appointment_time);
-      const groomer = booking.groomer?.trim() || "Groomer 1";
-      
-      const requestedGroomer = bookingData.groomer || "Groomer 1";
-      
-      // Check if this booking is for the same date, time, and groomer
-      return (
-        bookingDate === normalizedDate && 
-        bookingTime === normalizedTime &&
-        groomer.toLowerCase() === requestedGroomer.toLowerCase()
-      );
-    });
-    
-    if (existingBooking) {
-      console.error(`Slot ${normalizedTime} on ${normalizedDate} for ${bookingData.groomer || "Groomer 1"} is already booked`);
-      throw new Error(`This time slot is already booked. Please select another time or groomer.`);
-    }
-    
-    // Check if this slot is actually available before creating the booking
-    const availableSlots = await getAvailableTimeSlots(normalizedDate);
-    console.log(`Available slots for booking: ${JSON.stringify(availableSlots)}`);
-    
-    // Determine which groomer to use
+    // Check if there's a valid reservation for this slot
     const groomerToCheck = bookingData.groomer || "Groomer 1";
     
-    // Find the exact slot for the requested time and groomer
-    const requestedSlot = availableSlots.find(
-      slot => slot.time === normalizedTime && 
-             slot.groomer === groomerToCheck &&
-             slot.available === true // Must be explicitly available
-    );
-    
-    if (!requestedSlot) {
-      console.error(`Slot ${normalizedTime} for ${groomerToCheck} is not available for booking on ${normalizedDate}`);
-      throw new Error(`The requested time slot ${normalizedTime} for ${groomerToCheck} is not available or already booked.`);
+    // Validate reservation if provided
+    if (bookingData.reservationId) {
+      const isValidReservation = validateReservation(
+        normalizedDate, 
+        normalizedTime, 
+        groomerToCheck, 
+        bookingData.reservationId
+      );
+      
+      if (!isValidReservation) {
+        throw new Error(`Your reservation for this time slot has expired. Please select another time.`);
+      }
+      
+      // If valid, remove the reservation since we're booking it now
+      removeReservation(normalizedDate, normalizedTime, groomerToCheck);
+    } else {
+      // Double-check by getting all current bookings directly
+      const allBookings = await getBookings();
+      const existingBooking = allBookings.find(booking => {
+        const bookingDate = normalizeDate(booking.appointment_date);
+        const bookingTime = normalizeTime(booking.appointment_time);
+        const groomer = booking.groomer?.trim() || "Groomer 1";
+        
+        // Check if this booking is for the same date, time, and groomer
+        return (
+          bookingDate === normalizedDate && 
+          bookingTime === normalizedTime &&
+          groomer.toLowerCase() === groomerToCheck.toLowerCase()
+        );
+      });
+      
+      if (existingBooking) {
+        console.error(`Slot ${normalizedTime} on ${normalizedDate} for ${groomerToCheck} is already booked`);
+        throw new Error(`This time slot is already booked. Please select another time or groomer.`);
+      }
+      
+      // Check if this slot is actually available before creating the booking
+      const availableSlots = await getAvailableTimeSlots(normalizedDate);
+      console.log(`Available slots for booking: ${JSON.stringify(availableSlots)}`);
+      
+      // Find the exact slot for the requested time and groomer
+      const requestedSlot = availableSlots.find(
+        slot => slot.time === normalizedTime && 
+              slot.groomer === groomerToCheck &&
+              slot.available === true // Must be explicitly available
+      );
+      
+      if (!requestedSlot) {
+        console.error(`Slot ${normalizedTime} for ${groomerToCheck} is not available for booking on ${normalizedDate}`);
+        throw new Error(`The requested time slot ${normalizedTime} for ${groomerToCheck} is not available or already booked.`);
+      }
     }
     
     // Prepare the row data for Google Sheets
@@ -459,5 +580,8 @@ export const storage = {
   getAvailableTimeSlots,
   createBooking,
   updateBookingStatus,
-  submitContactForm
+  submitContactForm,
+  createReservation,
+  validateReservation,
+  removeReservation
 }; 

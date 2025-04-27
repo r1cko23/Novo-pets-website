@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, invalidateAvailabilityQueries } from "@/lib/queryClient";
+import { apiRequest, invalidateAvailabilityQueries, createReservation } from "@/lib/queryClient";
 import { 
   Form, 
   FormControl, 
@@ -32,8 +32,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { format } from "date-fns";
-import { CalendarIcon, Check, CreditCard, Landmark, BanknoteIcon, Loader2 } from "lucide-react";
+import { format, add } from "date-fns";
+import { CalendarIcon, Check, CreditCard, Landmark, BanknoteIcon, Loader2, AlertCircle } from "lucide-react";
 import { 
   bookingFormSchema, 
   ServiceType, 
@@ -43,7 +43,14 @@ import {
 } from "@shared/schema";
 import { cn, generateTimeSlots, getBookingReference } from "@/lib/utils";
 import PetDetails from "./PetDetails";
-import { TimeSlot } from "@/types/index";
+import { TimeSlot, Reservation } from "@/types/index";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+
+// Extend the BookingFormValues type to include the reservationId
+interface BookingFormValuesWithReservation extends Omit<BookingFormValues, 'groomer'> {
+  reservationId?: string;
+  groomer?: string; // Make groomer optional string only (no null)
+}
 
 export default function BookingForm() {
   const [step, setStep] = useState(1);
@@ -51,6 +58,9 @@ export default function BookingForm() {
   const [availableTimeSlots, setAvailableTimeSlots] = useState<TimeSlot[]>([]);
   const [selectedGroomer, setSelectedGroomer] = useState<string | null>(null);
   const [fullyBookedDates, setFullyBookedDates] = useState<string[]>([]);
+  const [reservation, setReservation] = useState<Reservation | null>(null);
+  const reservationTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [reservationTimeLeft, setReservationTimeLeft] = useState<number | null>(null);
   const { toast } = useToast();
   
   // Default time slots (will be filtered based on availability)
@@ -84,8 +94,9 @@ export default function BookingForm() {
     },
   });
   
-  // Get the selected date from the form
+  // Get the selected date and time from the form
   const selectedDate = form.watch("appointmentDate");
+  const selectedTime = form.watch("appointmentTime");
   
   // Function to check if a date is fully booked
   const checkDateAvailability = async (date: string) => {
@@ -94,15 +105,42 @@ export default function BookingForm() {
       const response = await apiRequest("GET", `/api/availability?date=${formattedDate}`);
       const data = await response.json();
       
-      return data.availableTimeSlots && data.availableTimeSlots.length > 0;
+      return data.availableTimeSlots && data.availableTimeSlots.some(slot => slot.available);
     } catch (error) {
       console.error("Error checking date availability:", error);
       return true; // Assume there are slots available in case of error
     }
   };
   
+  // Optimize refetching interval based on page activity
+  const [refetchInterval, setRefetchInterval] = useState<number | false>(5000);
+  
+  useEffect(() => {
+    // Set up visibility change listener to optimize refetch interval
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // When page is not visible, reduce polling frequency to save resources
+        setRefetchInterval(30000); // 30 seconds when hidden
+      } else {
+        // When visible, use normal polling frequency
+        setRefetchInterval(5000); // 5 seconds when visible
+      }
+    };
+    
+    // Initial setting based on current visibility
+    handleVisibilityChange();
+    
+    // Add event listener
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Cleanup
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+  
   // Query to fetch available time slots when date changes
-  const { data: availabilityData, isLoading: isLoadingAvailability, refetch: refetchAvailability } = useQuery({
+  const { data: availabilityData, isLoading: isLoadingAvailability, refetch: refetchAvailability, error: availabilityError } = useQuery({
     queryKey: ["availability", selectedDate],
     queryFn: async () => {
       if (!selectedDate) return { availableTimeSlots: [] };
@@ -116,12 +154,101 @@ export default function BookingForm() {
       return result;
     },
     enabled: !!selectedDate, // Only run query when a date is selected
-    staleTime: 0, // Always consider data stale
-    gcTime: 0, // Don't cache at all
+    staleTime: 1000 * 15, // Consider data stale after 15 seconds
+    gcTime: 1000 * 60, // Cache for 1 minute
     refetchOnMount: true, // Refetch when the component mounts
     refetchOnWindowFocus: true, // Refetch when the window regains focus
-    refetchInterval: 5000 // Refetch every 5 seconds to keep data fresh
+    refetchInterval: refetchInterval, // Dynamic refetch interval
+    retry: 3, // Retry failed requests 3 times
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
   });
+  
+  // Handle reservation creation when time and groomer are selected
+  useEffect(() => {
+    const makeReservation = async () => {
+      if (selectedDate && selectedTime && selectedGroomer) {
+        // Clear any existing reservation and timer
+        if (reservationTimerRef.current) {
+          clearInterval(reservationTimerRef.current);
+          reservationTimerRef.current = null;
+        }
+        
+        // Check if the current time matches our existing reservation
+        if (reservation && 
+            reservation.date === selectedDate && 
+            reservation.time === selectedTime && 
+            reservation.groomer === selectedGroomer) {
+          // We already have a valid reservation for this slot
+          return;
+        }
+        
+        // Create a new reservation
+        try {
+          console.log(`Creating reservation for ${selectedDate} at ${selectedTime} with ${selectedGroomer}`);
+          const result = await createReservation(
+            selectedDate,
+            selectedTime,
+            selectedGroomer
+          );
+          
+          if (result) {
+            const expiresAt = add(new Date(), { seconds: result.expiresIn });
+            
+            setReservation({
+              id: result.reservationId,
+              expiresAt,
+              date: selectedDate,
+              time: selectedTime,
+              groomer: selectedGroomer
+            });
+            
+            // Start a timer to update the time left display
+            if (reservationTimerRef.current) {
+              clearInterval(reservationTimerRef.current);
+            }
+            
+            reservationTimerRef.current = setInterval(() => {
+              const now = new Date();
+              const timeLeft = Math.floor((expiresAt.getTime() - now.getTime()) / 1000);
+              
+              if (timeLeft <= 0) {
+                // Reservation expired
+                setReservation(null);
+                setReservationTimeLeft(null);
+                if (reservationTimerRef.current) {
+                  clearInterval(reservationTimerRef.current);
+                  reservationTimerRef.current = null;
+                }
+                
+                // Refresh availability
+                refetchAvailability();
+                
+                // Notify user
+                toast({
+                  title: "Reservation Expired",
+                  description: "Your time slot reservation has expired. Please select a time slot again.",
+                  variant: "destructive",
+                });
+              } else {
+                setReservationTimeLeft(timeLeft);
+              }
+            }, 1000);
+          }
+        } catch (error) {
+          console.error("Failed to create reservation", error);
+        }
+      }
+    };
+    
+    makeReservation();
+    
+    // Clean up timer on unmount
+    return () => {
+      if (reservationTimerRef.current) {
+        clearInterval(reservationTimerRef.current);
+      }
+    };
+  }, [selectedDate, selectedTime, selectedGroomer]);
   
   // Update available time slots when data changes
   useEffect(() => {
@@ -131,7 +258,7 @@ export default function BookingForm() {
       console.log("Setting available time slots:", typedTimeSlots);
       
       // DEBUG: Check the 'available' property on each slot
-      typedTimeSlots.forEach(slot => {
+      typedTimeSlots.forEach((slot: TimeSlot) => {
         console.log(`DEBUG slot: Time=${slot.time}, Groomer=${slot.groomer}, Available=${slot.available}`);
       });
       
@@ -149,19 +276,27 @@ export default function BookingForm() {
         );
         
         if (!isStillAvailable) {
-          form.setValue("appointmentTime", "");
-          toast({
-            title: "Time slot no longer available",
-            description: "The time slot you selected is no longer available. Please select another time.",
-            variant: "destructive",
-          });
+          // Don't reset if we have a valid reservation for this slot
+          if (!reservation || 
+              reservation.date !== selectedDate || 
+              reservation.time !== currentTime || 
+              reservation.groomer !== currentGroomer) {
+            form.setValue("appointmentTime", "");
+            setReservation(null);
+            
+            toast({
+              title: "Time slot no longer available",
+              description: "The time slot you selected is no longer available. Please select another time.",
+              variant: "destructive",
+            });
+          }
         }
       }
     } else {
       // Clear available time slots if no data is available
       setAvailableTimeSlots([]);
     }
-  }, [availabilityData, form, selectedGroomer]);
+  }, [availabilityData, form, selectedGroomer, reservation, selectedDate]);
   
   // Group time slots by groomer and sort to put available slots first
   const timeSlotsByGroomer = availableTimeSlots.reduce((acc, slot) => {
@@ -193,10 +328,22 @@ export default function BookingForm() {
   const mutation = useMutation({
     mutationFn: async (data: BookingFormValues) => {
       // Make sure the groomer is included in the booking data
-      const bookingData = {
+      if (!selectedGroomer) {
+        throw new Error("Groomer must be selected");
+      }
+      
+      const bookingData: BookingFormValuesWithReservation = {
         ...data,
-        groomer: selectedGroomer
+        groomer: selectedGroomer // Now this is just a string, no null possible
       };
+      
+      // Include reservation ID if we have one
+      if (reservation && 
+          reservation.date === selectedDate && 
+          reservation.time === selectedTime && 
+          reservation.groomer === selectedGroomer) {
+        bookingData.reservationId = reservation.id;
+      }
       
       console.log("Submitting booking with data:", bookingData);
       
@@ -218,6 +365,13 @@ export default function BookingForm() {
         invalidateAvailabilityQueries();
       }
       
+      // Clear the reservation
+      setReservation(null);
+      if (reservationTimerRef.current) {
+        clearInterval(reservationTimerRef.current);
+        reservationTimerRef.current = null;
+      }
+      
       // Also force a direct refetch
       refetchAvailability();
       
@@ -231,9 +385,10 @@ export default function BookingForm() {
     onError: (error) => {
       // Check if the error message contains information about an unavailable time slot
       const errorMessage = error instanceof Error ? error.message : "Please try again";
-      if (errorMessage.includes("not available") || errorMessage.includes("already booked")) {
+      if (errorMessage.includes("not available") || errorMessage.includes("already booked") || errorMessage.includes("reservation")) {
         // Reset the time selection since it's no longer available
         form.setValue("appointmentTime", "");
+        setReservation(null);
         
         // If we know which time slot was attempted, manually mark it as unavailable in the UI
         // to provide immediate feedback
@@ -336,8 +491,16 @@ export default function BookingForm() {
     }));
   };
   
+  // Format the remaining reservation time
+  const formatReservationTime = (seconds: number | null) => {
+    if (seconds === null) return '';
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
+
   return (
-    <div className="max-w-4xl mx-auto bg-[#f8f5f2] rounded-lg shadow-lg overflow-hidden">
+    <div className="bg-white rounded-xl overflow-hidden shadow-lg w-full max-w-4xl mx-auto my-8">
       <div className="md:flex">
         {/* Left sidebar with steps */}
         <div className="md:w-1/3 bg-[#9a7d62] p-8 text-white">
@@ -677,6 +840,13 @@ export default function BookingForm() {
                       </FormItem>
                     )}
                   />
+                  
+                  {/* Add reservation warning when changing selections */}
+                  {reservation && (
+                    <div className="mt-2 text-sm text-amber-600">
+                      <p>Changing your date, time, or groomer will cancel your current reservation.</p>
+                    </div>
+                  )}
                   
                   <div className="mt-8 flex justify-between">
                     <Button
@@ -1028,6 +1198,34 @@ export default function BookingForm() {
               )}
             </form>
           </Form>
+          
+          {/* Add reservation timer if we have an active reservation */}
+          {reservation && reservationTimeLeft !== null && step < 5 && (
+            <Alert className="mb-4 bg-amber-50 border-amber-200">
+              <AlertCircle className="h-4 w-4 text-amber-600" />
+              <AlertTitle className="text-amber-600">Time Slot Reserved</AlertTitle>
+              <AlertDescription>
+                Your selected time slot is reserved for {formatReservationTime(reservationTimeLeft)}. Please complete your booking before it expires.
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          {/* Show error message if there was a problem loading availability */}
+          {availabilityError && (
+            <Alert className="mb-4 bg-red-50 border-red-200">
+              <AlertCircle className="h-4 w-4 text-red-600" />
+              <AlertTitle className="text-red-600">Error Loading Availability</AlertTitle>
+              <AlertDescription>
+                There was a problem checking availability. We'll try again automatically, or you can{" "}
+                <button 
+                  onClick={() => refetchAvailability()} 
+                  className="underline text-red-600 font-medium"
+                >
+                  try again now
+                </button>
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
       </div>
     </div>

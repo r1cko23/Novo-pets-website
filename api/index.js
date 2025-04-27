@@ -82,6 +82,60 @@ app.get('/api/availability', async (req, res) => {
   }
 });
 
+// Create a reservation for a time slot
+app.post('/api/reservations', async (req, res) => {
+  try {
+    const { appointmentDate, appointmentTime, groomer } = req.body;
+    
+    // Validate required fields
+    if (!appointmentDate || !appointmentTime || !groomer) {
+      return res.status(400).json({
+        success: false,
+        message: "Date, time, and groomer are required for reservation"
+      });
+    }
+    
+    console.log(`Creating reservation for ${appointmentDate} at ${appointmentTime} with ${groomer}`);
+    
+    // Check if the slot is actually available before creating the reservation
+    const availableSlots = await storage.getAvailableTimeSlots(appointmentDate);
+    
+    // Find the exact slot for the requested time and groomer
+    const requestedSlot = availableSlots.find(
+      slot => slot.time === appointmentTime && 
+             slot.groomer === groomer &&
+             slot.available === true
+    );
+    
+    if (!requestedSlot) {
+      return res.status(409).json({
+        success: false,
+        message: `The requested time slot ${appointmentTime} for ${groomer} is not available.`,
+        errorCode: 'SLOT_UNAVAILABLE'
+      });
+    }
+    
+    // Create the reservation
+    const reservationId = storage.createReservation(appointmentDate, appointmentTime, groomer);
+    
+    // Set short expiration for this response
+    res.setHeader('Cache-Control', 'no-store, private, max-age=0');
+    
+    return res.status(201).json({
+      success: true,
+      reservationId,
+      expiresIn: 5 * 60, // 5 minutes in seconds
+      message: "Reservation created successfully"
+    });
+  } catch (error) {
+    console.error("Error creating reservation:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to create reservation"
+    });
+  }
+});
+
 // Book a new appointment
 app.post('/api/bookings', async (req, res) => {
   try {
@@ -110,7 +164,7 @@ app.post('/api/bookings', async (req, res) => {
     
     // Check for specific error types to provide better responses
     if (error.message) {
-      if (error.message.includes('not available') || error.message.includes('already booked')) {
+      if (error.message.includes('not available') || error.message.includes('already booked') || error.message.includes('reservation')) {
         return res.status(409).json({
           success: false,
           message: error.message,

@@ -8,6 +8,65 @@ const SHEET_NAMES = {
   CONTACTS: 'Contacts'
 };
 
+// Cache configuration
+const CACHE_TTL_MS = 30 * 1000; // 30 seconds cache lifetime
+const cache = {
+  data: {},
+  timestamps: {},
+  locks: new Map()
+};
+
+// LRU cache helper functions
+function getCachedData(key) {
+  if (!cache.timestamps[key]) return null;
+  
+  const now = Date.now();
+  const timestamp = cache.timestamps[key];
+  
+  // Check if the cache entry has expired
+  if (now - timestamp > CACHE_TTL_MS) {
+    console.log(`Cache entry for ${key} has expired`);
+    delete cache.data[key];
+    delete cache.timestamps[key];
+    return null;
+  }
+  
+  console.log(`Cache hit for ${key}`);
+  return cache.data[key];
+}
+
+function setCachedData(key, data) {
+  console.log(`Caching data for ${key}`);
+  cache.data[key] = data;
+  cache.timestamps[key] = Date.now();
+}
+
+// Function to acquire a lock for a specific operation
+// This prevents multiple concurrent requests for the same data
+async function acquireLock(key, timeout = 5000) {
+  const startTime = Date.now();
+  
+  while (cache.locks.has(key)) {
+    // Wait for the lock to be released
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Check if we've timed out waiting for the lock
+    if (Date.now() - startTime > timeout) {
+      console.warn(`Lock acquisition timeout for ${key}`);
+      return false;
+    }
+  }
+  
+  // Acquire the lock
+  cache.locks.set(key, Date.now());
+  return true;
+}
+
+// Function to release a lock
+function releaseLock(key) {
+  cache.locks.delete(key);
+}
+
 // Initialize Google Sheets client with proper error handling
 async function getGoogleSheetsClient() {
   try {
@@ -46,7 +105,6 @@ export async function appendRow(sheetName, rowData) {
       return null;
     }
 
-    // Convert object to array of values
     const headers = await getSheetHeaders(sheetName);
     if (!headers || headers.length === 0) {
       console.error('Failed to get sheet headers');
@@ -59,25 +117,26 @@ export async function appendRow(sheetName, rowData) {
       return rowData[key] !== undefined ? rowData[key].toString() : '';
     });
 
-    // Append row to sheet
     const response = await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!A2:${getColumnLetter(headers.length)}`,
       valueInputOption: 'USER_ENTERED',
-      insertDataOption: 'INSERT_ROWS',
       resource: {
         values: [values]
       }
     });
 
     console.log(`Appended row to ${sheetName}:`, response.data);
-    return { ...rowData, id: Date.now() }; // Return with mock ID
+    
+    // Invalidate the cache for this sheet
+    const cacheKey = `sheet_${sheetName}`;
+    delete cache.data[cacheKey];
+    delete cache.timestamps[cacheKey];
+    
+    return rowData;
   } catch (error) {
     console.error(`Error appending row to ${sheetName}:`, error);
-    
-    // Still return something to the client even if sheets fails
-    console.log('Returning mock data due to sheets error');
-    return { ...rowData, id: Date.now() };
+    return null;
   }
 }
 
@@ -121,92 +180,87 @@ function getDefaultHeaders(sheetName) {
   }
 }
 
-// Get all rows from a sheet
-export async function getRows(sheetName, options = {}) {
+// Get all rows from a sheet with optional caching
+export async function getRows(sheetName, forceRefresh = false) {
+  const cacheKey = `sheet_${sheetName}`;
+  
+  // Check cache first if not forcing a refresh
+  if (!forceRefresh) {
+    const cachedData = getCachedData(cacheKey);
+    if (cachedData) {
+      return cachedData;
+    }
+  }
+  
+  // Try to acquire a lock for this sheet
+  const lockAcquired = await acquireLock(cacheKey);
+  
   try {
+    // If we couldn't acquire the lock, someone else is already fetching
+    // Check the cache again in case it was just populated
+    if (!lockAcquired) {
+      const cachedData = getCachedData(cacheKey);
+      if (cachedData) {
+        return cachedData;
+      }
+      // If still no cached data, we'll proceed with the fetch anyway
+    }
+    
+    // Even after acquiring the lock, check the cache again
+    // in case another process just finished updating it
+    if (!forceRefresh) {
+      const cachedData = getCachedData(cacheKey);
+      if (cachedData) {
+        return cachedData;
+      }
+    }
+    
     const sheets = await getGoogleSheetsClient();
     if (!sheets) {
       console.error('Failed to initialize Google Sheets client');
       return [];
     }
 
-    // Add cache-busting query parameter if noCache is set
-    const cacheBuster = options.noCache ? `&_=${Date.now()}` : '';
-    
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `${sheetName}!A:Z`,
-    });
-
-    if (!response.data.values || response.data.values.length <= 1) {
-      console.log(`No data found in sheet: ${sheetName}`);
+    const headers = await getSheetHeaders(sheetName);
+    if (!headers || headers.length === 0) {
+      console.error('Failed to get sheet headers');
       return [];
     }
 
-    // Log the raw data for debugging
-    console.log(`Raw data from ${sheetName}:`, JSON.stringify(response.data.values.slice(0, 3)));
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${sheetName}!A2:${getColumnLetter(headers.length)}`,
+    });
 
-    const headers = response.data.values[0].map(header => 
-      header.toLowerCase().replace(/\s+/g, '_')
-    );
+    const rows = response.data.values || [];
     
-    console.log(`Headers in ${sheetName}:`, headers.join(', '));
-
-    const rows = response.data.values.slice(1).map(row => {
-      const rowObj = {};
-      headers.forEach((header, index) => {
-        // Get the value or default to empty string
-        let value = index < row.length ? row[index] : '';
-        
-        // Clean up appointment times (e.g. convert "9.00" to "09:00")
-        if (header === 'appointment_time' && value) {
-          // Remove any non-digit or colon characters
-          value = value.toString().trim();
-          
-          // Handle potential format issues
-          if (value.includes('.')) {
-            value = value.replace('.', ':');
-          }
-          
-          // Ensure the time has a leading zero for hours less than 10
-          if (value.length === 4 && value[1] === ':') {
-            value = `0${value}`;
-          }
-          
-          // Make sure it's in 24-hour format
-          if (value.toLowerCase().includes('am')) {
-            value = value.toLowerCase().replace('am', '').trim();
-            if (value.length === 4 && value[1] === ':') {
-              value = `0${value}`;
-            }
-          } else if (value.toLowerCase().includes('pm')) {
-            value = value.toLowerCase().replace('pm', '').trim();
-            // Convert to 24-hour format if it's PM
-            const parts = value.split(':');
-            if (parts.length === 2) {
-              let hour = parseInt(parts[0]);
-              if (hour < 12) {
-                hour += 12;
-              }
-              value = `${hour}:${parts[1]}`;
-            }
-          }
-        }
-        
-        rowObj[header] = value;
+    // Transform rows into objects with header keys
+    const results = rows.map((row, index) => {
+      const obj = {};
+      headers.forEach((header, i) => {
+        const key = header.toLowerCase().replace(/\s+/g, '_');
+        obj[key] = i < row.length ? row[i] : '';
       });
-      return rowObj;
+      obj._rowIndex = index; // Add the row index for reference
+      return obj;
     });
     
-    console.log(`Fetched ${rows.length} rows from ${sheetName}`);
-    return rows;
+    // Cache the results
+    setCachedData(cacheKey, results);
+    
+    return results;
   } catch (error) {
-    console.error(`Error getting rows from ${sheetName}:`, error);
+    console.error(`Error fetching rows from ${sheetName}:`, error);
     return [];
+  } finally {
+    // Always release the lock when done
+    if (lockAcquired) {
+      releaseLock(cacheKey);
+    }
   }
 }
 
-// Update a specific row in a sheet
+// Update a specific row in a sheet with cache invalidation
 export async function updateRow(sheetName, rowIndex, rowData) {
   try {
     const sheets = await getGoogleSheetsClient();
@@ -243,6 +297,12 @@ export async function updateRow(sheetName, rowIndex, rowData) {
     });
 
     console.log(`Updated row ${rowIndex} in ${sheetName}:`, response.data);
+    
+    // Invalidate the cache for this sheet
+    const cacheKey = `sheet_${sheetName}`;
+    delete cache.data[cacheKey];
+    delete cache.timestamps[cacheKey];
+    
     return rowData;
   } catch (error) {
     console.error(`Error updating row ${rowIndex} in ${sheetName}:`, error);

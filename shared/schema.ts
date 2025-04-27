@@ -164,7 +164,10 @@ export const bookingFormSchema = z.object({
   // System fields
   status: z.string().default("pending"),
   totalPrice: z.number().optional(),
-  reference: z.string().optional()
+  reference: z.string().optional(),
+  
+  // Reservation handling
+  reservationId: z.string().optional(),
 });
 
 export type InsertBooking = z.infer<typeof insertBookingSchema>;
