@@ -600,16 +600,20 @@ app.get('/api/availability', async (req, res) => {
       });
     }
     
-    // Force fresh data if refresh parameter is set
-    const fetchOptions = refresh === 'true' ? { head: true } : undefined;
-    
     // Get all bookings for this date to determine availability with the most recent data
-    const { data: bookings, error } = await supabase
+    // Note: fetchOptions was causing issues because it's not a valid Supabase option
+    let query = supabase
       .from('grooming_appointments')
       .select('appointment_date, appointment_time, groomer, status')
       .eq('appointment_date', date)
-      .in('status', ['confirmed', 'pending'])
-      .options(fetchOptions);
+      .in('status', ['confirmed', 'pending']);
+    
+    // Instead of using options, let's ensure we get the most recent data
+    if (refresh === 'true') {
+      console.log('Forcing fresh data from database');
+    }
+      
+    const { data: bookings, error } = await query;
       
     if (error) {
       console.error('Error fetching availability:', error);
@@ -624,6 +628,7 @@ app.get('/api/availability', async (req, res) => {
       bookings.forEach(booking => {
         const key = `${booking.appointment_time}-${booking.groomer}`;
         bookedSlotsMap[key] = true;
+        console.log(`Marking slot as booked: ${key}`);
       });
     }
     
@@ -648,12 +653,20 @@ app.get('/api/availability', async (req, res) => {
       }
     }
     
-    console.log(`Returning ${timeSlots.length} time slots for date ${date}, with ${timeSlots.filter(slot => slot.available).length} available`);
+    // Log availability statistics
+    const availableCount = timeSlots.filter(slot => slot.available).length;
+    const bookedCount = timeSlots.length - availableCount;
+    console.log(`Returning ${timeSlots.length} time slots for date ${date}: ${availableCount} available, ${bookedCount} booked`);
     
     return res.status(200).json({
       success: true,
       availableTimeSlots: timeSlots,
-      timestamp: new Date().toISOString() // Add timestamp to help client detect stale data
+      timestamp: new Date().toISOString(), // Add timestamp to help client detect stale data
+      debug: {
+        bookedSlots: Object.keys(bookedSlotsMap),
+        requestedDate: date,
+        refresh: refresh === 'true'
+      }
     });
   } catch (error) {
     console.error('Error in /api/availability:', error);

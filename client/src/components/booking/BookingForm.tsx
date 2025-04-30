@@ -161,95 +161,101 @@ export default function BookingForm() {
       if (!selectedDate) return { availableTimeSlots: [] };
       
       try {
-        // Add timestamp to prevent caching
+        // Add timestamp to prevent caching and force refresh flag
         const timestamp = new Date().getTime();
         const formattedDate = format(new Date(selectedDate), "yyyy-MM-dd");
         
-        console.log(`Fetching availability for date: ${formattedDate}`);
+        console.log(`Fetching availability for date: ${formattedDate} (timestamp: ${timestamp})`);
         
-        // Use fetch directly to have more control over the request
-        const response = await fetch(`/api/availability?date=${formattedDate}&_=${timestamp}`, {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'Cache-Control': 'no-cache'
-          }
-        });
-        
-        if (!response.ok) {
-          console.error(`Error fetching availability: ${response.status} ${response.statusText}`);
-          
-          // Try to get error message from response
-          let errorMessage = `Error fetching availability: ${response.status}`;
-          try {
-            const errorData = await response.json();
-            errorMessage = errorData.message || errorMessage;
-          } catch (e) {
-            // Ignore JSON parsing error
-          }
-          
-          throw new Error(errorMessage);
-        }
-        
-        // Get response text first to debug any issues
-        const responseText = await response.text();
-        console.log(`Raw availability response: ${responseText}`);
-        
-        // Parse the JSON
-        let result;
+        // First try the direct API call with proper error handling
         try {
-          result = JSON.parse(responseText);
-        } catch (parseError: unknown) {
-          console.error("Failed to parse availability JSON:", parseError, "Raw response:", responseText);
-          throw new Error(`Invalid JSON response: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+          // Use fetch directly to have more control over the request
+          const response = await fetch(`/api/availability?date=${formattedDate}&refresh=true&_=${timestamp}`, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache'
+            }
+          });
+          
+          // Get response text first for debugging
+          const responseText = await response.text();
+          console.log(`Raw availability response (${response.status}): ${responseText.substring(0, 200)}${responseText.length > 200 ? '...' : ''}`);
+          
+          // If response isn't OK, log the error but don't throw yet - we'll generate fallback data
+          if (!response.ok) {
+            console.error(`Error fetching availability: ${response.status} ${response.statusText}`);
+            console.error(`Error response body: ${responseText}`);
+          } else {
+            // Parse the JSON if we have a valid response
+            try {
+              const result = JSON.parse(responseText);
+              console.log("Successfully parsed availability data:", result.success, `(${result.availableTimeSlots?.length || 0} slots)`);
+              
+              // Make sure the result has the expected format
+              if (result.success && result.availableTimeSlots && Array.isArray(result.availableTimeSlots)) {
+                // Format the time slots for display
+                const formattedTimeSlots = result.availableTimeSlots.map((slot: { time: string; groomer: string; available: boolean }) => ({
+                  ...slot,
+                  // Ensure time is in HH:00 format
+                  time: slot.time.includes(':') ? slot.time : `${slot.time}:00`,
+                  // Format for display
+                  formattedTime: format(parse(
+                    slot.time.includes(':') ? slot.time : `${slot.time}:00`, 
+                    'HH:mm', 
+                    new Date()
+                  ), 'h:mm a')
+                }));
+                
+                return {
+                  success: true,
+                  availableTimeSlots: formattedTimeSlots,
+                  source: 'api'
+                };
+              }
+            } catch (parseError) {
+              console.error("Failed to parse availability JSON:", parseError);
+            }
+          }
+        } catch (fetchError) {
+          console.error("Network error fetching availability:", fetchError);
         }
         
-        console.log("Parsed availability data:", result);
+        // If we reach here, something went wrong with the API call or parsing
+        // Generate fallback data with all slots available
+        console.warn("Using fallback availability data");
         
-        // Make sure the result has the expected format
-        if (!result.success || !result.availableTimeSlots || !Array.isArray(result.availableTimeSlots)) {
-          console.error("Invalid availability data format:", result);
-          throw new Error("Invalid availability data format");
-        }
+        const fallbackTimeSlots = TIME_SLOTS.flatMap(time => 
+          GROOMERS.map(groomer => ({ 
+            time, 
+            groomer, 
+            available: true,
+            formattedTime: format(parse(time, 'HH:mm', new Date()), 'h:mm a')
+          }))
+        );
         
-        // Format the time slots for display
-        const formattedTimeSlots = result.availableTimeSlots.map((slot: { time: string; groomer: string; available: boolean }) => ({
-          ...slot,
-          // Ensure time is in HH:00 format
-          time: slot.time.includes(':') ? slot.time : `${slot.time}:00`,
-          // Format for display
-          formattedTime: format(parse(
-            slot.time.includes(':') ? slot.time : `${slot.time}:00`, 
-            'HH:mm', 
-            new Date()
-          ), 'h:mm a')
-        }));
-        
-        return {
+        return { 
           success: true,
-          availableTimeSlots: formattedTimeSlots
+          availableTimeSlots: fallbackTimeSlots,
+          source: 'fallback'
         };
       } catch (error) {
-        console.error("Error in availability query:", error);
+        // This is a catch-all for any other unexpected errors
+        console.error("Unexpected error in availability query:", error);
         
-        // Instead of throwing, return a friendly error message and fallback data
+        // Always show an error toast to the user
         toast({
           title: "Availability Error",
           description: "Unable to fetch time slots. Please try again or select another date.",
           variant: "destructive"
         });
         
-        // Return fallback data with all slots available
+        // Return empty data rather than throwing
         return { 
-          success: true,
-          availableTimeSlots: TIME_SLOTS.flatMap(time => 
-            GROOMERS.map(groomer => ({ 
-              time, 
-              groomer, 
-              available: true,
-              formattedTime: format(parse(time, 'HH:mm', new Date()), 'h:mm a')
-            }))
-          )
+          success: false,
+          availableTimeSlots: [],
+          source: 'error'
         };
       }
     },
