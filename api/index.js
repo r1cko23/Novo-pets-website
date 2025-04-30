@@ -891,8 +891,9 @@ app.put('/api/bookings/:id/status', async (req, res) => {
     const id = parseInt(idParam, 10);
     
     // Debug logging to help diagnose the issue
-    console.log(`Status update request received: ID=${id}, status=${status}, bookingType=${bookingType || 'not specified'}`);
-    console.log('Request body:', req.body);
+    console.log(`Status update request received: ID=${id}, raw status="${status}", type=${bookingType || 'not specified'}`);
+    console.log('Request body:', JSON.stringify(req.body));
+    console.log('Request headers:', JSON.stringify(req.headers));
     
     if (isNaN(id) || id <= 0) {
       return res.status(400).json({
@@ -902,23 +903,32 @@ app.put('/api/bookings/:id/status', async (req, res) => {
     }
     
     // Valid statuses include 'pending', 'confirmed', 'cancelled', 'completed'
-    if (!status || !['pending', 'confirmed', 'cancelled', 'completed'].includes(status)) {
+    const validStatuses = ['pending', 'confirmed', 'cancelled', 'completed'];
+    if (!status || typeof status !== 'string' || !validStatuses.includes(status.toLowerCase())) {
       return res.status(400).json({
         success: false,
-        message: "Valid status is required (pending, confirmed, cancelled, or completed)"
+        message: `Valid status is required (pending, confirmed, cancelled, or completed). Received: "${status}" (${typeof status})`,
+        debug: { 
+          receivedStatus: status,
+          type: typeof status,
+          validOptions: validStatuses 
+        }
       });
     }
     
+    // Normalize status to lowercase
+    const normalizedStatus = status.toLowerCase();
+    
     // If status is 'completed' or 'cancelled', delete the record
-    if (status === 'completed' || status === 'cancelled') {
+    if (normalizedStatus === 'completed' || normalizedStatus === 'cancelled') {
       try {
-        const result = await deleteBooking(req, res, id, status, bookingType);
+        const result = await deleteBooking(req, res, id, normalizedStatus, bookingType);
         return result;
       } catch (deleteError) {
-        console.error(`Error in deleteBooking for status ${status}:`, deleteError);
+        console.error(`Error in deleteBooking for status ${normalizedStatus}:`, deleteError);
         return res.status(500).json({
           success: false,
-          message: `Failed to process ${status} status`,
+          message: `Failed to process ${normalizedStatus} status`,
           error: deleteError.message
         });
       }
@@ -932,7 +942,7 @@ app.put('/api/bookings/:id/status', async (req, res) => {
     const { data, error } = await supabase
       .from(tableName)
       .update({ 
-        status, 
+        status: normalizedStatus, 
         updated_at: new Date().toISOString() 
       })
       .eq('id', id)
@@ -949,7 +959,7 @@ app.put('/api/bookings/:id/status', async (req, res) => {
         const { data: altData, error: altError } = await supabase
           .from(altTable)
           .update({ 
-            status, 
+            status: normalizedStatus, 
             updated_at: new Date().toISOString() 
           })
           .eq('id', id)
@@ -964,7 +974,7 @@ app.put('/api/bookings/:id/status', async (req, res) => {
         }
         
         if (altData && altData.length > 0) {
-          console.log(`Successfully updated booking in ${altTable} to status: ${status}`);
+          console.log(`Successfully updated booking in ${altTable} to status: ${normalizedStatus}`);
           return res.status(200).json({
             success: true,
             booking: altData[0],
@@ -988,7 +998,7 @@ app.put('/api/bookings/:id/status', async (req, res) => {
         const { data: altData, error: altError } = await supabase
           .from(altTable)
           .update({ 
-            status, 
+            status: normalizedStatus, 
             updated_at: new Date().toISOString() 
           })
           .eq('id', id)
@@ -1001,7 +1011,7 @@ app.put('/api/bookings/:id/status', async (req, res) => {
           });
         }
         
-        console.log(`Successfully updated booking in ${altTable} to status: ${status}`);
+        console.log(`Successfully updated booking in ${altTable} to status: ${normalizedStatus}`);
         return res.status(200).json({
           success: true,
           booking: altData[0],
@@ -1010,7 +1020,7 @@ app.put('/api/bookings/:id/status', async (req, res) => {
       }
     }
     
-    console.log(`Successfully updated booking in ${tableName} to status: ${status}`);
+    console.log(`Successfully updated booking in ${tableName} to status: ${normalizedStatus}`);
     return res.status(200).json({
       success: true,
       booking: data[0],
@@ -1032,7 +1042,10 @@ async function deleteBooking(req, res, id, status, bookingType) {
     // Ensure id is a number
     const bookingId = typeof id === 'number' ? id : parseInt(id, 10);
     
-    console.log(`Processing ${status} status for booking #${bookingId} (type: ${bookingType || 'unknown'})`);
+    // Ensure status is a valid string
+    const normalizedStatus = typeof status === 'string' ? status.toLowerCase() : status;
+    
+    console.log(`Processing ${normalizedStatus} status for booking #${bookingId} (type: ${bookingType || 'unknown'})`);
     
     // First retrieve the booking to return its data in the response
     let bookingData = null;
@@ -1084,16 +1097,16 @@ async function deleteBooking(req, res, id, status, bookingType) {
       .eq('id', bookingId);
       
     if (deleteError) {
-      console.error(`Error deleting ${status} booking from ${actualTable}:`, deleteError);
+      console.error(`Error deleting ${normalizedStatus} booking from ${actualTable}:`, deleteError);
       throw deleteError;
     }
     
-    console.log(`Successfully deleted ${status} booking #${bookingId} from ${actualTable}`);
+    console.log(`Successfully deleted ${normalizedStatus} booking #${bookingId} from ${actualTable}`);
     
     // Return success response with the deleted booking data
     return res.status(200).json({
       success: true,
-      message: `Booking marked as ${status} and removed from database`,
+      message: `Booking marked as ${normalizedStatus} and removed from database`,
       booking: bookingData,
       bookingType: actualTable === 'hotel_bookings' ? 'hotel' : 'grooming',
       wasDeleted: true

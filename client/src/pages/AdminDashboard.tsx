@@ -146,16 +146,30 @@ export default function AdminDashboard() {
       console.log(`Updating booking #${bookingId} to status: ${newStatus}, type: ${bookingType || 'unknown'}`);
       
       const adminEmail = sessionStorage.getItem("adminEmail");
-      const response = await apiRequest("PUT", `/api/bookings/${bookingId}/status`, 
-        { 
-          status: newStatus,
-          bookingType: bookingType // Send the booking type if available
+      
+      // Debug logging for the exact data being sent
+      const requestData = { 
+        status: newStatus,
+        bookingType: bookingType // Send the booking type if available
+      };
+      console.log("Request payload:", JSON.stringify(requestData));
+      
+      // Use direct fetch to bypass any middleware issues
+      const response = await fetch(`/api/bookings/${bookingId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'admin-email': adminEmail || ''
         },
-        { headers: { "admin-email": adminEmail } }
-      );
+        body: JSON.stringify(requestData)
+      });
+      
+      // Log full response details
+      console.log(`Status update response: ${response.status} ${response.statusText}`);
       
       if (!response.ok) {
         console.error(`Error response: ${response.status} ${response.statusText}`);
+        
         // Try to get detailed error message from response
         const errorData = await response.json().catch(() => null);
         console.error("Error details:", errorData);
