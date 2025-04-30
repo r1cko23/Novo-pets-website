@@ -570,10 +570,17 @@ app.get('/api/bookings', async (req, res) => {
   }
 });
 
-// Improved availability endpoint with more robust checking
+// Add this function to clear cached availability after a booking is made
+function clearAvailabilityCache(date) {
+  console.log(`Clearing availability cache for date: ${date}`);
+  // In a production implementation, you would clear any server-side or Redis cache here
+  // For now, we'll just log that we're doing it
+}
+
+// Update the availability checking endpoint to perform a more thorough check
 app.get('/api/availability', async (req, res) => {
   try {
-    const { date } = req.query;
+    const { date, refresh } = req.query;
     
     if (!date) {
       return res.status(400).json({
@@ -582,7 +589,7 @@ app.get('/api/availability', async (req, res) => {
       });
     }
     
-    console.log(`Checking availability for date: ${date}`);
+    console.log(`Checking availability for date: ${date}, refresh: ${refresh}`);
     
     // Validate date format
     if (!isValidDateString(date)) {
@@ -593,23 +600,32 @@ app.get('/api/availability', async (req, res) => {
       });
     }
     
-    // Get all bookings for this date to determine availability
-    // Include both confirmed and pending bookings to be safe
+    // Force fresh data if refresh parameter is set
+    const fetchOptions = refresh === 'true' ? { head: true } : undefined;
+    
+    // Get all bookings for this date to determine availability with the most recent data
     const { data: bookings, error } = await supabase
       .from('grooming_appointments')
-      .select('*')
+      .select('appointment_date, appointment_time, groomer, status')
       .eq('appointment_date', date)
-      .in('status', ['confirmed', 'pending']);
+      .in('status', ['confirmed', 'pending'])
+      .options(fetchOptions);
       
     if (error) {
       console.error('Error fetching availability:', error);
       throw error;
     }
     
-    console.log(`Found ${bookings?.length || 0} bookings for date ${date}`);
+    console.log(`Found ${bookings?.length || 0} existing bookings for date ${date}`);
     
-    // Check for any ongoing slot reservations
-    // (In a real implementation, this would query a reservations table)
+    // Create a map for quick lookup of booked slots
+    const bookedSlotsMap = {};
+    if (bookings && bookings.length > 0) {
+      bookings.forEach(booking => {
+        const key = `${booking.appointment_time}-${booking.groomer}`;
+        bookedSlotsMap[key] = true;
+      });
+    }
     
     // Generate time slots (9 AM to 5 PM)
     const timeSlots = [];
@@ -620,11 +636,9 @@ app.get('/api/availability', async (req, res) => {
       const time = `${hour.toString().padStart(2, '0')}:00`;
       
       for (const groomer of groomers) {
-        // Check if this slot is already booked
-        const isBooked = bookings?.some(booking => 
-          booking.appointment_time === time && 
-          booking.groomer === groomer
-        );
+        // Check if this slot is already booked using the map for efficient lookup
+        const key = `${time}-${groomer}`;
+        const isBooked = bookedSlotsMap[key] === true;
         
         timeSlots.push({
           time,
@@ -638,7 +652,8 @@ app.get('/api/availability', async (req, res) => {
     
     return res.status(200).json({
       success: true,
-      availableTimeSlots: timeSlots
+      availableTimeSlots: timeSlots,
+      timestamp: new Date().toISOString() // Add timestamp to help client detect stale data
     });
   } catch (error) {
     console.error('Error in /api/availability:', error);
@@ -787,6 +802,9 @@ app.post('/api/bookings', async (req, res) => {
         throw error;
       }
       
+      // Clear availability cache for this date
+      clearAvailabilityCache(checkInDate);
+      
       console.log('Hotel booking created successfully:', data);
       
       return res.status(201).json({
@@ -830,6 +848,9 @@ app.post('/api/bookings', async (req, res) => {
         console.error(`Error creating grooming booking:`, error);
         throw error;
       }
+      
+      // Clear availability cache for this date
+      clearAvailabilityCache(appointmentDate);
       
       console.log('Grooming booking created successfully:', data);
       

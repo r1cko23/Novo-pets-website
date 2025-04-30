@@ -94,42 +94,45 @@ export const queryClient = new QueryClient({
   },
 });
 
-export function invalidateAvailabilityQueries(date?: string) {
+export function invalidateAvailabilityQueries(date?: string, forceRefresh = false) {
   if (date) {
+    // Invalidate for specific date
     queryClient.invalidateQueries({ queryKey: ["availability", date] });
     console.log(`Invalidated availability for date: ${date}`);
+    
+    // If force refresh requested, clear entire cache and refetch
+    if (forceRefresh) {
+      queryClient.refetchQueries({ queryKey: ["availability", date], exact: true });
+      console.log(`Force refreshing availability for date: ${date}`);
+    }
   } else {
+    // Invalidate all availability queries
     queryClient.invalidateQueries({ queryKey: ["availability"] });
     console.log("Invalidated all availability queries");
+    
+    // If force refresh requested, clear entire availability cache
+    if (forceRefresh) {
+      queryClient.refetchQueries({ queryKey: ["availability"] });
+      console.log("Force refreshing all availability queries");
+    }
   }
 }
 
 // Helper function to create a reservation for a time slot
-export async function createReservation(
-  date: string,
-  time: string,
-  groomer: string
-): Promise<{ reservationId: string; expiresIn: number } | null> {
-  try {
-    const response = await apiRequest("POST", "/api/reservations", {
-      appointmentDate: date,
-      appointmentTime: time,
-      groomer: groomer
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: "Failed to create reservation" }));
-      console.error("Failed to create reservation:", errorData);
-      return null;
-    }
-    
-    const data = await response.json();
-    return {
-      reservationId: data.reservationId,
-      expiresIn: data.expiresIn || 300 // Default to 5 minutes if not specified
-    };
-  } catch (error) {
-    console.error("Error creating reservation:", error);
-    return null;
+export async function createReservation(date: string, time: string, groomer: string) {
+  const response = await apiRequest('POST', '/api/reservations', {
+    appointmentDate: date,
+    appointmentTime: time,
+    groomer
+  });
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to create reservation');
   }
+  
+  // Force refresh availability data after creating a reservation
+  await invalidateAvailabilityQueries(date, true);
+  
+  return response.json();
 }

@@ -47,6 +47,7 @@ import PetDetails from "./PetDetails";
 import { TimeSlot, Reservation } from "@/types/index";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { queryClient } from "@/lib/queryClient";
 
 // Add these constants near the top of the file, after the imports
 // These should match the values used on the server
@@ -731,6 +732,68 @@ export default function BookingForm() {
     }
   }, [serviceType, form]);
 
+  // Add a function to force refresh availability data 
+  const forceRefreshAvailability = async () => {
+    console.log("Force refreshing availability data...");
+    
+    // Show loading toast
+    toast({
+      title: "Refreshing",
+      description: "Updating available time slots...",
+    });
+    
+    try {
+      // Add timestamp and refresh parameter to get fresh data
+      const timestamp = new Date().getTime();
+      const formattedDate = format(new Date(selectedDate), "yyyy-MM-dd");
+      
+      const response = await fetch(`/api/availability?date=${formattedDate}&refresh=true&_=${timestamp}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to refresh availability data");
+      }
+      
+      // Process response
+      const data = await response.json();
+      
+      // Manually update the React Query cache
+      queryClient.setQueryData(["availability", selectedDate], {
+        success: true,
+        availableTimeSlots: data.availableTimeSlots.map((slot: any) => ({
+          ...slot,
+          time: slot.time.includes(':') ? slot.time : `${slot.time}:00`,
+          formattedTime: format(parse(
+            slot.time.includes(':') ? slot.time : `${slot.time}:00`, 
+            'HH:mm', 
+            new Date()
+          ), 'h:mm a')
+        }))
+      });
+      
+      // Also trigger a normal refetch to ensure UI updates
+      await refetchAvailability();
+      
+      // Notify user of successful refresh
+      toast({
+        title: "Slots Updated",
+        description: "Available time slots have been refreshed.",
+      });
+    } catch (error) {
+      console.error("Error force refreshing availability:", error);
+      toast({
+        title: "Refresh Failed",
+        description: "Failed to refresh time slots. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <div className="bg-white rounded-xl overflow-hidden shadow-lg w-full max-w-4xl mx-auto my-8">
       <div className="md:flex">
@@ -1075,11 +1138,7 @@ export default function BookingForm() {
                                   className="h-8 text-xs border-[#9a7d62] text-[#9a7d62] hover:bg-[#9a7d62]/10" 
                                   onClick={(e) => {
                                     e.preventDefault();
-                                    refetchAvailability();
-                                    toast({
-                                      title: "Refreshed",
-                                      description: "Available time slots have been refreshed.",
-                                    });
+                                    forceRefreshAvailability();
                                   }}
                                   disabled={isLoadingAvailability}
                                 >
