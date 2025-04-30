@@ -423,6 +423,10 @@ app.get('/api/health', async (req, res) => {
 // API routes
 app.get('/api/bookings', async (req, res) => {
   try {
+    // Check for admin auth header for backward compatibility
+    const adminEmail = req.headers['admin-email'];
+    console.log(`Fetching bookings with admin email: ${adminEmail || 'none provided'}`);
+    
     console.log('Attempting to fetch bookings from Supabase...');
     const { data, error } = await supabase
       .from('grooming_appointments')
@@ -433,8 +437,51 @@ app.get('/api/bookings', async (req, res) => {
       throw error;
     }
     
-    console.log(`Successfully fetched ${data?.length || 0} bookings`);
-    res.json(data || []);
+    // Transform field names from snake_case to camelCase for frontend
+    const transformedData = (data || []).map(booking => {
+      // First, validate date fields
+      let appointmentDate = booking.appointment_date;
+      let createdAt = booking.created_at;
+      let updatedAt = booking.updated_at;
+      
+      try {
+        // Ensure valid date format
+        if (appointmentDate) {
+          const date = new Date(appointmentDate);
+          if (!isNaN(date.getTime())) {
+            appointmentDate = date.toISOString().split('T')[0]; // YYYY-MM-DD format
+          }
+        }
+      } catch (e) {
+        console.error('Error parsing appointment date:', e);
+      }
+      
+      // Return transformed booking object with camelCase keys
+      return {
+        id: booking.id,
+        appointmentDate,
+        appointmentTime: booking.appointment_time,
+        petName: booking.pet_name,
+        petBreed: booking.pet_breed,
+        petAge: booking.pet_age,
+        petSize: booking.pet_size,
+        serviceType: booking.service_type || 'grooming',
+        groomingService: booking.grooming_service,
+        accommodationType: booking.accommodation_type,
+        customerName: booking.customer_name,
+        customerEmail: booking.customer_email,
+        customerPhone: booking.customer_phone,
+        specialRequests: booking.special_requests,
+        status: booking.status || 'pending',
+        reference: booking.reference,
+        groomer: booking.groomer,
+        createdAt,
+        updatedAt
+      };
+    });
+    
+    console.log(`Successfully fetched ${transformedData.length} bookings`);
+    res.status(200).json(transformedData);
   } catch (error) {
     console.error('Error in /api/bookings:', error);
     res.status(500).json({ 

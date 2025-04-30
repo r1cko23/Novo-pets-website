@@ -247,6 +247,20 @@ function BookingsList({ bookings, onStatusChange }: {
     );
   }
 
+  // Helper function to safely format dates
+  const safeFormatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return "Invalid date";
+      }
+      return format(date, "MMM d, yyyy");
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return "Invalid date";
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {bookings.map((booking) => (
@@ -275,7 +289,7 @@ function BookingsList({ bookings, onStatusChange }: {
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Date & Time:</span>
                 <span className="font-medium">
-                  {format(new Date(booking.appointmentDate), "MMM d, yyyy")} at {booking.appointmentTime}
+                  {safeFormatDate(booking.appointmentDate)} at {booking.appointmentTime}
                 </span>
               </div>
               
