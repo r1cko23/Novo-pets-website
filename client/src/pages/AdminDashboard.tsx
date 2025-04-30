@@ -136,7 +136,7 @@ export default function AdminDashboard() {
       return;
     }
     
-    // Otherwise proceed directly with the status change
+    // Otherwise proceed directly with the status change (for pending/confirmed)
     await updateBookingStatus(bookingId, newStatus, bookingType);
   };
   

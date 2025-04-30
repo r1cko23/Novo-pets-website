@@ -894,7 +894,7 @@ app.put('/api/bookings/:id/status', async (req, res) => {
       });
     }
     
-    // Update the valid statuses, removing 'pending'
+    // Valid statuses include 'pending', 'confirmed', 'cancelled', 'completed'
     if (!status || !['pending', 'confirmed', 'cancelled', 'completed'].includes(status)) {
       return res.status(400).json({
         success: false,
@@ -907,13 +907,17 @@ app.put('/api/bookings/:id/status', async (req, res) => {
       return await deleteBooking(req, res, id, status, bookingType);
     }
     
+    // For other statuses (pending, confirmed), just update the status
     // Determine which table to update based on the booking type or try both
     const tableName = bookingType === 'hotel' ? 'hotel_bookings' : 'grooming_appointments';
     
     // Try to update in the specified table
     const { data, error } = await supabase
       .from(tableName)
-      .update({ status, updated_at: new Date().toISOString() })
+      .update({ 
+        status, 
+        updated_at: new Date().toISOString() 
+      })
       .eq('id', id)
       .select();
     
@@ -927,7 +931,10 @@ app.put('/api/bookings/:id/status', async (req, res) => {
         const altTable = tableName === 'grooming_appointments' ? 'hotel_bookings' : 'grooming_appointments';
         const { data: altData, error: altError } = await supabase
           .from(altTable)
-          .update({ status, updated_at: new Date().toISOString() })
+          .update({ 
+            status, 
+            updated_at: new Date().toISOString() 
+          })
           .eq('id', id)
           .select();
           
@@ -940,7 +947,7 @@ app.put('/api/bookings/:id/status', async (req, res) => {
         }
         
         if (altData && altData.length > 0) {
-          console.log(`Successfully updated booking in ${altTable}`);
+          console.log(`Successfully updated booking in ${altTable} to status: ${status}`);
           return res.status(200).json({
             success: true,
             booking: altData[0],
@@ -963,7 +970,10 @@ app.put('/api/bookings/:id/status', async (req, res) => {
         const altTable = tableName === 'grooming_appointments' ? 'hotel_bookings' : 'grooming_appointments';
         const { data: altData, error: altError } = await supabase
           .from(altTable)
-          .update({ status, updated_at: new Date().toISOString() })
+          .update({ 
+            status, 
+            updated_at: new Date().toISOString() 
+          })
           .eq('id', id)
           .select();
           
@@ -974,7 +984,7 @@ app.put('/api/bookings/:id/status', async (req, res) => {
           });
         }
         
-        console.log(`Successfully updated booking in ${altTable}`);
+        console.log(`Successfully updated booking in ${altTable} to status: ${status}`);
         return res.status(200).json({
           success: true,
           booking: altData[0],
@@ -983,7 +993,7 @@ app.put('/api/bookings/:id/status', async (req, res) => {
       }
     }
     
-    console.log(`Successfully updated booking in ${tableName}`);
+    console.log(`Successfully updated booking in ${tableName} to status: ${status}`);
     return res.status(200).json({
       success: true,
       booking: data[0],
