@@ -2,12 +2,21 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 async function throwIfResNotOk(res: Response): Promise<void> {
   if (!res.ok) {
-    const errorBody = await res.json().catch(() => ({}));
-    const error = new Error(errorBody.message || `API request failed with status ${res.status}`);
-    (error as any).status = res.status;
-    (error as any).errorCode = errorBody.errorCode;
-    (error as any).originalResponse = res;
-    throw error;
+    try {
+      const errorBody = await res.json();
+      const error = new Error(errorBody.message || `API request failed with status ${res.status}`);
+      (error as any).status = res.status;
+      (error as any).errorCode = errorBody.errorCode;
+      (error as any).originalResponse = res;
+      (error as any).errorBody = errorBody;
+      throw error;
+    } catch (jsonError) {
+      // If we can't parse the JSON, just throw a generic error
+      const error = new Error(`API request failed with status ${res.status}`);
+      (error as any).status = res.status;
+      (error as any).originalResponse = res;
+      throw error;
+    }
   }
 }
 
@@ -26,9 +35,13 @@ export async function apiRequest(
       ...options
     });
 
-    await throwIfResNotOk(res);
+    // Don't throw here, just return the response
+    // This allows the caller to handle different status codes
     return res;
   } catch (error) {
+    // This will catch network errors like CORS, offline, etc.
+    console.error(`Network error making ${method} request to ${url}:`, error);
+    
     // Enhance error with more context for better recovery
     if (error instanceof Error) {
       if (url.includes('/api/availability')) {
@@ -40,7 +53,9 @@ export async function apiRequest(
       }
       
       // Add retry information to help with recovery
-      (error as any).isRetryable = !url.includes('bookings') || method !== 'POST'; 
+      (error as any).isRetryable = !url.includes('bookings') || method !== 'POST';
+      // Add a more user-friendly message
+      (error as any).userMessage = "Network error: Please check your internet connection and try again.";
     }
     throw error;
   }
@@ -103,8 +118,8 @@ export async function createReservation(
     });
     
     if (!response.ok) {
-      const error = await response.json();
-      console.error("Failed to create reservation:", error);
+      const errorData = await response.json().catch(() => ({ message: "Failed to create reservation" }));
+      console.error("Failed to create reservation:", errorData);
       return null;
     }
     

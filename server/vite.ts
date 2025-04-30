@@ -41,8 +41,39 @@ export async function setupVite(app: Express, server: Server) {
   });
 
   app.use(vite.middlewares);
+  
+  // Special handling for admin routes
+  app.get(["/admin", "/admin/*"], async (req, res, next) => {
+    try {
+      const adminTemplate = path.resolve(
+        import.meta.dirname,
+        "..",
+        "client",
+        "admin.html",
+      );
+
+      // Use the admin template for all admin routes
+      let template = await fs.promises.readFile(adminTemplate, "utf-8");
+      template = template.replace(
+        `src="/src/main.tsx"`,
+        `src="/src/main.tsx?v=${nanoid()}"`,
+      );
+      const page = await vite.transformIndexHtml(req.originalUrl, template);
+      res.status(200).set({ "Content-Type": "text/html" }).end(page);
+    } catch (e) {
+      vite.ssrFixStacktrace(e as Error);
+      next(e);
+    }
+  });
+  
+  // Handle all other routes
   app.use("*", async (req, res, next) => {
     const url = req.originalUrl;
+    
+    // Skip if this is an admin route (already handled above)
+    if (url.startsWith("/admin")) {
+      return next();
+    }
 
     try {
       const clientTemplate = path.resolve(

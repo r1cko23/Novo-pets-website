@@ -1,39 +1,25 @@
-export const googleSheetsConfig = {
-  // Your Google credentials will be stored here
-  credentials: {
-    clientEmail: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-    privateKey: formatPrivateKey(process.env.GOOGLE_PRIVATE_KEY),
-    spreadsheetId: process.env.GOOGLE_SPREADSHEET_ID
+import dotenv from "dotenv";
+
+// Load environment variables
+dotenv.config();
+
+// Supabase configuration
+export const supabaseConfig = {
+  url: process.env.SUPABASE_URL || "",
+  key: process.env.SUPABASE_ANON_KEY || "",
+  serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
+  // Use transaction pooler connection string format for Vercel deployment
+  // This is optimized for serverless functions with brief, isolated connections
+  dbUrl: process.env.DATABASE_URL || process.env.POSTGRES_URL || "",
+  tables: {
+    bookings: "bookings",
+    contacts: "contacts",
+    users: "users",
   },
-  // Sheets within the spreadsheet
-  sheets: {
-    bookings: 'Bookings',
-    contacts: 'Contacts'
-  }
 };
 
-/**
- * Properly format the Google private key, handling different formats that might come from environment variables
- */
-function formatPrivateKey(key?: string): string | undefined {
-  if (!key) return undefined;
-  
-  // Log key format for debugging (without exposing the actual key)
-  console.log(`Private key format check - length: ${key.length}, starts with: ${key.substring(0, 10)}...`);
-  
-  // If the key already contains actual newlines, return it as is
-  if (key.includes('\n') && !key.includes('\\n')) {
-    return key;
-  }
-  
-  // If the key has JSON escaped newlines, replace them with actual newlines
-  let formattedKey = key.replace(/\\n/g, '\n');
-  
-  // Sometimes keys from environment variables come with quotes - remove them
-  if (formattedKey.startsWith('"') && formattedKey.endsWith('"')) {
-    formattedKey = formattedKey.slice(1, -1);
-  }
-  
-  console.log('Private key was reformatted');
-  return formattedKey;
-} 
+export const serverConfig = {
+  port: process.env.PORT || 3000,
+  sessionSecret: process.env.SESSION_SECRET || "novo-pets-session-secret",
+  isDevelopment: process.env.NODE_ENV !== "development",
+}; 

@@ -1,11 +1,16 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { googleSheetsConfig } from "./config";
+import 'dotenv/config';
+import { storage } from "./storage";
+import { checkDatabaseConnection } from "./supabase";
+import path from "path";
+import cors from "cors";
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+app.use(cors());
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -38,11 +43,21 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Check if Google Sheets configuration is available
-  if (googleSheetsConfig.credentials.spreadsheetId) {
-    log(`🔄 Using Google Sheets as database (Spreadsheet ID: ${googleSheetsConfig.credentials.spreadsheetId})`);
-  } else {
-    log(`⚠️ Google Sheets configuration is missing. Please set up the required environment variables.`);
+  log(`🔄 Using Supabase as database`);
+
+  // Test database connection
+  try {
+    log("Testing database connection...");
+    const isConnected = await checkDatabaseConnection();
+    
+    if (isConnected) {
+      log("✅ Database connection successful");
+    } else {
+      log("❌ Database connection failed");
+      log("Will continue startup but API endpoints may not work correctly");
+    }
+  } catch (error) {
+    log("Error during database connection test:", error);
   }
 
   const server = await registerRoutes(app);
@@ -74,7 +89,9 @@ app.use((req, res, next) => {
   } else {
     // For local/traditional hosting
     server.listen(port, () => {
-      log(`serving on port ${port}`);
+      const storageType = (storage as any).constructor.name || "Unknown";
+      log(`[express] 🔄 Using ${storageType} as database`);
+      log(`[express] serving on port ${port}`);
     });
   }
 })();
