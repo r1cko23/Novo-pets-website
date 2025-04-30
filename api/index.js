@@ -19,9 +19,11 @@ app.use(cors({
 // Set up Supabase with detailed logging
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 console.log(`Supabase URL exists: ${!!supabaseUrl}`);
 console.log(`Supabase key exists: ${!!supabaseKey}`);
+console.log(`Supabase service key exists: ${!!supabaseServiceKey}`);
 
 if (!supabaseUrl || !supabaseKey) {
   console.error("WARNING: Missing Supabase credentials!");
@@ -33,10 +35,315 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
   }
 });
 
+// For admin functions, use the service role key
+const supabaseAdmin = supabaseServiceKey 
+  ? createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { persistSession: false }
+    })
+  : supabase;
+
 // Log all incoming requests for debugging
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
   next();
+});
+
+// Admin authentication endpoints
+app.post('/api/admin/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and password are required"
+      });
+    }
+    
+    console.log(`Attempting to authenticate admin: ${email}`);
+    
+    // Authenticate with Supabase Auth
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+    
+    if (error) {
+      console.error('Authentication error:', error);
+      return res.status(401).json({
+        success: false,
+        message: error.message || "Invalid credentials"
+      });
+    }
+    
+    if (!data || !data.user) {
+      return res.status(401).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+    
+    // Check if user has admin role in the users table
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .eq('role', 'admin')
+      .single();
+      
+    if (userError || !userData) {
+      console.error('User lookup error:', userError);
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized as admin"
+      });
+    }
+    
+    console.log(`Admin login successful: ${email}`);
+    
+    // Return the session and user data
+    return res.status(200).json({
+      success: true,
+      session: data.session,
+      user: {
+        id: data.user.id,
+        email: data.user.email,
+        role: userData.role,
+        name: userData.name || data.user.email
+      }
+    });
+  } catch (error) {
+    console.error('Error in admin login:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Login failed"
+    });
+  }
+});
+
+app.post('/api/admin/logout', async (req, res) => {
+  try {
+    const { session } = req.body;
+    
+    if (session?.access_token) {
+      await supabase.auth.signOut({ 
+        accessToken: session.access_token 
+      });
+    }
+    
+    return res.status(200).json({
+      success: true,
+      message: "Logged out successfully"
+    });
+  } catch (error) {
+    console.error('Error in admin logout:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Logout failed"
+    });
+  }
+});
+
+// Verify admin session
+app.get('/api/admin/verify', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        success: false,
+        message: "No token provided"
+      });
+    }
+    
+    const token = authHeader.split(' ')[1];
+    
+    // Verify the token with Supabase
+    const { data, error } = await supabase.auth.getUser(token);
+    
+    if (error || !data.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid or expired token"
+      });
+    }
+    
+    // Check if user has admin role
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', data.user.email)
+      .eq('role', 'admin')
+      .single();
+      
+    if (userError || !userData) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized as admin"
+      });
+    }
+    
+    return res.status(200).json({
+      success: true,
+      user: {
+        id: data.user.id,
+        email: data.user.email,
+        role: userData.role,
+        name: userData.name || data.user.email
+      }
+    });
+  } catch (error) {
+    console.error('Error in session verification:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Verification failed"
+    });
+  }
+});
+
+// Admin API to get all bookings with additional filtering capabilities
+app.get('/api/admin/bookings', async (req, res) => {
+  try {
+    // Verify admin authentication
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required"
+      });
+    }
+    
+    const token = authHeader.split(' ')[1];
+    const { data: userData, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !userData.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid or expired token"
+      });
+    }
+    
+    // Extract query parameters for filtering
+    const { status, date, search } = req.query;
+    
+    // Start building the query
+    let query = supabase.from('grooming_appointments').select('*');
+    
+    // Add filters if provided
+    if (status) {
+      query = query.eq('status', status);
+    }
+    
+    if (date) {
+      query = query.eq('appointment_date', date);
+    }
+    
+    if (search) {
+      query = query.or(`customer_name.ilike.%${search}%,pet_name.ilike.%${search}%,customer_email.ilike.%${search}%`);
+    }
+    
+    // Order by date and time
+    query = query.order('appointment_date', { ascending: false })
+                 .order('appointment_time');
+    
+    // Execute the query
+    const { data: bookings, error } = await query;
+    
+    if (error) {
+      console.error('Error fetching admin bookings:', error);
+      throw error;
+    }
+    
+    return res.status(200).json(bookings || []);
+  } catch (error) {
+    console.error('Error in admin bookings API:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to fetch bookings"
+    });
+  }
+});
+
+// Admin API to create a user
+app.post('/api/admin/users', async (req, res) => {
+  try {
+    // Verify admin authentication
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required"
+      });
+    }
+    
+    const token = authHeader.split(' ')[1];
+    const { data: userData, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !userData.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid or expired token"
+      });
+    }
+    
+    const { email, password, name, role } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and password are required"
+      });
+    }
+    
+    // Create user in Supabase Auth
+    const { data: authData, error: createError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true
+    });
+    
+    if (createError) {
+      console.error('Error creating user:', createError);
+      return res.status(400).json({
+        success: false,
+        message: createError.message || "Failed to create user"
+      });
+    }
+    
+    // Add user to users table with role
+    const { data: userRecord, error: userError } = await supabase
+      .from('users')
+      .insert([
+        {
+          email,
+          name: name || email,
+          role: role || 'user',
+          auth_id: authData.user.id
+        }
+      ])
+      .select();
+      
+    if (userError) {
+      console.error('Error adding user to users table:', userError);
+      return res.status(500).json({
+        success: false,
+        message: userError.message || "User created but failed to set role"
+      });
+    }
+    
+    return res.status(201).json({
+      success: true,
+      user: userRecord[0]
+    });
+  } catch (error) {
+    console.error('Error creating user:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to create user"
+    });
+  }
 });
 
 // Health check endpoint that reports Supabase connection status
