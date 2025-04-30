@@ -776,6 +776,11 @@ app.put('/api/bookings/:id/status', async (req, res) => {
       });
     }
     
+    // If status is 'completed', delete the record instead of updating it
+    if (status === 'completed') {
+      return await deleteCompletedBooking(req, res, id, bookingType);
+    }
+    
     // Determine which table to update based on the booking type or try both
     const tableName = bookingType === 'hotel' ? 'hotel_bookings' : 'grooming_appointments';
     
@@ -866,6 +871,74 @@ app.put('/api/bookings/:id/status', async (req, res) => {
     });
   }
 });
+
+// Helper function to delete a completed booking
+async function deleteCompletedBooking(req, res, id, bookingType) {
+  try {
+    // First retrieve the booking to return its data in the response
+    let bookingData = null;
+    let tableName = bookingType === 'hotel' ? 'hotel_bookings' : 'grooming_appointments';
+    let actualTable = tableName;
+    
+    // Try to find the booking in the specified table
+    const { data, error } = await supabase
+      .from(tableName)
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (error || !data) {
+      // If not found or no booking type specified, try the other table
+      const altTable = tableName === 'grooming_appointments' ? 'hotel_bookings' : 'grooming_appointments';
+      
+      const { data: altData, error: altError } = await supabase
+        .from(altTable)
+        .select('*')
+        .eq('id', id)
+        .single();
+        
+      if (altError || !altData) {
+        return res.status(404).json({
+          success: false,
+          message: "Booking not found in either table"
+        });
+      }
+      
+      bookingData = altData;
+      actualTable = altTable;
+    } else {
+      bookingData = data;
+    }
+    
+    // Now delete the booking from the correct table
+    const { error: deleteError } = await supabase
+      .from(actualTable)
+      .delete()
+      .eq('id', id);
+      
+    if (deleteError) {
+      console.error(`Error deleting completed booking from ${actualTable}:`, deleteError);
+      throw deleteError;
+    }
+    
+    console.log(`Successfully deleted completed booking #${id} from ${actualTable}`);
+    
+    // Return success response with the deleted booking data
+    return res.status(200).json({
+      success: true,
+      message: "Booking marked as completed and removed from database",
+      booking: bookingData,
+      bookingType: actualTable === 'hotel_bookings' ? 'hotel' : 'grooming',
+      wasDeleted: true
+    });
+  } catch (error) {
+    console.error('Error deleting completed booking:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to delete completed booking"
+    });
+  }
+}
 
 // Contact form submission endpoint
 app.post('/api/contact', async (req, res) => {

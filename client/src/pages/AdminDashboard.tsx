@@ -8,6 +8,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import { Loader2 } from "lucide-react";
 
@@ -16,6 +26,8 @@ export default function AdminDashboard() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("all");
   const [filter, setFilter] = useState("all");
+  const [showCompletionDialog, setShowCompletionDialog] = useState(false);
+  const [pendingCompletion, setPendingCompletion] = useState<{id: number, bookingType?: string} | null>(null);
 
   // Check if admin is logged in
   useEffect(() => {
@@ -106,7 +118,21 @@ export default function AdminDashboard() {
     });
   };
 
+  // Handle booking status change - with confirmation for completed status
   const handleStatusChange = async (bookingId: number, newStatus: string, bookingType?: string) => {
+    // If marking as completed, show confirmation dialog
+    if (newStatus === "completed") {
+      setPendingCompletion({ id: bookingId, bookingType });
+      setShowCompletionDialog(true);
+      return;
+    }
+    
+    // Otherwise proceed directly with the status change
+    await updateBookingStatus(bookingId, newStatus, bookingType);
+  };
+  
+  // Function to actually perform the status update
+  const updateBookingStatus = async (bookingId: number, newStatus: string, bookingType?: string) => {
     try {
       const adminEmail = sessionStorage.getItem("adminEmail");
       const response = await apiRequest("PUT", `/api/bookings/${bookingId}/status`, 
@@ -121,10 +147,21 @@ export default function AdminDashboard() {
         throw new Error("Failed to update booking status");
       }
       
-      toast({
-        title: "Status updated",
-        description: `Booking status updated to ${newStatus}`,
-      });
+      // Parse the response data
+      const responseData = await response.json();
+      
+      // Special message if the booking was deleted (when marked as completed)
+      if (newStatus === "completed" && responseData.wasDeleted) {
+        toast({
+          title: "Booking completed",
+          description: "Booking has been marked as completed and removed from the database",
+        });
+      } else {
+        toast({
+          title: "Status updated",
+          description: `Booking status updated to ${newStatus}`,
+        });
+      }
       
       // Refetch bookings to update the list
       refetch();
@@ -233,6 +270,34 @@ export default function AdminDashboard() {
           </TabsContent>
         </Tabs>
       </main>
+      
+      {/* Confirmation dialog for completing a booking */}
+      <AlertDialog open={showCompletionDialog} onOpenChange={setShowCompletionDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark booking as completed?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the booking from the database. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingCompletion(null)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                if (pendingCompletion) {
+                  updateBookingStatus(pendingCompletion.id, "completed", pendingCompletion.bookingType);
+                  setPendingCompletion(null);
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Complete and Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
