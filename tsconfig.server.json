@@ -2,9 +2,10 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "moduleResolution": "Node",
     "outDir": "dist",
-    "noEmit": true
+    "noEmit": false,
+    "allowSyntheticDefaultImports": true
   },
   "include": ["server/**/*.ts"],
   "exclude": ["node_modules", "client", "dist"]

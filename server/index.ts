@@ -87,7 +87,7 @@ app.use((req, res, next) => {
   if (process.env.VERCEL) {
     // When running on Vercel, we export the app
     log(`[express] 🚀 Exporting app for Vercel deployment`);
-    module.exports = app;
+    // Export to be used as a module
   } else {
     // For local/traditional hosting
     server.listen(port, () => {
@@ -96,3 +96,6 @@ app.use((req, res, next) => {
     });
   }
 })();
+
+// Export the Express app for Vercel serverless deployment
+export default app;

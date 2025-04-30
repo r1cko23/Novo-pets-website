@@ -2,7 +2,7 @@
   "version": 2,
   "builds": [
     {
-      "src": "server/index.ts",
+      "src": "api/index.ts",
       "use": "@vercel/node"
     },
     {
@@ -16,11 +16,11 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "server/index.ts"
+      "dest": "api/index.ts"
     },
     {
       "src": "/admin(.*)",
-      "dest": "server/index.ts"
+      "dest": "api/index.ts"
     },
     {
       "src": "/(.*\\.(js|css|png|jpg|jpeg|svg|ico|json))",
@@ -28,7 +28,7 @@
     },
     {
       "src": "/(.*)",
-      "dest": "server/index.ts"
+      "dest": "api/index.ts"
     }
   ],
   "env": {
