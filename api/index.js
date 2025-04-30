@@ -714,26 +714,31 @@ app.post('/api/bookings', async (req, res) => {
     // Generate a reference number
     const referenceNumber = `NVP-G-${Math.floor(Math.random() * 900000) + 100000}`;
     
+    // Create booking data object, omitting pet_age if not provided
+    const bookingData = {
+      appointment_date: appointmentDate,
+      appointment_time: appointmentTime,
+      pet_name: petName,
+      pet_breed: petBreed,
+      service_type: serviceType || 'grooming',
+      customer_name: customerName,
+      customer_email: customerEmail,
+      customer_phone: customerPhone,
+      groomer: groomer || 'Groomer 1',
+      status: 'pending',
+      reference: referenceNumber,
+      created_at: new Date().toISOString()
+    };
+    
+    // Only add pet_age if it exists
+    if (petAge) {
+      bookingData.pet_age = petAge;
+    }
+    
     // Create booking in Supabase
     const { data, error } = await supabase
       .from('grooming_appointments')
-      .insert([
-        {
-          appointment_date: appointmentDate,
-          appointment_time: appointmentTime,
-          pet_name: petName,
-          pet_breed: petBreed,
-          pet_age: petAge,
-          service_type: serviceType || 'grooming',
-          customer_name: customerName,
-          customer_email: customerEmail,
-          customer_phone: customerPhone,
-          groomer: groomer || 'Groomer 1',
-          status: 'pending',
-          reference: referenceNumber,
-          created_at: new Date().toISOString()
-        }
-      ])
+      .insert([bookingData])
       .select();
     
     if (error) {

@@ -410,7 +410,7 @@ export default function BookingForm() {
       
       const bookingData: BookingFormValuesWithReservation = {
         ...data,
-        groomer: data.serviceType === ServiceType.GROOMING ? selectedGroomer : undefined // Only set groomer for grooming service
+        groomer: data.serviceType === ServiceType.GROOMING ? selectedGroomer || undefined : undefined
       };
       
       // Include reservation ID if we have one
@@ -552,13 +552,100 @@ export default function BookingForm() {
     
     // Validate only the fields for the current step
     const validateFields = async () => {
-      const result = await form.trigger(currentStepFields as any);
+      // First validation step - service selection
+      if (step === 1) {
+        if (serviceType === ServiceType.HOTEL && !form.getValues("accommodationType")) {
+          form.setError("accommodationType", {
+            type: "required",
+            message: "Please select an accommodation type"
+          });
+          return false;
+        }
+        
+        return true;
+      }
+      // Second validation step - date and time
+      else if (step === 2) {
+        if (!form.getValues("appointmentDate")) {
+          form.setError("appointmentDate", {
+            type: "required",
+            message: "Please select a date"
+          });
+          return false;
+        }
+        
+        if (serviceType !== ServiceType.HOTEL && !form.getValues("appointmentTime")) {
+          form.setError("appointmentTime", {
+            type: "required",
+            message: "Please select a time"
+          });
+          return false;
+        }
+        
+        return true;
+      }
+      // Third validation step - pet details
+      else if (step === 3) {
+        const petFields = ["petName", "petBreed", "petSize"];
+        let isValid = true;
+        
+        // Check if grooming service is selected when serviceType is GROOMING
+        if (serviceType === ServiceType.GROOMING && !form.getValues("groomingService")) {
+          form.setError("groomingService", {
+            type: "required",
+            message: "Please select a grooming service"
+          });
+          isValid = false;
+        }
+        
+        // Validate required pet fields
+        for (const field of petFields) {
+          if (!form.getValues(field as keyof BookingFormValues)) {
+            form.setError(field as any, {
+              type: "required",
+              message: `Please enter your pet's ${field.replace('pet', '').toLowerCase()}`
+            });
+            isValid = false;
+          }
+        }
+        
+        // Check if transport is needed but no address provided
+        if (form.getValues("needsTransport") && !form.getValues("pickupAddress")) {
+          form.setError("pickupAddress", {
+            type: "required",
+            message: "Please provide your pickup address"
+          });
+          isValid = false;
+        }
+        
+        return isValid;
+      }
+      // Fourth validation step - customer details
+      else if (step === 4) {
+        const customerFields = ["customerName", "customerPhone", "customerEmail", "paymentMethod"];
+        let isValid = true;
+        
+        for (const field of customerFields) {
+          if (!form.getValues(field as keyof BookingFormValues)) {
+            form.setError(field as any, {
+              type: "required",
+              message: `Please provide your ${field.replace('customer', '').toLowerCase()}`
+            });
+            isValid = false;
+          }
+        }
+        
+        return isValid;
+      }
+      
+      return true;
+    };
+    
+    validateFields().then(result => {
       if (result) {
         setStep(prev => prev + 1);
       }
-    };
-    
-    validateFields();
+    });
   };
   
   const prevStep = () => {

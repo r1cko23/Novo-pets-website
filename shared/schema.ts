@@ -168,6 +168,15 @@ export const bookingFormSchema = z.object({
   
   // Reservation handling
   reservationId: z.string().optional(),
+}).superRefine((data, ctx) => {
+  // If service type is grooming, the grooming service should be set
+  if (data.serviceType === ServiceType.GROOMING && !data.groomingService) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Please select a grooming service",
+      path: ["groomingService"]
+    });
+  }
 });
 
 export type InsertBooking = z.infer<typeof insertBookingSchema>;

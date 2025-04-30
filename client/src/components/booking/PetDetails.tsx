@@ -12,7 +12,19 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { PetSize, type BookingFormValues } from "@shared/schema";
+import { 
+  PetSize, 
+  ServiceType, 
+  type BookingFormValues, 
+  groomingPrices 
+} from "@shared/schema";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface PetDetailsProps {
   form: ReturnType<typeof useFormContext<BookingFormValues>>;
@@ -21,11 +33,47 @@ interface PetDetailsProps {
 }
 
 export default function PetDetails({ form, onPrevStep, onNextStep }: PetDetailsProps) {
+  // Get current service type to show/hide service-specific fields
+  const serviceType = form.watch("serviceType");
+  const isGroomingService = serviceType === ServiceType.GROOMING;
+
   return (
     <div className="space-y-6">
       <h3 className="font-playfair text-xl font-semibold text-[#9a7d62] mb-6">Tell Us About Your Pet</h3>
       
       <div className="space-y-6">
+        {/* Grooming Service Selection - only shown for grooming service type */}
+        {isGroomingService && (
+          <FormField
+            control={form.control}
+            name="groomingService"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Grooming Service</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  value={field.value || ""}
+                  defaultValue=""
+                >
+                  <FormControl>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a grooming service" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {groomingPrices.map((option) => (
+                      <SelectItem key={option.service} value={option.service}>
+                        {option.service} - {option.description}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+        
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <FormField
             control={form.control}
