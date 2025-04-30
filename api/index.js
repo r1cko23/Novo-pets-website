@@ -769,16 +769,17 @@ app.put('/api/bookings/:id/status', async (req, res) => {
       });
     }
     
-    if (!status || !['confirmed', 'cancelled', 'completed', 'pending'].includes(status)) {
+    // Update the valid statuses, removing 'pending'
+    if (!status || !['confirmed', 'cancelled', 'completed'].includes(status)) {
       return res.status(400).json({
         success: false,
-        message: "Valid status is required"
+        message: "Valid status is required (confirmed, cancelled, or completed)"
       });
     }
     
-    // If status is 'completed', delete the record instead of updating it
-    if (status === 'completed') {
-      return await deleteCompletedBooking(req, res, id, bookingType);
+    // If status is 'completed' or 'cancelled', delete the record
+    if (status === 'completed' || status === 'cancelled') {
+      return await deleteBooking(req, res, id, status, bookingType);
     }
     
     // Determine which table to update based on the booking type or try both
@@ -872,8 +873,8 @@ app.put('/api/bookings/:id/status', async (req, res) => {
   }
 });
 
-// Helper function to delete a completed booking
-async function deleteCompletedBooking(req, res, id, bookingType) {
+// Helper function to delete a booking (for both completed and cancelled)
+async function deleteBooking(req, res, id, status, bookingType) {
   try {
     // First retrieve the booking to return its data in the response
     let bookingData = null;
@@ -917,25 +918,25 @@ async function deleteCompletedBooking(req, res, id, bookingType) {
       .eq('id', id);
       
     if (deleteError) {
-      console.error(`Error deleting completed booking from ${actualTable}:`, deleteError);
+      console.error(`Error deleting ${status} booking from ${actualTable}:`, deleteError);
       throw deleteError;
     }
     
-    console.log(`Successfully deleted completed booking #${id} from ${actualTable}`);
+    console.log(`Successfully deleted ${status} booking #${id} from ${actualTable}`);
     
     // Return success response with the deleted booking data
     return res.status(200).json({
       success: true,
-      message: "Booking marked as completed and removed from database",
+      message: `Booking marked as ${status} and removed from database`,
       booking: bookingData,
       bookingType: actualTable === 'hotel_bookings' ? 'hotel' : 'grooming',
       wasDeleted: true
     });
   } catch (error) {
-    console.error('Error deleting completed booking:', error);
+    console.error(`Error deleting ${status} booking:`, error);
     return res.status(500).json({
       success: false,
-      message: error.message || "Failed to delete completed booking"
+      message: error.message || `Failed to delete ${status} booking`
     });
   }
 }

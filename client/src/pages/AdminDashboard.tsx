@@ -27,7 +27,9 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("all");
   const [filter, setFilter] = useState("all");
   const [showCompletionDialog, setShowCompletionDialog] = useState(false);
+  const [showCancellationDialog, setShowCancellationDialog] = useState(false);
   const [pendingCompletion, setPendingCompletion] = useState<{id: number, bookingType?: string} | null>(null);
+  const [pendingCancellation, setPendingCancellation] = useState<{id: number, bookingType?: string} | null>(null);
 
   // Check if admin is logged in
   useEffect(() => {
@@ -118,12 +120,19 @@ export default function AdminDashboard() {
     });
   };
 
-  // Handle booking status change - with confirmation for completed status
+  // Handle booking status change - with confirmation for completed or cancelled status
   const handleStatusChange = async (bookingId: number, newStatus: string, bookingType?: string) => {
-    // If marking as completed, show confirmation dialog
+    // If marking as completed, show completion confirmation dialog
     if (newStatus === "completed") {
       setPendingCompletion({ id: bookingId, bookingType });
       setShowCompletionDialog(true);
+      return;
+    }
+    
+    // If marking as cancelled, show cancellation confirmation dialog
+    if (newStatus === "cancelled") {
+      setPendingCancellation({ id: bookingId, bookingType });
+      setShowCancellationDialog(true);
       return;
     }
     
@@ -150,11 +159,11 @@ export default function AdminDashboard() {
       // Parse the response data
       const responseData = await response.json();
       
-      // Special message if the booking was deleted (when marked as completed)
-      if (newStatus === "completed" && responseData.wasDeleted) {
+      // Special message if the booking was deleted (when marked as completed or cancelled)
+      if ((newStatus === "completed" || newStatus === "cancelled") && responseData.wasDeleted) {
         toast({
-          title: "Booking completed",
-          description: "Booking has been marked as completed and removed from the database",
+          title: newStatus === "completed" ? "Booking completed" : "Booking cancelled",
+          description: `Booking has been marked as ${newStatus} and removed from the database`,
         });
       } else {
         toast({
@@ -227,7 +236,6 @@ export default function AdminDashboard() {
                 <SelectItem value="confirmed">Confirmed</SelectItem>
                 <SelectItem value="completed">Completed</SelectItem>
                 <SelectItem value="cancelled">Cancelled</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
               </SelectContent>
             </Select>
             
@@ -294,6 +302,34 @@ export default function AdminDashboard() {
               className="bg-red-600 hover:bg-red-700"
             >
               Complete and Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      {/* Confirmation dialog for cancelling a booking */}
+      <AlertDialog open={showCancellationDialog} onOpenChange={setShowCancellationDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this booking?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the booking from the database. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingCancellation(null)}>
+              No, Keep Booking
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                if (pendingCancellation) {
+                  updateBookingStatus(pendingCancellation.id, "cancelled", pendingCancellation.bookingType);
+                  setPendingCancellation(null);
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Yes, Cancel and Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -409,7 +445,6 @@ function BookingsList({ bookings, onStatusChange }: {
                 <SelectItem value="confirmed">Confirmed</SelectItem>
                 <SelectItem value="completed">Completed</SelectItem>
                 <SelectItem value="cancelled">Cancelled</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
               </SelectContent>
             </Select>
           </CardFooter>
