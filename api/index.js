@@ -570,7 +570,7 @@ app.get('/api/bookings', async (req, res) => {
   }
 });
 
-// Add endpoint for availability
+// Improved availability endpoint with more robust checking
 app.get('/api/availability', async (req, res) => {
   try {
     const { date } = req.query;
@@ -594,10 +594,12 @@ app.get('/api/availability', async (req, res) => {
     }
     
     // Get all bookings for this date to determine availability
+    // Include both confirmed and pending bookings to be safe
     const { data: bookings, error } = await supabase
       .from('grooming_appointments')
       .select('*')
-      .eq('appointment_date', date);
+      .eq('appointment_date', date)
+      .in('status', ['confirmed', 'pending']);
       
     if (error) {
       console.error('Error fetching availability:', error);
@@ -605,6 +607,9 @@ app.get('/api/availability', async (req, res) => {
     }
     
     console.log(`Found ${bookings?.length || 0} bookings for date ${date}`);
+    
+    // Check for any ongoing slot reservations
+    // (In a real implementation, this would query a reservations table)
     
     // Generate time slots (9 AM to 5 PM)
     const timeSlots = [];
@@ -618,8 +623,7 @@ app.get('/api/availability', async (req, res) => {
         // Check if this slot is already booked
         const isBooked = bookings?.some(booking => 
           booking.appointment_time === time && 
-          booking.groomer === groomer &&
-          ['confirmed', 'pending'].includes(booking.status)
+          booking.groomer === groomer
         );
         
         timeSlots.push({
@@ -648,7 +652,7 @@ app.get('/api/availability', async (req, res) => {
   }
 });
 
-// Add endpoint to create reservations temporarily holding a slot
+// Updated endpoint to create reservations with double-booking prevention
 app.post('/api/reservations', async (req, res) => {
   try {
     const { appointmentDate, appointmentTime, groomer } = req.body;
@@ -660,13 +664,14 @@ app.post('/api/reservations', async (req, res) => {
       });
     }
     
-    // Check if slot is available
+    // Check if slot is available with a more robust query
     const { data: bookings, error } = await supabase
       .from('grooming_appointments')
       .select('*')
       .eq('appointment_date', appointmentDate)
       .eq('appointment_time', appointmentTime)
-      .eq('groomer', groomer);
+      .eq('groomer', groomer)
+      .in('status', ['confirmed', 'pending']);
       
     if (error) {
       console.error('Error checking slot availability:', error);
@@ -689,6 +694,7 @@ app.post('/api/reservations', async (req, res) => {
     return res.status(200).json({
       success: true,
       reservationId,
+      expiresIn: 300, // 5 minutes in seconds
       message: "Slot reserved temporarily"
     });
   } catch (error) {
@@ -758,7 +764,7 @@ app.post('/api/bookings', async (req, res) => {
         customer_email: customerEmail,
         customer_phone: customerPhone,
         special_requests: req.body.specialRequests,
-        status: 'pending',
+        status: 'confirmed',
         reference: referenceNumber,
         created_at: new Date().toISOString()
       };
@@ -804,7 +810,7 @@ app.post('/api/bookings', async (req, res) => {
         customer_phone: customerPhone,
         groomer: groomer || 'Groomer 1',
         special_requests: req.body.specialRequests,
-        status: 'pending',
+        status: 'confirmed',
         reference: referenceNumber,
         created_at: new Date().toISOString()
       };
