@@ -143,6 +143,8 @@ export default function AdminDashboard() {
   // Function to actually perform the status update
   const updateBookingStatus = async (bookingId: number, newStatus: string, bookingType?: string) => {
     try {
+      console.log(`Updating booking #${bookingId} to status: ${newStatus}, type: ${bookingType || 'unknown'}`);
+      
       const adminEmail = sessionStorage.getItem("adminEmail");
       const response = await apiRequest("PUT", `/api/bookings/${bookingId}/status`, 
         { 
@@ -153,11 +155,21 @@ export default function AdminDashboard() {
       );
       
       if (!response.ok) {
-        throw new Error("Failed to update booking status");
+        console.error(`Error response: ${response.status} ${response.statusText}`);
+        // Try to get detailed error message from response
+        const errorData = await response.json().catch(() => null);
+        console.error("Error details:", errorData);
+        
+        throw new Error(
+          errorData?.message || 
+          `Failed to update booking status (${response.status})`
+        );
       }
       
       // Parse the response data
       const responseData = await response.json();
+      
+      console.log("Status update successful:", responseData);
       
       // Special message if the booking was deleted (when marked as completed or cancelled)
       if ((newStatus === "completed" || newStatus === "cancelled") && responseData.wasDeleted) {

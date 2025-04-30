@@ -884,13 +884,20 @@ app.post('/api/bookings', async (req, res) => {
 // Add endpoint to update booking status
 app.put('/api/bookings/:id/status', async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id: idParam } = req.params;
     const { status, bookingType } = req.body;
     
-    if (!id) {
+    // Parse and validate ID
+    const id = parseInt(idParam, 10);
+    
+    // Debug logging to help diagnose the issue
+    console.log(`Status update request received: ID=${id}, status=${status}, bookingType=${bookingType || 'not specified'}`);
+    console.log('Request body:', req.body);
+    
+    if (isNaN(id) || id <= 0) {
       return res.status(400).json({
         success: false,
-        message: "Booking ID is required"
+        message: "Valid booking ID is required"
       });
     }
     
@@ -904,7 +911,17 @@ app.put('/api/bookings/:id/status', async (req, res) => {
     
     // If status is 'completed' or 'cancelled', delete the record
     if (status === 'completed' || status === 'cancelled') {
-      return await deleteBooking(req, res, id, status, bookingType);
+      try {
+        const result = await deleteBooking(req, res, id, status, bookingType);
+        return result;
+      } catch (deleteError) {
+        console.error(`Error in deleteBooking for status ${status}:`, deleteError);
+        return res.status(500).json({
+          success: false,
+          message: `Failed to process ${status} status`,
+          error: deleteError.message
+        });
+      }
     }
     
     // For other statuses (pending, confirmed), just update the status
@@ -1003,7 +1020,8 @@ app.put('/api/bookings/:id/status', async (req, res) => {
     console.error('Error updating booking status:', error);
     res.status(500).json({
       success: false,
-      message: error.message || "Failed to update booking status"
+      message: error.message || "Failed to update booking status",
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
@@ -1011,53 +1029,66 @@ app.put('/api/bookings/:id/status', async (req, res) => {
 // Helper function to delete a booking (for both completed and cancelled)
 async function deleteBooking(req, res, id, status, bookingType) {
   try {
+    // Ensure id is a number
+    const bookingId = typeof id === 'number' ? id : parseInt(id, 10);
+    
+    console.log(`Processing ${status} status for booking #${bookingId} (type: ${bookingType || 'unknown'})`);
+    
     // First retrieve the booking to return its data in the response
     let bookingData = null;
     let tableName = bookingType === 'hotel' ? 'hotel_bookings' : 'grooming_appointments';
     let actualTable = tableName;
     
     // Try to find the booking in the specified table
+    console.log(`Searching for booking in ${tableName} table...`);
     const { data, error } = await supabase
       .from(tableName)
       .select('*')
-      .eq('id', id)
+      .eq('id', bookingId)
       .single();
     
     if (error || !data) {
+      console.log(`Booking not found in ${tableName}, error:`, error);
+      
       // If not found or no booking type specified, try the other table
       const altTable = tableName === 'grooming_appointments' ? 'hotel_bookings' : 'grooming_appointments';
+      console.log(`Trying alternative table ${altTable}...`);
       
       const { data: altData, error: altError } = await supabase
         .from(altTable)
         .select('*')
-        .eq('id', id)
+        .eq('id', bookingId)
         .single();
         
       if (altError || !altData) {
+        console.error('Booking not found in either table. Errors:', { mainError: error, altError });
         return res.status(404).json({
           success: false,
           message: "Booking not found in either table"
         });
       }
       
+      console.log(`Found booking in ${altTable} table`);
       bookingData = altData;
       actualTable = altTable;
     } else {
+      console.log(`Found booking in ${tableName} table`);
       bookingData = data;
     }
     
     // Now delete the booking from the correct table
+    console.log(`Attempting to delete booking #${bookingId} from ${actualTable}...`);
     const { error: deleteError } = await supabase
       .from(actualTable)
       .delete()
-      .eq('id', id);
+      .eq('id', bookingId);
       
     if (deleteError) {
       console.error(`Error deleting ${status} booking from ${actualTable}:`, deleteError);
       throw deleteError;
     }
     
-    console.log(`Successfully deleted ${status} booking #${id} from ${actualTable}`);
+    console.log(`Successfully deleted ${status} booking #${bookingId} from ${actualTable}`);
     
     // Return success response with the deleted booking data
     return res.status(200).json({
@@ -1069,10 +1100,7 @@ async function deleteBooking(req, res, id, status, bookingType) {
     });
   } catch (error) {
     console.error(`Error deleting ${status} booking:`, error);
-    return res.status(500).json({
-      success: false,
-      message: error.message || `Failed to delete ${status} booking`
-    });
+    throw error; // Let the main handler catch this and send the response
   }
 }
 
