@@ -86,6 +86,7 @@ app.use((req, res, next) => {
   
   if (process.env.VERCEL) {
     // When running on Vercel, we export the app
+    log(`[express] 🚀 Exporting app for Vercel deployment`);
     module.exports = app;
   } else {
     // For local/traditional hosting
