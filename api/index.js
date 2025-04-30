@@ -710,9 +710,12 @@ app.post('/api/bookings', async (req, res) => {
       appointmentTime,
       petName,
       petBreed,
+      petSize,
       petAge,
       serviceType,
       groomingService,
+      accommodationType,
+      durationDays,
       customerName,
       customerEmail,
       customerPhone,
@@ -727,8 +730,9 @@ app.post('/api/bookings', async (req, res) => {
       });
     }
     
-    // Generate a reference number
-    const referenceNumber = `NVP-G-${Math.floor(Math.random() * 900000) + 100000}`;
+    // Generate a reference number with prefix based on service type
+    const prefix = serviceType === 'hotel' ? 'NVP-H-' : 'NVP-G-';
+    const referenceNumber = `${prefix}${Math.floor(Math.random() * 900000) + 100000}`;
     
     // Create booking data object, omitting pet_age if not provided
     const bookingData = {
@@ -736,30 +740,42 @@ app.post('/api/bookings', async (req, res) => {
       appointment_time: appointmentTime,
       pet_name: petName,
       pet_breed: petBreed,
+      pet_size: petSize,
       service_type: serviceType || 'grooming',
-      grooming_service: groomingService,
       customer_name: customerName,
       customer_email: customerEmail,
       customer_phone: customerPhone,
-      groomer: groomer || 'Groomer 1',
       status: 'pending',
       reference: referenceNumber,
       created_at: new Date().toISOString()
     };
+    
+    // Add service-specific fields
+    if (serviceType === 'grooming') {
+      bookingData.grooming_service = groomingService;
+      bookingData.groomer = groomer || 'Groomer 1';
+    } else if (serviceType === 'hotel') {
+      bookingData.accommodation_type = accommodationType;
+      bookingData.duration_days = durationDays;
+    }
     
     // Only add pet_age if it exists
     if (petAge) {
       bookingData.pet_age = petAge;
     }
     
+    // Determine which table to use based on service type
+    const tableName = serviceType === 'hotel' ? 'hotel_bookings' : 'grooming_appointments';
+    console.log(`Using table ${tableName} for ${serviceType} booking`);
+    
     // Create booking in Supabase
     const { data, error } = await supabase
-      .from('grooming_appointments')
+      .from(tableName)
       .insert([bookingData])
       .select();
     
     if (error) {
-      console.error('Error creating booking:', error);
+      console.error(`Error creating booking in ${tableName}:`, error);
       throw error;
     }
     
