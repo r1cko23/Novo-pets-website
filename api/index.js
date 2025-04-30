@@ -808,10 +808,10 @@ app.put('/api/bookings/:id/status', async (req, res) => {
     }
     
     // Update the valid statuses, removing 'pending'
-    if (!status || !['confirmed', 'cancelled', 'completed'].includes(status)) {
+    if (!status || !['pending', 'confirmed', 'cancelled', 'completed'].includes(status)) {
       return res.status(400).json({
         success: false,
-        message: "Valid status is required (confirmed, cancelled, or completed)"
+        message: "Valid status is required (pending, confirmed, cancelled, or completed)"
       });
     }
     
