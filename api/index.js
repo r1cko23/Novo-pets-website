@@ -584,6 +584,15 @@ app.get('/api/availability', async (req, res) => {
     
     console.log(`Checking availability for date: ${date}`);
     
+    // Validate date format
+    if (!isValidDateString(date)) {
+      console.error(`Invalid date format: ${date}`);
+      return res.status(400).json({
+        success: false,
+        message: "Invalid date format. Please use YYYY-MM-DD format."
+      });
+    }
+    
     // Get all bookings for this date to determine availability
     const { data: bookings, error } = await supabase
       .from('grooming_appointments')
@@ -595,12 +604,15 @@ app.get('/api/availability', async (req, res) => {
       throw error;
     }
     
+    console.log(`Found ${bookings?.length || 0} bookings for date ${date}`);
+    
     // Generate time slots (9 AM to 5 PM)
     const timeSlots = [];
     const groomers = ["Groomer 1", "Groomer 2"];
     
     for (let hour = 9; hour <= 17; hour++) {
-      const time = `${hour}:00`;
+      // Format hour properly (09:00 instead of 9:00)
+      const time = `${hour.toString().padStart(2, '0')}:00`;
       
       for (const groomer of groomers) {
         // Check if this slot is already booked
@@ -618,7 +630,7 @@ app.get('/api/availability', async (req, res) => {
       }
     }
     
-    console.log(`Returning ${timeSlots.length} time slots for date ${date}`);
+    console.log(`Returning ${timeSlots.length} time slots for date ${date}, with ${timeSlots.filter(slot => slot.available).length} available`);
     
     return res.status(200).json({
       success: true,
@@ -626,9 +638,12 @@ app.get('/api/availability', async (req, res) => {
     });
   } catch (error) {
     console.error('Error in /api/availability:', error);
+    
+    // Return a more structured error response
     res.status(500).json({
       success: false,
-      message: error.message || "Failed to fetch availability"
+      message: error.message || "Failed to fetch availability",
+      error: process.env.NODE_ENV === 'development' ? error.toString() : undefined
     });
   }
 });
@@ -697,6 +712,7 @@ app.post('/api/bookings', async (req, res) => {
       petBreed,
       petAge,
       serviceType,
+      groomingService,
       customerName,
       customerEmail,
       customerPhone,
@@ -721,6 +737,7 @@ app.post('/api/bookings', async (req, res) => {
       pet_name: petName,
       pet_breed: petBreed,
       service_type: serviceType || 'grooming',
+      grooming_service: groomingService,
       customer_name: customerName,
       customer_email: customerEmail,
       customer_phone: customerPhone,

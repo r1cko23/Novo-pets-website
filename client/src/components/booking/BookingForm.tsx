@@ -32,7 +32,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { format, add } from "date-fns";
+import { format, add, parse } from "date-fns";
 import { CalendarIcon, Check, CreditCard, Landmark, BanknoteIcon, Loader2, AlertCircle } from "lucide-react";
 import { 
   bookingFormSchema, 
@@ -45,6 +45,7 @@ import { cn, generateTimeSlots, getBookingReference } from "@/lib/utils";
 import PetDetails from "./PetDetails";
 import { TimeSlot, Reservation } from "@/types/index";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 // Add these constants near the top of the file, after the imports
 // These should match the values used on the server
@@ -161,11 +162,23 @@ export default function BookingForm() {
         // Add timestamp to prevent caching
         const timestamp = new Date().getTime();
         const formattedDate = format(new Date(selectedDate), "yyyy-MM-dd");
-        const response = await apiRequest("GET", `/api/availability?date=${formattedDate}&_=${timestamp}`, undefined, { cache: 'no-store' });
+        
+        console.log(`Fetching availability for date: ${formattedDate}`);
+        
+        // Use fetch directly to have more control over the request
+        const response = await fetch(`/api/availability?date=${formattedDate}&_=${timestamp}`, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache'
+          }
+        });
         
         if (!response.ok) {
-          // Try to get error message
-          let errorMessage = "Failed to fetch availability";
+          console.error(`Error fetching availability: ${response.status} ${response.statusText}`);
+          
+          // Try to get error message from response
+          let errorMessage = `Error fetching availability: ${response.status}`;
           try {
             const errorData = await response.json();
             errorMessage = errorData.message || errorMessage;
@@ -173,55 +186,66 @@ export default function BookingForm() {
             // Ignore JSON parsing error
           }
           
-          console.error("Error fetching availability:", errorMessage);
           throw new Error(errorMessage);
         }
         
+        // Get response text first to debug any issues
+        const responseText = await response.text();
+        console.log(`Raw availability response: ${responseText}`);
+        
+        // Parse the JSON
+        let result;
         try {
-          const result = await response.json();
-          console.log("Fetched availability data:", result);
-          
-          // Make sure the result has the expected format
-          if (!result.availableTimeSlots || !Array.isArray(result.availableTimeSlots)) {
-            console.error("Invalid availability data format:", result);
-            // Return a fallback valid format with all time slots available
-            return { 
-              success: true,
-              availableTimeSlots: TIME_SLOTS.flatMap(time => 
-                GROOMERS.map(groomer => ({ 
-                  time, 
-                  groomer, 
-                  available: true 
-                }))
-              )
-            };
-          }
-          
-          return result;
-        } catch (parseError) {
-          console.error("Error parsing availability JSON:", parseError);
-          // Return fallback availability
-          return { 
-            success: true,
-            availableTimeSlots: TIME_SLOTS.flatMap(time => 
-              GROOMERS.map(groomer => ({ 
-                time, 
-                groomer, 
-                available: true 
-              }))
-            )
-          };
+          result = JSON.parse(responseText);
+        } catch (parseError: unknown) {
+          console.error("Failed to parse availability JSON:", parseError, "Raw response:", responseText);
+          throw new Error(`Invalid JSON response: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
         }
+        
+        console.log("Parsed availability data:", result);
+        
+        // Make sure the result has the expected format
+        if (!result.success || !result.availableTimeSlots || !Array.isArray(result.availableTimeSlots)) {
+          console.error("Invalid availability data format:", result);
+          throw new Error("Invalid availability data format");
+        }
+        
+        // Format the time slots for display
+        const formattedTimeSlots = result.availableTimeSlots.map((slot: { time: string; groomer: string; available: boolean }) => ({
+          ...slot,
+          // Ensure time is in HH:00 format
+          time: slot.time.includes(':') ? slot.time : `${slot.time}:00`,
+          // Format for display
+          formattedTime: format(parse(
+            slot.time.includes(':') ? slot.time : `${slot.time}:00`, 
+            'HH:mm', 
+            new Date()
+          ), 'h:mm a')
+        }));
+        
+        return {
+          success: true,
+          availableTimeSlots: formattedTimeSlots
+        };
       } catch (error) {
         console.error("Error in availability query:", error);
-        // Instead of throwing, return a fallback with all slots available
+        
+        // Instead of throwing, return a friendly error message and fallback data
+        toast({
+          title: "Availability Error",
+          description: "Unable to fetch time slots. Please try again or select another date.",
+          variant: "destructive"
+        });
+        
+        // Return fallback data with all slots available
         return { 
           success: true,
           availableTimeSlots: TIME_SLOTS.flatMap(time => 
             GROOMERS.map(groomer => ({ 
               time, 
               groomer, 
-              available: true 
+              available: true,
+              formattedTime: format(parse(time, 'HH:mm', new Date()), 'h:mm a')
             }))
           )
         };

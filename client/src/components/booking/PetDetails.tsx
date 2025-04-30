@@ -37,6 +37,61 @@ export default function PetDetails({ form, onPrevStep, onNextStep }: PetDetailsP
   const serviceType = form.watch("serviceType");
   const isGroomingService = serviceType === ServiceType.GROOMING;
 
+  // Handle form submission
+  const handleContinue = () => {
+    // If grooming service is required and not selected, show error
+    if (isGroomingService && !form.getValues("groomingService")) {
+      form.setError("groomingService", {
+        type: "required",
+        message: "Please select a grooming service"
+      });
+    }
+    
+    // Validate other required fields
+    const petName = form.getValues("petName");
+    const petBreed = form.getValues("petBreed");
+    const petSize = form.getValues("petSize");
+    
+    if (!petName) {
+      form.setError("petName", {
+        type: "required",
+        message: "Please enter your pet's name"
+      });
+    }
+    
+    if (!petBreed) {
+      form.setError("petBreed", {
+        type: "required",
+        message: "Please enter your pet's breed"
+      });
+    }
+    
+    if (!petSize) {
+      form.setError("petSize", {
+        type: "required",
+        message: "Please select your pet's size"
+      });
+    }
+    
+    // If transport is needed but no pickup address is provided
+    if (form.getValues("needsTransport") && !form.getValues("pickupAddress")) {
+      form.setError("pickupAddress", {
+        type: "required",
+        message: "Please provide a pickup address"
+      });
+    }
+    
+    // Only proceed if all required fields are filled
+    const hasErrors = form.formState.errors && Object.keys(form.formState.errors).length > 0;
+    
+    if (!hasErrors) {
+      onNextStep();
+    } else {
+      // Trigger form validation to show all errors
+      form.trigger();
+    }
+  };
+
   return (
     <div className="space-y-6">
       <h3 className="font-playfair text-xl font-semibold text-[#9a7d62] mb-6">Tell Us About Your Pet</h3>
@@ -196,7 +251,7 @@ export default function PetDetails({ form, onPrevStep, onNextStep }: PetDetailsP
         <Button
           type="button"
           className="bg-[#9a7d62] hover:bg-[#9a7d62]/90 text-white"
-          onClick={onNextStep}
+          onClick={handleContinue}
         >
           Continue
         </Button>
