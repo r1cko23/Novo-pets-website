@@ -427,19 +427,34 @@ app.get('/api/bookings', async (req, res) => {
     const adminEmail = req.headers['admin-email'];
     console.log(`Fetching bookings with admin email: ${adminEmail || 'none provided'}`);
     
-    console.log('Attempting to fetch bookings from Supabase...');
-    const { data, error } = await supabase
+    console.log('Attempting to fetch all bookings from Supabase...');
+    
+    // Fetch grooming appointments
+    const { data: groomingData, error: groomingError } = await supabase
       .from('grooming_appointments')
       .select('*');
     
-    if (error) {
-      console.error('Error fetching bookings:', error);
-      throw error;
+    if (groomingError) {
+      console.error('Error fetching grooming bookings:', groomingError);
+      throw groomingError;
     }
     
-    // Transform field names from snake_case to camelCase for frontend
-    const transformedData = (data || []).map(booking => {
-      // First, validate date fields
+    // Fetch hotel bookings
+    const { data: hotelData, error: hotelError } = await supabase
+      .from('hotel_bookings')
+      .select('*');
+    
+    if (hotelError) {
+      console.error('Error fetching hotel bookings:', hotelError);
+      throw hotelError;
+    }
+    
+    // Log the counts for debugging
+    console.log(`Retrieved ${groomingData?.length || 0} grooming bookings and ${hotelData?.length || 0} hotel bookings`);
+    
+    // Transform grooming appointments
+    const transformedGroomingData = (groomingData || []).map(booking => {
+      // Validate date fields
       let appointmentDate = booking.appointment_date;
       let createdAt = booking.created_at;
       let updatedAt = booking.updated_at;
@@ -456,7 +471,7 @@ app.get('/api/bookings', async (req, res) => {
         console.error('Error parsing appointment date:', e);
       }
       
-      // Return transformed booking object with camelCase keys
+      // Return transformed booking with explicit service type
       return {
         id: booking.id,
         appointmentDate,
@@ -465,9 +480,8 @@ app.get('/api/bookings', async (req, res) => {
         petBreed: booking.pet_breed,
         petAge: booking.pet_age,
         petSize: booking.pet_size,
-        serviceType: booking.service_type || 'grooming',
+        serviceType: 'grooming',
         groomingService: booking.grooming_service,
-        accommodationType: booking.accommodation_type,
         customerName: booking.customer_name,
         customerEmail: booking.customer_email,
         customerPhone: booking.customer_phone,
@@ -480,8 +494,72 @@ app.get('/api/bookings', async (req, res) => {
       };
     });
     
-    console.log(`Successfully fetched ${transformedData.length} bookings`);
-    res.status(200).json(transformedData);
+    // Transform hotel bookings
+    const transformedHotelData = (hotelData || []).map(booking => {
+      // Validate date fields
+      let checkInDate = booking.check_in_date;
+      let checkOutDate = booking.check_out_date;
+      let createdAt = booking.created_at;
+      let updatedAt = booking.updated_at;
+      
+      try {
+        // Format dates
+        if (checkInDate) {
+          const date = new Date(checkInDate);
+          if (!isNaN(date.getTime())) {
+            checkInDate = date.toISOString().split('T')[0];
+          }
+        }
+        
+        if (checkOutDate) {
+          const date = new Date(checkOutDate);
+          if (!isNaN(date.getTime())) {
+            checkOutDate = date.toISOString().split('T')[0];
+          }
+        }
+      } catch (e) {
+        console.error('Error parsing hotel booking dates:', e);
+      }
+      
+      // Return transformed hotel booking
+      return {
+        id: booking.id,
+        appointmentDate: checkInDate, // Map check-in date to appointmentDate for consistency
+        appointmentTime: '9:00', // Default check-in time
+        checkInDate,
+        checkOutDate,
+        petName: booking.pet_name,
+        petBreed: booking.pet_breed,
+        petAge: booking.pet_age,
+        petSize: booking.pet_size,
+        serviceType: 'hotel',
+        accommodationType: booking.accommodation_type,
+        customerName: booking.customer_name,
+        customerEmail: booking.customer_email,
+        customerPhone: booking.customer_phone,
+        specialRequests: booking.special_requests,
+        status: booking.status || 'pending',
+        reference: booking.reference,
+        createdAt,
+        updatedAt
+      };
+    });
+    
+    // Combine the data and sort by appointment date (newest first)
+    const combinedData = [...transformedGroomingData, ...transformedHotelData].sort((a, b) => {
+      // Sort by date first (newest first)
+      const dateA = new Date(a.appointmentDate || '1970-01-01');
+      const dateB = new Date(b.appointmentDate || '1970-01-01');
+      
+      if (dateA > dateB) return -1;
+      if (dateA < dateB) return 1;
+      
+      // If dates are the same, sort by time
+      return a.appointmentTime?.localeCompare(b.appointmentTime || '') || 0;
+    });
+    
+    console.log(`Successfully fetched ${combinedData.length} total bookings`);
+    res.status(200).json(combinedData);
   } catch (error) {
     console.error('Error in /api/bookings:', error);
     res.status(500).json({ 
@@ -682,7 +760,7 @@ app.post('/api/bookings', async (req, res) => {
 app.put('/api/bookings/:id/status', async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, bookingType } = req.body;
     
     if (!id) {
       return res.status(400).json({
@@ -698,27 +776,87 @@ app.put('/api/bookings/:id/status', async (req, res) => {
       });
     }
     
+    // Determine which table to update based on the booking type or try both
+    const tableName = bookingType === 'hotel' ? 'hotel_bookings' : 'grooming_appointments';
+    
+    // Try to update in the specified table
     const { data, error } = await supabase
-      .from('grooming_appointments')
+      .from(tableName)
       .update({ status, updated_at: new Date().toISOString() })
       .eq('id', id)
       .select();
-      
+    
     if (error) {
-      console.error('Error updating booking status:', error);
-      throw error;
+      console.error(`Error updating ${tableName} status:`, error);
+      
+      // If bookingType wasn't specified, try the other table
+      if (!bookingType) {
+        console.log('Trying to update in alternate table...');
+        
+        const altTable = tableName === 'grooming_appointments' ? 'hotel_bookings' : 'grooming_appointments';
+        const { data: altData, error: altError } = await supabase
+          .from(altTable)
+          .update({ status, updated_at: new Date().toISOString() })
+          .eq('id', id)
+          .select();
+          
+        if (altError) {
+          console.error(`Error updating ${altTable} status:`, altError);
+          return res.status(404).json({
+            success: false,
+            message: "Booking not found in either table"
+          });
+        }
+        
+        if (altData && altData.length > 0) {
+          console.log(`Successfully updated booking in ${altTable}`);
+          return res.status(200).json({
+            success: true,
+            booking: altData[0],
+            bookingType: altTable === 'hotel_bookings' ? 'hotel' : 'grooming'
+          });
+        }
+      } else {
+        throw error;
+      }
     }
     
     if (!data || data.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Booking not found"
-      });
+      if (bookingType) {
+        return res.status(404).json({
+          success: false,
+          message: `Booking not found in ${tableName}`
+        });
+      } else {
+        // Try the other table if bookingType wasn't specified
+        const altTable = tableName === 'grooming_appointments' ? 'hotel_bookings' : 'grooming_appointments';
+        const { data: altData, error: altError } = await supabase
+          .from(altTable)
+          .update({ status, updated_at: new Date().toISOString() })
+          .eq('id', id)
+          .select();
+          
+        if (altError || !altData || altData.length === 0) {
+          return res.status(404).json({
+            success: false,
+            message: "Booking not found in either table"
+          });
+        }
+        
+        console.log(`Successfully updated booking in ${altTable}`);
+        return res.status(200).json({
+          success: true,
+          booking: altData[0],
+          bookingType: altTable === 'hotel_bookings' ? 'hotel' : 'grooming'
+        });
+      }
     }
     
+    console.log(`Successfully updated booking in ${tableName}`);
     return res.status(200).json({
       success: true,
-      booking: data[0]
+      booking: data[0],
+      bookingType: tableName === 'hotel_bookings' ? 'hotel' : 'grooming'
     });
   } catch (error) {
     console.error('Error updating booking status:', error);

@@ -106,11 +106,14 @@ export default function AdminDashboard() {
     });
   };
 
-  const handleStatusChange = async (bookingId: number, newStatus: string) => {
+  const handleStatusChange = async (bookingId: number, newStatus: string, bookingType?: string) => {
     try {
       const adminEmail = sessionStorage.getItem("adminEmail");
       const response = await apiRequest("PUT", `/api/bookings/${bookingId}/status`, 
-        { status: newStatus },
+        { 
+          status: newStatus,
+          bookingType: bookingType // Send the booking type if available
+        },
         { headers: { "admin-email": adminEmail } }
       );
       
@@ -237,7 +240,7 @@ export default function AdminDashboard() {
 // Bookings list component
 function BookingsList({ bookings, onStatusChange }: { 
   bookings: any[], 
-  onStatusChange: (id: number, status: string) => void 
+  onStatusChange: (id: number, status: string, bookingType?: string) => void 
 }) {
   if (bookings.length === 0) {
     return (
@@ -269,7 +272,7 @@ function BookingsList({ bookings, onStatusChange }: {
             <div className="flex justify-between items-start">
               <div>
                 <CardTitle className="text-lg">{booking.petName}</CardTitle>
-                <CardDescription>{booking.petBreed} ({booking.petSize})</CardDescription>
+                <CardDescription>{booking.petBreed} ({booking.petSize || 'Unknown size'})</CardDescription>
               </div>
               <StatusBadge status={booking.status} />
             </div>
@@ -286,12 +289,29 @@ function BookingsList({ bookings, onStatusChange }: {
                 </span>
               </div>
               
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Date & Time:</span>
-                <span className="font-medium">
-                  {safeFormatDate(booking.appointmentDate)} at {booking.appointmentTime}
-                </span>
-              </div>
+              {booking.serviceType === "grooming" ? (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Date & Time:</span>
+                  <span className="font-medium">
+                    {safeFormatDate(booking.appointmentDate)} at {booking.appointmentTime}
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Check-in:</span>
+                    <span className="font-medium">
+                      {safeFormatDate(booking.checkInDate)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Check-out:</span>
+                    <span className="font-medium">
+                      {safeFormatDate(booking.checkOutDate)}
+                    </span>
+                  </div>
+                </>
+              )}
               
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Customer:</span>
@@ -315,7 +335,7 @@ function BookingsList({ bookings, onStatusChange }: {
           <CardFooter className="pt-0">
             <Select 
               defaultValue={booking.status}
-              onValueChange={(value) => onStatusChange(booking.id, value)}
+              onValueChange={(value) => onStatusChange(booking.id, value, booking.serviceType)}
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Change Status" />
