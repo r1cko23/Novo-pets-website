@@ -87,7 +87,7 @@ app.use((req, res, next) => {
   if (process.env.VERCEL) {
     // When running on Vercel, we export the app
     log(`[express] 🚀 Exporting app for Vercel deployment`);
-    // Export to be used as a module
+    // Export handled at the end of the file
   } else {
     // For local/traditional hosting
     server.listen(port, () => {
@@ -97,5 +97,10 @@ app.use((req, res, next) => {
   }
 })();
 
-// Export the Express app for Vercel serverless deployment
+// Support both ESM and CommonJS exports
 export default app;
+
+// Also support CommonJS for Vercel
+if (typeof module !== 'undefined') {
+  module.exports = app;
+}
