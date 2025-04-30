@@ -734,57 +734,104 @@ app.post('/api/bookings', async (req, res) => {
     const prefix = serviceType === 'hotel' ? 'NVP-H-' : 'NVP-G-';
     const referenceNumber = `${prefix}${Math.floor(Math.random() * 900000) + 100000}`;
     
-    // Create booking data object, omitting pet_age if not provided
-    const bookingData = {
-      appointment_date: appointmentDate,
-      appointment_time: appointmentTime,
-      pet_name: petName,
-      pet_breed: petBreed,
-      pet_size: petSize,
-      service_type: serviceType || 'grooming',
-      customer_name: customerName,
-      customer_email: customerEmail,
-      customer_phone: customerPhone,
-      status: 'pending',
-      reference: referenceNumber,
-      created_at: new Date().toISOString()
-    };
-    
-    // Add service-specific fields
-    if (serviceType === 'grooming') {
-      bookingData.grooming_service = groomingService;
-      bookingData.groomer = groomer || 'Groomer 1';
-    } else if (serviceType === 'hotel') {
-      bookingData.accommodation_type = accommodationType;
-      bookingData.duration_days = durationDays;
+    // Create booking data object with appropriate fields based on service type
+    // Hotel bookings
+    if (serviceType === 'hotel') {
+      // For hotel stays, use check_in_date and check_out_date fields
+      const checkInDate = appointmentDate;
+      
+      // Calculate check-out date based on duration
+      const checkOutDate = new Date(checkInDate);
+      checkOutDate.setDate(checkOutDate.getDate() + (durationDays || 1));
+      const formattedCheckOutDate = checkOutDate.toISOString().split('T')[0];
+      
+      const hotelBookingData = {
+        check_in_date: checkInDate,
+        check_out_date: formattedCheckOutDate,
+        accommodation_type: accommodationType,
+        duration_days: durationDays || 1,
+        pet_name: petName,
+        pet_breed: petBreed,
+        pet_size: petSize,
+        service_type: 'hotel',
+        customer_name: customerName,
+        customer_email: customerEmail,
+        customer_phone: customerPhone,
+        special_requests: req.body.specialRequests,
+        status: 'pending',
+        reference: referenceNumber,
+        created_at: new Date().toISOString()
+      };
+      
+      // Only add pet_age if it exists
+      if (petAge) {
+        hotelBookingData.pet_age = petAge;
+      }
+      
+      console.log(`Creating hotel booking with check-in: ${checkInDate}, check-out: ${formattedCheckOutDate}`);
+      
+      // Create booking in Supabase
+      const { data, error } = await supabase
+        .from('hotel_bookings')
+        .insert([hotelBookingData])
+        .select();
+      
+      if (error) {
+        console.error(`Error creating hotel booking:`, error);
+        throw error;
+      }
+      
+      console.log('Hotel booking created successfully:', data);
+      
+      return res.status(201).json({
+        success: true,
+        booking: data[0]
+      });
     }
-    
-    // Only add pet_age if it exists
-    if (petAge) {
-      bookingData.pet_age = petAge;
+    // Grooming bookings
+    else {
+      // Create grooming booking data object
+      const groomingBookingData = {
+        appointment_date: appointmentDate,
+        appointment_time: appointmentTime,
+        pet_name: petName,
+        pet_breed: petBreed,
+        pet_size: petSize,
+        service_type: 'grooming',
+        grooming_service: groomingService,
+        customer_name: customerName,
+        customer_email: customerEmail,
+        customer_phone: customerPhone,
+        groomer: groomer || 'Groomer 1',
+        special_requests: req.body.specialRequests,
+        status: 'pending',
+        reference: referenceNumber,
+        created_at: new Date().toISOString()
+      };
+      
+      // Only add pet_age if it exists
+      if (petAge) {
+        groomingBookingData.pet_age = petAge;
+      }
+      
+      // Create booking in Supabase
+      const { data, error } = await supabase
+        .from('grooming_appointments')
+        .insert([groomingBookingData])
+        .select();
+      
+      if (error) {
+        console.error(`Error creating grooming booking:`, error);
+        throw error;
+      }
+      
+      console.log('Grooming booking created successfully:', data);
+      
+      return res.status(201).json({
+        success: true,
+        booking: data[0]
+      });
     }
-    
-    // Determine which table to use based on service type
-    const tableName = serviceType === 'hotel' ? 'hotel_bookings' : 'grooming_appointments';
-    console.log(`Using table ${tableName} for ${serviceType} booking`);
-    
-    // Create booking in Supabase
-    const { data, error } = await supabase
-      .from(tableName)
-      .insert([bookingData])
-      .select();
-    
-    if (error) {
-      console.error(`Error creating booking in ${tableName}:`, error);
-      throw error;
-    }
-    
-    console.log('Booking created successfully:', data);
-    
-    return res.status(201).json({
-      success: true,
-      booking: data[0]
-    });
   } catch (error) {
     console.error('Error in POST /api/bookings:', error);
     res.status(500).json({
