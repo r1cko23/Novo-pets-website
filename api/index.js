@@ -255,7 +255,25 @@ app.get('/api/admin/bookings', async (req, res) => {
       throw error;
     }
     
-    return res.status(200).json(bookings || []);
+    // Safely transform dates to handle potential invalid date strings
+    const safeBookings = (bookings || []).map(booking => {
+      // Make a copy of the booking to avoid mutation
+      const safeBooking = { ...booking };
+      
+      // Ensure created_at is a valid string or null
+      if (safeBooking.created_at && !isValidDateString(safeBooking.created_at)) {
+        safeBooking.created_at = null;
+      }
+      
+      // Ensure updated_at is a valid string or null
+      if (safeBooking.updated_at && !isValidDateString(safeBooking.updated_at)) {
+        safeBooking.updated_at = null;
+      }
+      
+      return safeBooking;
+    });
+    
+    return res.status(200).json(safeBookings);
   } catch (error) {
     console.error('Error in admin bookings API:', error);
     res.status(500).json({
@@ -264,6 +282,18 @@ app.get('/api/admin/bookings', async (req, res) => {
     });
   }
 });
+
+// Helper function to check if a string is a valid date
+function isValidDateString(dateString) {
+  if (!dateString) return false;
+  
+  try {
+    const date = new Date(dateString);
+    return !isNaN(date.getTime());
+  } catch (e) {
+    return false;
+  }
+}
 
 // Admin API to create a user
 app.post('/api/admin/users', async (req, res) => {

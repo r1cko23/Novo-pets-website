@@ -19,6 +19,18 @@
       "dest": "/api/index.js"
     },
     {
+      "src": "/admin/api/(.*)",
+      "dest": "/api/index.js"
+    },
+    {
+      "src": "/admin",
+      "dest": "/index.html"
+    },
+    {
+      "src": "/admin/(.*)",
+      "dest": "/index.html"
+    },
+    {
       "src": "/assets/(.*)",
       "dest": "/assets/$1"
     },
