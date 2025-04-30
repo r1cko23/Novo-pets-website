@@ -57,7 +57,8 @@ app.use((req, res, next) => {
       log("Will continue startup but API endpoints may not work correctly");
     }
   } catch (error) {
-    log("Error during database connection test:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    log(`Error during database connection test: ${errorMessage}`);
   }
 
   const server = await registerRoutes(app);
@@ -89,8 +90,7 @@ app.use((req, res, next) => {
   } else {
     // For local/traditional hosting
     server.listen(port, () => {
-      const storageType = (storage as any).constructor.name || "Unknown";
-      log(`[express] 🔄 Using ${storageType} as database`);
+      log(`[express] 🔄 Server started`);
       log(`[express] serving on port ${port}`);
     });
   }
