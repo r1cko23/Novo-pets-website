@@ -39,7 +39,8 @@ import {
   ServiceType, 
   PetSize, 
   PaymentMethod, 
-  type BookingFormValues 
+  type BookingFormValues,
+  groomingPrices
 } from "@shared/schema";
 import { cn, generateTimeSlots, getBookingReference } from "@/lib/utils";
 import PetDetails from "./PetDetails";
@@ -565,6 +566,10 @@ export default function BookingForm() {
   };
   
   const nextStep = () => {
+    console.log("Next step button clicked, current step:", step);
+    console.log("Current service type:", serviceType);
+    console.log("Form values:", form.getValues());
+    
     const fieldsByStep = {
       1: ["serviceType"],
       2: ["appointmentDate", "appointmentTime"],
@@ -576,6 +581,8 @@ export default function BookingForm() {
     
     // Validate only the fields for the current step
     const validateFields = async () => {
+      console.log(`Validating fields for step ${step}`);
+      
       // First validation step - service selection
       if (step === 1) {
         if (serviceType === ServiceType.HOTEL && !form.getValues("accommodationType")) {
@@ -615,6 +622,7 @@ export default function BookingForm() {
         
         // Check if grooming service is selected when serviceType is GROOMING
         if (serviceType === ServiceType.GROOMING && !form.getValues("groomingService")) {
+          console.log("Grooming service is required but not selected");
           form.setError("groomingService", {
             type: "required",
             message: "Please select a grooming service"
@@ -1203,6 +1211,38 @@ export default function BookingForm() {
               {step === 3 && (
                 <div className="space-y-6">
                   <h3 className="font-playfair text-xl font-semibold text-[#9a7d62] mb-6">Tell Us About Your Pet</h3>
+                  
+                  {/* Grooming Service Selection - only shown for grooming service type */}
+                  {serviceType === ServiceType.GROOMING && (
+                    <FormField
+                      control={form.control}
+                      name="groomingService"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Grooming Service</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value || ""}
+                            defaultValue=""
+                          >
+                            <FormControl>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select a grooming service" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {groomingPrices.map((option: { service: string; description: string }) => (
+                                <SelectItem key={option.service} value={option.service}>
+                                  {option.service} - {option.description}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <FormField

@@ -37,14 +37,26 @@ export default function PetDetails({ form, onPrevStep, onNextStep }: PetDetailsP
   const serviceType = form.watch("serviceType");
   const isGroomingService = serviceType === ServiceType.GROOMING;
 
+  console.log("Current service type:", serviceType);
+  console.log("Is grooming service:", isGroomingService);
+  console.log("Grooming prices:", groomingPrices);
+
   // Handle form submission
   const handleContinue = () => {
+    console.log("Continue button clicked");
+    // Reset any previous errors first
+    form.clearErrors();
+    
+    let isValid = true;
+    
     // If grooming service is required and not selected, show error
     if (isGroomingService && !form.getValues("groomingService")) {
+      console.log("Grooming service not selected");
       form.setError("groomingService", {
         type: "required",
         message: "Please select a grooming service"
       });
+      isValid = false;
     }
     
     // Validate other required fields
@@ -57,6 +69,7 @@ export default function PetDetails({ form, onPrevStep, onNextStep }: PetDetailsP
         type: "required",
         message: "Please enter your pet's name"
       });
+      isValid = false;
     }
     
     if (!petBreed) {
@@ -64,6 +77,7 @@ export default function PetDetails({ form, onPrevStep, onNextStep }: PetDetailsP
         type: "required",
         message: "Please enter your pet's breed"
       });
+      isValid = false;
     }
     
     if (!petSize) {
@@ -71,6 +85,7 @@ export default function PetDetails({ form, onPrevStep, onNextStep }: PetDetailsP
         type: "required",
         message: "Please select your pet's size"
       });
+      isValid = false;
     }
     
     // If transport is needed but no pickup address is provided
@@ -79,17 +94,18 @@ export default function PetDetails({ form, onPrevStep, onNextStep }: PetDetailsP
         type: "required",
         message: "Please provide a pickup address"
       });
+      isValid = false;
     }
     
-    // Only proceed if all required fields are filled
-    const hasErrors = form.formState.errors && Object.keys(form.formState.errors).length > 0;
-    
-    if (!hasErrors) {
-      onNextStep();
-    } else {
-      // Trigger form validation to show all errors
-      form.trigger();
-    }
+    // Force a trigger to show all errors
+    form.trigger().then(() => {
+      console.log("Form validation triggered, isValid:", isValid);
+      console.log("Form errors:", form.formState.errors);
+      
+      if (isValid) {
+        onNextStep();
+      }
+    });
   };
 
   return (
@@ -97,8 +113,8 @@ export default function PetDetails({ form, onPrevStep, onNextStep }: PetDetailsP
       <h3 className="font-playfair text-xl font-semibold text-[#9a7d62] mb-6">Tell Us About Your Pet</h3>
       
       <div className="space-y-6">
-        {/* Grooming Service Selection - only shown for grooming service type */}
-        {isGroomingService && (
+        {/* Grooming Service Selection - always shown for grooming service type, with explicit check */}
+        {serviceType === ServiceType.GROOMING && (
           <FormField
             control={form.control}
             name="groomingService"
@@ -238,6 +254,27 @@ export default function PetDetails({ form, onPrevStep, onNextStep }: PetDetailsP
             </FormItem>
           )}
         />
+        
+        {/* Show pickup address field when transport is checked */}
+        {form.watch("needsTransport") && (
+          <FormField
+            control={form.control}
+            name="pickupAddress"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Pickup Address</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Enter your complete address for pickup"
+                    rows={2}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
       </div>
       
       <div className="mt-8 flex justify-between">
