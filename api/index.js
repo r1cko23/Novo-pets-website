@@ -38,22 +38,8 @@ app.get('/api/bookings', async (req, res) => {
   }
 });
 
-// Catch-all route for the frontend
-app.use('*', (req, res) => {
-  res.status(200).send(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>Novo Pets</title>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      </head>
-      <body>
-        <h1>Novo Pets API Server</h1>
-        <p>This is the API server for Novo Pets. The frontend is being served separately.</p>
-      </body>
-    </html>
-  `);
-});
+// This API handler only handles API routes
+// The static files are managed by Vercel's static file handling
+// in vercel.json, not here
 
 export default app; 
