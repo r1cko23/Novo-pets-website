@@ -505,10 +505,10 @@ export const serviceOverviewItems = [
 // Testimonials data
 export const testimonials = [
   {
-    name: "Max & Sarah",
-    image: "https://images.unsplash.com/photo-1517849845537-4d257902454a?q=80&w=100&auto=format&fit=crop",
-    text: "Novo Pets is absolutely incredible! My dog Max comes back from grooming looking and smelling amazing. The staff truly care about pets and treat him like royalty.",
-    serviceUsed: "Golden Retriever • Full Groom Service",
+    name: "Jericko",
+    image: "/images/testimonials/jericko_and_jacob.png",
+    text: "Novo Pets is absolutely incredible! My dog Jacob comes back from grooming looking and smelling amazing. The staff truly care about pets and treat him like royalty.",
+    serviceUsed: "Pomeranian • Full Groom Service",
     rating: 5
   },
   {
