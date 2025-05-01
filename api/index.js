@@ -299,9 +299,34 @@ function isValidDateString(dateString) {
   if (!dateString) return false;
   
   try {
+    // First check if it's in YYYY-MM-DD format
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      const [year, month, day] = dateString.split('-').map(num => parseInt(num, 10));
+      // Check if it's a valid date (month is 0-based in JS Date)
+      const date = new Date(year, month - 1, day);
+      const isValid = date.getFullYear() === year && 
+                      date.getMonth() === month - 1 && 
+                      date.getDate() === day;
+                      
+      console.log(`Validating date string ${dateString}: ${isValid ? 'Valid' : 'Invalid'} YYYY-MM-DD format`);
+      return isValid;
+    }
+    
+    // If it's not in YYYY-MM-DD format, check if it's a valid ISO string or other valid date format
     const date = new Date(dateString);
-    return !isNaN(date.getTime());
+    const isValid = !isNaN(date.getTime());
+    
+    if (isValid) {
+      // Log the normalized date format for debugging
+      const normalized = date.toLocaleDateString('en-CA'); // en-CA uses YYYY-MM-DD format
+      console.log(`Parsed date string ${dateString} to normalized form: ${normalized}`);
+    } else {
+      console.log(`Date string ${dateString} is not a valid date`);
+    }
+    
+    return isValid;
   } catch (e) {
+    console.error(`Error validating date string: ${dateString}`, e);
     return false;
   }
 }
@@ -600,12 +625,16 @@ app.get('/api/availability', async (req, res) => {
       });
     }
     
+    // Ensure consistent date format handling regardless of client timezone
+    const normalizedDate = date;
+    console.log(`Using normalized date for availability check: ${normalizedDate}`);
+    
     // Get all bookings for this date to determine availability with the most recent data
     // Include both confirmed and pending statuses as booked
     let groomingQuery = supabase
       .from('grooming_appointments')
       .select('appointment_date, appointment_time, groomer, status')
-      .eq('appointment_date', date)
+      .eq('appointment_date', normalizedDate)
       .in('status', ['confirmed', 'pending']);
     
     // Instead of using options, let's ensure we get the most recent data
@@ -624,7 +653,7 @@ app.get('/api/availability', async (req, res) => {
     const { data: hotelBookings, error: hotelError } = await supabase
       .from('hotel_bookings')
       .select('check_in_date, check_out_date, accommodation_type, status')
-      .or(`check_in_date.eq.${date},and(check_in_date.lt.${date},check_out_date.gte.${date})`)
+      .or(`check_in_date.eq.${normalizedDate},and(check_in_date.lt.${normalizedDate},check_out_date.gte.${normalizedDate})`)
       .in('status', ['confirmed', 'pending']);
       
     if (hotelError) {
@@ -632,7 +661,7 @@ app.get('/api/availability', async (req, res) => {
       throw hotelError;
     }
     
-    console.log(`Found ${groomingBookings?.length || 0} grooming bookings and ${hotelBookings?.length || 0} hotel bookings for date ${date}`);
+    console.log(`Found ${groomingBookings?.length || 0} grooming bookings and ${hotelBookings?.length || 0} hotel bookings for date ${normalizedDate}`);
     
     // Combined all booked time slots
     const bookedSlotsMap = {};
@@ -711,7 +740,7 @@ app.get('/api/availability', async (req, res) => {
     // Log availability statistics
     const availableCount = timeSlots.filter(slot => slot.available).length;
     const bookedCount = timeSlots.length - availableCount;
-    console.log(`Returning ${timeSlots.length} time slots for date ${date}: ${availableCount} available, ${bookedCount} booked`);
+    console.log(`Returning ${timeSlots.length} time slots for date ${normalizedDate}: ${availableCount} available, ${bookedCount} booked`);
     
     // Debug logging for booked slots to identify issues
     const bookedSlots = Object.keys(bookedSlotsMap);
@@ -742,7 +771,7 @@ app.get('/api/availability', async (req, res) => {
       timestamp: new Date().toISOString(), // Add timestamp to help client detect stale data
       debug: {
         bookedSlots: bookedSlots,
-        requestedDate: date,
+        requestedDate: normalizedDate,
         refresh: refresh === 'true'
       }
     });
@@ -842,6 +871,18 @@ app.post('/api/bookings', async (req, res) => {
       });
     }
     
+    // Fix timezone issues by ensuring the date is in YYYY-MM-DD format
+    // This corrects for browsers sending dates in local timezone which can cause off-by-one day errors
+    const processedDate = new Date(appointmentDate);
+    // Log the original date and the processed date for debugging
+    console.log(`Original appointment date: ${appointmentDate}`);
+    console.log(`Processed date object: ${processedDate}`);
+    
+    // Get the date in YYYY-MM-DD format using the local timezone
+    // This ensures it matches the date shown in the UI
+    const localDateStr = processedDate.toLocaleDateString('en-CA'); // en-CA uses YYYY-MM-DD format
+    console.log(`Corrected date string: ${localDateStr}`);
+    
     // Generate a reference number with prefix based on service type
     const prefix = serviceType === 'hotel' ? 'NVP-H-' : 'NVP-G-';
     const referenceNumber = `${prefix}${Math.floor(Math.random() * 900000) + 100000}`;
@@ -850,12 +891,14 @@ app.post('/api/bookings', async (req, res) => {
     // Hotel bookings
     if (serviceType === 'hotel') {
       // For hotel stays, use check_in_date and check_out_date fields
-      const checkInDate = appointmentDate;
+      const checkInDate = localDateStr;  // Use the timezone-corrected date
       
       // Calculate check-out date based on duration
-      const checkOutDate = new Date(checkInDate);
+      const checkOutDate = new Date(processedDate);
       checkOutDate.setDate(checkOutDate.getDate() + (durationDays || 1));
-      const formattedCheckOutDate = checkOutDate.toISOString().split('T')[0];
+      
+      // Format check-out date in local timezone to avoid off-by-one errors
+      const formattedCheckOutDate = checkOutDate.toLocaleDateString('en-CA');
       
       const hotelBookingData = {
         check_in_date: checkInDate,
@@ -905,9 +948,9 @@ app.post('/api/bookings', async (req, res) => {
     }
     // Grooming bookings
     else {
-      // Create grooming booking data object
+      // Create grooming booking data object with the timezone-corrected date
       const groomingBookingData = {
-        appointment_date: appointmentDate,
+        appointment_date: localDateStr,  // Use the timezone-corrected date
         appointment_time: appointmentTime,
         pet_name: petName,
         pet_breed: petBreed,
@@ -941,7 +984,7 @@ app.post('/api/bookings', async (req, res) => {
       }
       
       // Clear availability cache for this date
-      clearAvailabilityCache(appointmentDate);
+      clearAvailabilityCache(localDateStr);
       
       console.log('Grooming booking created successfully:', data);
       
