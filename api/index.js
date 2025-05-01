@@ -577,7 +577,7 @@ function clearAvailabilityCache(date) {
   // For now, we'll just log that we're doing it
 }
 
-// Update the availability checking endpoint to perform a more thorough check
+// Add endpoint for availability
 app.get('/api/availability', async (req, res) => {
   try {
     const { date, refresh } = req.query;
@@ -601,8 +601,8 @@ app.get('/api/availability', async (req, res) => {
     }
     
     // Get all bookings for this date to determine availability with the most recent data
-    // Note: fetchOptions was causing issues because it's not a valid Supabase option
-    let query = supabase
+    // Include both confirmed and pending statuses as booked
+    let groomingQuery = supabase
       .from('grooming_appointments')
       .select('appointment_date, appointment_time, groomer, status')
       .eq('appointment_date', date)
@@ -612,23 +612,77 @@ app.get('/api/availability', async (req, res) => {
     if (refresh === 'true') {
       console.log('Forcing fresh data from database');
     }
-      
-    const { data: bookings, error } = await query;
-      
-    if (error) {
-      console.error('Error fetching availability:', error);
-      throw error;
+       
+    const { data: groomingBookings, error: groomingError } = await groomingQuery;
+        
+    if (groomingError) {
+      console.error('Error fetching grooming availability:', groomingError);
+      throw groomingError;
     }
     
-    console.log(`Found ${bookings?.length || 0} existing bookings for date ${date}`);
+    // Also check hotel bookings that might overlap with this date
+    const { data: hotelBookings, error: hotelError } = await supabase
+      .from('hotel_bookings')
+      .select('check_in_date, check_out_date, accommodation_type, status')
+      .or(`check_in_date.eq.${date},and(check_in_date.lt.${date},check_out_date.gte.${date})`)
+      .in('status', ['confirmed', 'pending']);
+      
+    if (hotelError) {
+      console.error('Error fetching hotel availability:', hotelError);
+      throw hotelError;
+    }
     
-    // Create a map for quick lookup of booked slots
+    console.log(`Found ${groomingBookings?.length || 0} grooming bookings and ${hotelBookings?.length || 0} hotel bookings for date ${date}`);
+    
+    // Combined all booked time slots
     const bookedSlotsMap = {};
-    if (bookings && bookings.length > 0) {
-      bookings.forEach(booking => {
-        const key = `${booking.appointment_time}-${booking.groomer}`;
+    
+    // Mark grooming slots as booked
+    if (groomingBookings && groomingBookings.length > 0) {
+      groomingBookings.forEach(booking => {
+        // Normalize time format (ensure "09:00" format instead of just "9:00")
+        const time = booking.appointment_time.includes(':') 
+            ? booking.appointment_time 
+            : `${booking.appointment_time.padStart(2, '0')}:00`;
+            
+        const groomer = booking.groomer;
+        
+        // Create a unique key for each slot
+        const key = `${time}-${groomer}`;
+        
+        // Mark as booked and log it for debugging
         bookedSlotsMap[key] = true;
-        console.log(`Marking slot as booked: ${key}`);
+        console.log(`Marking grooming slot as booked: ${key} (status: ${booking.status})`);
+      });
+    }
+    
+    // For hotel bookings, mark the 9:00 AM slot as booked since that's when they typically check in
+    // This is a simplification - in a real system, you might have more sophisticated allocation
+    if (hotelBookings && hotelBookings.length > 0) {
+      // Each hotel booking takes up a slot at 9:00 AM
+      // This will block both groomers' 9 AM slots if there are two or more hotel bookings
+      const hotelDefaultTime = "09:00";
+      
+      hotelBookings.forEach((booking, index) => {
+        // Determine which groomer slot to block based on the index
+        // We'll alternate between groomers to distribute bookings
+        const groomer = `Groomer ${(index % 2) + 1}`;
+        const key = `${hotelDefaultTime}-${groomer}`;
+        
+        bookedSlotsMap[key] = true;
+        console.log(`Marking hotel check-in slot as booked: ${key} (status: ${booking.status})`);
+        
+        // If there are many hotel bookings, block both groomers' slots
+        if (hotelBookings.length > 1) {
+          const otherGroomer = `Groomer ${(index % 2 === 0) ? 2 : 1}`;
+          const otherKey = `${hotelDefaultTime}-${otherGroomer}`;
+          
+          // Only mark as booked if there are enough hotel bookings to warrant blocking both slots
+          if (index < Math.floor(hotelBookings.length / 2)) {
+            bookedSlotsMap[otherKey] = true;
+            console.log(`Marking additional hotel slot as booked: ${otherKey} (due to high volume)`);
+          }
+        }
       });
     }
     
@@ -636,6 +690,7 @@ app.get('/api/availability', async (req, res) => {
     const timeSlots = [];
     const groomers = ["Groomer 1", "Groomer 2"];
     
+    // Format hours properly and include more detailed time slots
     for (let hour = 9; hour <= 17; hour++) {
       // Format hour properly (09:00 instead of 9:00)
       const time = `${hour.toString().padStart(2, '0')}:00`;
@@ -658,19 +713,42 @@ app.get('/api/availability', async (req, res) => {
     const bookedCount = timeSlots.length - availableCount;
     console.log(`Returning ${timeSlots.length} time slots for date ${date}: ${availableCount} available, ${bookedCount} booked`);
     
+    // Debug logging for booked slots to identify issues
+    const bookedSlots = Object.keys(bookedSlotsMap);
+    console.log('Booked slot keys:', bookedSlots);
+    
+    // Check if any specific times are fully booked across all groomers
+    const timeAvailability = {};
+    timeSlots.forEach(slot => {
+      if (!timeAvailability[slot.time]) {
+        timeAvailability[slot.time] = { total: 0, available: 0 };
+      }
+      timeAvailability[slot.time].total++;
+      if (slot.available) {
+        timeAvailability[slot.time].available++;
+      }
+    });
+    
+    // Log times that are fully booked
+    for (const [time, availability] of Object.entries(timeAvailability)) {
+      if (availability.available === 0) {
+        console.log(`Time ${time} is fully booked across all groomers`);
+      }
+    }
+    
     return res.status(200).json({
       success: true,
       availableTimeSlots: timeSlots,
       timestamp: new Date().toISOString(), // Add timestamp to help client detect stale data
       debug: {
-        bookedSlots: Object.keys(bookedSlotsMap),
+        bookedSlots: bookedSlots,
         requestedDate: date,
         refresh: refresh === 'true'
       }
     });
   } catch (error) {
     console.error('Error in /api/availability:', error);
-    
+     
     // Return a more structured error response
     res.status(500).json({
       success: false,

@@ -193,6 +193,21 @@ export default function BookingForm() {
               const result = JSON.parse(responseText);
               console.log("Successfully parsed availability data:", result.success, `(${result.availableTimeSlots?.length || 0} slots)`);
               
+              // Log the breakdown of available vs. booked slots
+              if (result.availableTimeSlots && Array.isArray(result.availableTimeSlots)) {
+                const availableCount = result.availableTimeSlots.filter((slot: any) => !!slot.available).length;
+                const bookedCount = result.availableTimeSlots.length - availableCount;
+                console.log(`Slot stats: ${availableCount} available, ${bookedCount} booked`);
+                
+                // Check for the specific 9:00 AM slot
+                const nineAmSlots = result.availableTimeSlots.filter((slot: any) => slot.time === "09:00");
+                if (nineAmSlots.length > 0) {
+                  console.log("9:00 AM slots status:", nineAmSlots.map((slot: any) => 
+                    `${slot.groomer}: ${slot.available ? 'available' : 'booked'}`
+                  ).join(', '));
+                }
+              }
+              
               // Make sure the result has the expected format
               if (result.success && result.availableTimeSlots && Array.isArray(result.availableTimeSlots)) {
                 // Format the time slots for display
@@ -205,7 +220,9 @@ export default function BookingForm() {
                     slot.time.includes(':') ? slot.time : `${slot.time}:00`, 
                     'HH:mm', 
                     new Date()
-                  ), 'h:mm a')
+                  ), 'h:mm a'),
+                  // Ensure available is boolean type
+                  available: !!slot.available
                 }));
                 
                 return {
@@ -364,9 +381,17 @@ export default function BookingForm() {
       console.log("Setting available time slots:", typedTimeSlots);
       
       // DEBUG: Check the 'available' property on each slot
-      typedTimeSlots.forEach((slot: TimeSlot) => {
-        console.log(`DEBUG slot: Time=${slot.time}, Groomer=${slot.groomer}, Available=${slot.available}`);
-      });
+      const availableCount = typedTimeSlots.filter(slot => !!slot.available).length;
+      const bookedCount = typedTimeSlots.length - availableCount;
+      console.log(`DEBUG: Time slot availability processing: ${availableCount} available, ${bookedCount} booked`);
+      
+      // Specifically check 9:00 AM slots
+      const nineAmSlots = typedTimeSlots.filter(slot => slot.time === '09:00');
+      if (nineAmSlots.length > 0) {
+        console.log("9:00 AM slot status in state update:", nineAmSlots.map(slot => 
+          `${slot.groomer}: ${!!slot.available ? 'AVAILABLE' : 'BOOKED'}`
+        ).join(', '));
+      }
       
       // Set all available slots (both available and unavailable)
       setAvailableTimeSlots(typedTimeSlots);
@@ -379,7 +404,7 @@ export default function BookingForm() {
         const isStillAvailable = typedTimeSlots.some(
           slot => slot.time === currentTime && 
                  slot.groomer === currentGroomer && 
-                 slot.available === true
+                 !!slot.available === true
         );
         
         if (!isStillAvailable) {
@@ -407,11 +432,19 @@ export default function BookingForm() {
   
   // Group time slots by groomer and sort to put available slots first
   const timeSlotsByGroomer = availableTimeSlots.reduce((acc, slot) => {
+    // Create the groomer key if it doesn't exist
     if (!acc[slot.groomer]) {
       acc[slot.groomer] = [];
     }
-    // Add the slot to the groomer's array
-    acc[slot.groomer].push(slot);
+    
+    // Ensure the available property is a boolean
+    const processedSlot = {
+      ...slot,
+      available: !!slot.available, // Convert to true boolean
+    };
+    
+    // Add the processed slot to the groomer's array
+    acc[slot.groomer].push(processedSlot);
     return acc;
   }, {} as Record<string, TimeSlot[]>);
   
@@ -426,8 +459,19 @@ export default function BookingForm() {
     });
   });
 
-  // Debug: Print grouped time slots
-  console.log("DEBUG timeSlotsByGroomer:", JSON.stringify(timeSlotsByGroomer, null, 2));
+  // Debug: Print grouped time slots with availability
+  console.log("DEBUG timeSlotsByGroomer stats:");
+  Object.entries(timeSlotsByGroomer).forEach(([groomer, slots]) => {
+    const availableSlots = slots.filter(s => !!s.available).length;
+    const totalSlots = slots.length;
+    console.log(`- ${groomer}: ${availableSlots}/${totalSlots} available`);
+    
+    // Check 9:00 AM slot specifically
+    const nineAmSlot = slots.find(s => s.time === '09:00');
+    if (nineAmSlot) {
+      console.log(`  9:00 AM: ${nineAmSlot.available ? 'AVAILABLE' : 'BOOKED'}`);
+    }
+  });
 
   // Get list of groomers with slots
   const groomersWithSlots = Object.keys(timeSlotsByGroomer);
@@ -753,32 +797,86 @@ export default function BookingForm() {
       const timestamp = new Date().getTime();
       const formattedDate = format(new Date(selectedDate), "yyyy-MM-dd");
       
+      console.log(`Fetching fresh availability for date: ${formattedDate} with timestamp: ${timestamp}`);
+      
       const response = await fetch(`/api/availability?date=${formattedDate}&refresh=true&_=${timestamp}`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
-          'Cache-Control': 'no-cache, no-store, must-revalidate'
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
         }
       });
       
       if (!response.ok) {
-        throw new Error("Failed to refresh availability data");
+        throw new Error(`Failed to refresh availability data: ${response.status} ${response.statusText}`);
       }
       
-      // Process response
-      const data = await response.json();
+      // Get the raw response text for debugging
+      const responseText = await response.text();
+      console.log(`Raw availability response (${response.status}): ${responseText.substring(0, 200)}${responseText.length > 200 ? '...' : ''}`);
       
-      // Manually update the React Query cache
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error("Failed to parse availability response:", parseError);
+        throw new Error("Invalid JSON in availability response");
+      }
+      
+      // Debug the availability data
+      console.log(`Got ${data.availableTimeSlots?.length || 0} time slots from server`);
+      
+      // Log each time slot (limited to avoid console spam)
+      if (data.availableTimeSlots && data.availableTimeSlots.length > 0) {
+        console.log("Sample of time slots:");
+        for (let i = 0; i < Math.min(data.availableTimeSlots.length, 5); i++) {
+          const slot = data.availableTimeSlots[i];
+          console.log(`- Time: ${slot.time}, Groomer: ${slot.groomer}, Available: ${slot.available}`);
+        }
+        
+        // Collect and log stats about availability
+        const unavailableCount = data.availableTimeSlots.filter((slot: any) => !slot.available).length;
+        const availableCount = data.availableTimeSlots.length - unavailableCount;
+        console.log(`Availability stats: ${availableCount} available, ${unavailableCount} booked`);
+        
+        // Log any fully booked time slots
+        const timeSlotStats: Record<string, {total: number, booked: number}> = {};
+        data.availableTimeSlots.forEach((slot: any) => {
+          if (!timeSlotStats[slot.time]) {
+            timeSlotStats[slot.time] = {total: 0, booked: 0};
+          }
+          timeSlotStats[slot.time].total++;
+          if (!slot.available) {
+            timeSlotStats[slot.time].booked++;
+          }
+        });
+        
+        // Find any fully booked time slots
+        const fullyBookedTimes = Object.entries(timeSlotStats)
+          .filter(([_, stats]) => stats.booked === stats.total)
+          .map(([time]) => time);
+          
+        if (fullyBookedTimes.length > 0) {
+          console.log("Fully booked time slots:", fullyBookedTimes);
+        }
+      }
+      
+      // Manually update the React Query cache with properly processed data
       queryClient.setQueryData(["availability", selectedDate], {
         success: true,
         availableTimeSlots: data.availableTimeSlots.map((slot: any) => ({
           ...slot,
+          // Ensure time format is consistent
           time: slot.time.includes(':') ? slot.time : `${slot.time}:00`,
+          // Add formatted time for display
           formattedTime: format(parse(
             slot.time.includes(':') ? slot.time : `${slot.time}:00`, 
             'HH:mm', 
             new Date()
-          ), 'h:mm a')
+          ), 'h:mm a'),
+          // Ensure the available property is correctly typed as boolean
+          available: !!slot.available
         }))
       });
       
@@ -1194,19 +1292,19 @@ export default function BookingForm() {
                                 timeSlotsByGroomer[selectedGroomer]?.length > 0 ? (
                                   // Map through and display the slots, filtering based on showBookedSlots
                                   timeSlotsByGroomer[selectedGroomer]
-                                    .filter(slot => showBookedSlots || slot.available)
+                                    .filter(slot => showBookedSlots || slot.available === true)
                                     .map((slot) => (
                                       <SelectItem 
                                         key={`${slot.time}-${slot.groomer}`} 
                                         value={slot.time}
-                                        disabled={!slot.available}
+                                        disabled={slot.available !== true}
                                         className={cn(
-                                          !slot.available && "opacity-70 line-through text-red-400 cursor-not-allowed bg-gray-100"
+                                          slot.available !== true && "opacity-70 line-through text-red-400 cursor-not-allowed bg-gray-100"
                                         )}
                                       >
                                         <div className="flex justify-between w-full items-center">
                                           <span>{slot.time}</span>
-                                          {!slot.available && (
+                                          {slot.available !== true && (
                                             <span className="text-red-500 text-xs font-medium ml-2 flex items-center">
                                               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
                                                 <path d="M18 6 6 18"></path>
