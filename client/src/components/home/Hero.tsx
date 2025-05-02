@@ -1,25 +1,28 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 
-// Import the background image
-import novoBgImage from '@/assets/novo_bg.jpeg';
-
 export default function Hero() {
+  // Public assets from /public folder are served at root path
+  const backgroundImagePath = '/images/novopets_newbg.jpg';
+  
   return (
     <section className="relative overflow-hidden">
       <div 
-        className="relative bg-cover bg-center h-[600px]" 
+        className="relative bg-cover bg-center min-h-screen" 
         style={{
-          backgroundImage: `url(${novoBgImage})`
+          backgroundImage: `url('${backgroundImagePath}')`,
+          height: '100vh', // Ensures full viewport height (1920x1080)
+          backgroundPosition: 'center center',
+          backgroundSize: 'cover',
         }}
       >
         {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-r from-[#262220]/60 to-[#262220]/40"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-[#262220]/50 to-[#262220]/30"></div>
         
         <div className="absolute inset-0 flex items-center">
           <div className="container mx-auto px-6 md:px-12">
             <div className="w-full lg:w-2/3">
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-playfair font-bold text-white leading-tight">
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif font-bold text-white leading-tight">
                 Novo Pets Premium Pet Spa & Wellness
               </h1>
               <p className="mt-6 text-white text-lg md:text-xl opacity-90 max-w-xl">
@@ -29,7 +32,7 @@ export default function Hero() {
                 <Link href="/booking">
                   <Button
                     size="lg"
-                    className="bg-[#9a7d62] hover:bg-[#9a7d62]/90 text-white px-8 py-4 h-auto font-montserrat font-semibold"
+                    className="bg-[#9a7d62] hover:bg-[#9a7d62]/90 text-white px-8 py-4 h-auto font-serif font-semibold"
                   >
                     Book an Appointment
                   </Button>
@@ -38,7 +41,7 @@ export default function Hero() {
                   <Button
                     variant="outline"
                     size="lg"
-                    className="bg-white/20 hover:bg-white/30 text-white border border-white/40 px-8 py-4 h-auto font-montserrat font-semibold"
+                    className="bg-white/20 hover:bg-white/30 text-white border border-white/40 px-8 py-4 h-auto font-serif font-semibold"
                   >
                     Explore Services
                   </Button>
