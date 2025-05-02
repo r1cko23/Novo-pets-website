@@ -3,26 +3,12 @@ import { Link, useLocation } from "wouter";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import novoLogo from "../../assets/Novos logo final.png";
+import { serviceImages } from "@shared/schema";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [location] = useLocation();
-  const [scrolled, setScrolled] = useState(false);
-
-  // Handle scroll events for adding shadow
-  useEffect(() => {
-    function handleScroll() {
-      if (window.scrollY > 10) {
-        setScrolled(true);
-      } else {
-        setScrolled(false);
-      }
-    }
-    
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   const isActive = (path: string) => {
     return location === path;
@@ -32,62 +18,60 @@ export default function Navbar() {
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
   return (
-    <header className="relative">
-      <nav className={cn(
-        "bg-[#fcf7eb] fixed w-full z-50 transition-all duration-300",
-        scrolled ? "shadow-md" : ""
-      )}>
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-28">
-            <div className="flex items-center gap-8">
+    <header className="fixed top-0 left-0 right-0 bg-transparent w-full z-[100]">
+      <div className="container mx-auto px-4 py-4">
+        <div className="flex justify-center">
+          <div className="bg-white px-6 py-2 rounded-full flex items-center shadow-md w-full max-w-4xl justify-between">
+            <Link href="/">
               <div className="flex-shrink-0 flex items-center">
-                <Link href="/">
+                <div className="h-16 w-16 flex items-center justify-center bg-white">
                   <img 
-                    src={novoLogo} 
+                    src="/logo_final.png" 
                     alt="Novo Pets" 
-                    className="h-24 w-auto" 
+                    className="h-8 w-8 object-contain" 
                   />
-                </Link>
+                </div>
               </div>
-              <div className="hidden md:flex md:space-x-10">
-                <NavLink href="/" active={isActive("/")} onClick={closeMobileMenu}>
-                  Home
-                </NavLink>
-                <NavLink href="/about" active={isActive("/about")} onClick={closeMobileMenu}>
-                  About Us
-                </NavLink>
-                <NavLink href="/services" active={isActive("/services")} onClick={closeMobileMenu}>
-                  Services
-                </NavLink>
-                <NavLink href="/booking" active={isActive("/booking")} onClick={closeMobileMenu}>
-                  Book Now
-                </NavLink>
-                <NavLink href="/contact" active={isActive("/contact")} onClick={closeMobileMenu}>
-                  Contact
-                </NavLink>
-              </div>
+            </Link>
+            
+            <div className="hidden md:flex space-x-8">
+              <NavLink href="/" active={isActive("/")} onClick={closeMobileMenu}>
+                Home
+              </NavLink>
+              <NavLink href="/about" active={isActive("/about")} onClick={closeMobileMenu}>
+                About Us
+              </NavLink>
+              <NavLink href="/services" active={isActive("/services")} onClick={closeMobileMenu}>
+                Services
+              </NavLink>
+              <NavLink href="/booking" active={isActive("/booking")} onClick={closeMobileMenu}>
+                Book Now
+              </NavLink>
+              <NavLink href="/contact" active={isActive("/contact")} onClick={closeMobileMenu}>
+                Contact
+              </NavLink>
             </div>
-            <div className="flex items-center">
+            
+            <div className="md:flex items-center hidden">
               <Link href="/booking">
-                <Button 
-                  className="hidden md:block bg-[#8C636A] hover:bg-[#8C636A]/90 text-white font-medium px-6 py-2.5 rounded-md"
-                >
+                <Button className="bg-gradient-to-r from-[#9a7d62] to-[#8C636A] hover:opacity-90 text-white text-sm font-medium px-4 py-1.5 rounded-full whitespace-nowrap shadow-sm">
                   Book an Appointment
                 </Button>
               </Link>
             </div>
-            <div className="flex items-center md:hidden">
+            
+            <div className="block md:hidden">
               <Button 
                 variant="ghost" 
-                size="icon" 
+                size="sm" 
                 onClick={toggleMobileMenu}
                 aria-label="Toggle menu"
-                className="text-[#8C636A]"
+                className="text-[#9a7d62]"
               >
                 {mobileMenuOpen ? (
-                  <X className="h-6 w-6" />
+                  <X className="h-5 w-5" />
                 ) : (
-                  <Menu className="h-6 w-6" />
+                  <Menu className="h-5 w-5" />
                 )}
               </Button>
             </div>
@@ -95,33 +79,43 @@ export default function Navbar() {
         </div>
         
         {/* Mobile menu */}
-        <div className={`md:hidden bg-[#fcf7eb] ${mobileMenuOpen ? 'block' : 'hidden'} border-t border-[#8C636A]/10`}>
-          <div className="px-4 pt-3 pb-4 space-y-2 sm:px-6">
-            <MobileNavLink href="/" active={isActive("/")} onClick={closeMobileMenu}>
-              Home
-            </MobileNavLink>
-            <MobileNavLink href="/about" active={isActive("/about")} onClick={closeMobileMenu}>
-              About Us
-            </MobileNavLink>
-            <MobileNavLink href="/services" active={isActive("/services")} onClick={closeMobileMenu}>
-              Services
-            </MobileNavLink>
-            <MobileNavLink href="/booking" active={isActive("/booking")} onClick={closeMobileMenu}>
-              Book Now
-            </MobileNavLink>
-            <MobileNavLink href="/contact" active={isActive("/contact")} onClick={closeMobileMenu}>
-              Contact
-            </MobileNavLink>
-          </div>
-          <div className="pt-4 pb-5 border-t border-[#8C636A]/10 px-4 sm:px-6">
-            <Link href="/booking" onClick={closeMobileMenu}>
-              <Button className="w-full bg-[#8C636A] hover:bg-[#8C636A]/90 text-white font-medium py-2.5">
-                Book an Appointment
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </nav>
+        <AnimatePresence>
+          {mobileMenuOpen && (
+            <motion.div 
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+              className="md:hidden bg-white/95 backdrop-blur-sm rounded-2xl mt-2 shadow-lg overflow-hidden z-[100]"
+            >
+              <div className="px-4 py-3 space-y-2">
+                <MobileNavLink href="/" active={isActive("/")} onClick={closeMobileMenu}>
+                  Home
+                </MobileNavLink>
+                <MobileNavLink href="/about" active={isActive("/about")} onClick={closeMobileMenu}>
+                  About Us
+                </MobileNavLink>
+                <MobileNavLink href="/services" active={isActive("/services")} onClick={closeMobileMenu}>
+                  Services
+                </MobileNavLink>
+                <MobileNavLink href="/booking" active={isActive("/booking")} onClick={closeMobileMenu}>
+                  Book Now
+                </MobileNavLink>
+                <MobileNavLink href="/contact" active={isActive("/contact")} onClick={closeMobileMenu}>
+                  Contact
+                </MobileNavLink>
+              </div>
+              <div className="px-4 py-3 border-t border-gray-100">
+                <Link href="/booking" onClick={closeMobileMenu}>
+                  <Button className="w-full bg-gradient-to-r from-[#9a7d62] to-[#8C636A] hover:opacity-90 text-white text-sm font-medium py-2 rounded-full shadow-sm">
+                    Book an Appointment
+                  </Button>
+                </Link>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </header>
   );
 }
@@ -131,18 +125,23 @@ interface NavLinkProps {
   active: boolean;
   children: React.ReactNode;
   onClick?: () => void;
+  scrolled?: boolean;
 }
 
-function NavLink({ href, active, children, onClick }: NavLinkProps) {
+function NavLink({ href, active, children, onClick, scrolled = false }: NavLinkProps) {
   return (
     <Link href={href} onClick={onClick}>
       <a className={cn(
-        "font-montserrat text-base px-1 py-2 font-medium transition-colors duration-200",
+        "font-sans text-sm px-2 py-1 font-medium transition-all duration-200 text-center relative group whitespace-nowrap",
         active 
-          ? "text-[#8C636A] border-b-2 border-[#8C636A]" 
-          : "text-[#8C636A]/90 hover:text-[#8C636A] hover:border-b-2 hover:border-[#8C636A]/30"
+          ? "text-[#9a7d62] font-semibold" 
+          : "text-gray-700 hover:text-[#9a7d62]"
       )}>
         {children}
+        <span className={cn(
+          "absolute bottom-0 left-1/2 w-0 h-0.5 bg-[#9a7d62] transform -translate-x-1/2 transition-all duration-200",
+          active ? "w-1/2" : "group-hover:w-1/3"
+        )} />
       </a>
     </Link>
   );
@@ -152,10 +151,8 @@ function MobileNavLink({ href, active, children, onClick }: NavLinkProps) {
   return (
     <Link href={href} onClick={onClick}>
       <a className={cn(
-        "block px-3 py-2.5 rounded-md font-medium text-base transition-colors duration-200",
-        active 
-          ? "text-[#8C636A] bg-[#8C636A]/5" 
-          : "text-[#8C636A]/80 hover:text-[#8C636A] hover:bg-[#8C636A]/5"
+        "block px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200",
+        active ? "bg-[#9a7d62]/10 text-[#9a7d62] font-semibold" : "text-gray-700 hover:bg-[#9a7d62]/5 hover:text-[#9a7d62]"
       )}>
         {children}
       </a>

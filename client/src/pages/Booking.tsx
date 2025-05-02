@@ -154,28 +154,6 @@ export default function Booking() {
           </div>
         </div>
       </section>
-      
-      {/* CTA Section */}
-      <section className="py-16 bg-[#9a7d62]/10">
-        <div className="container mx-auto px-6 text-center">
-          <h2 className="text-3xl md:text-4xl font-playfair font-bold text-[#9a7d62] mb-6">Experience Premium Pet Care Today</h2>
-          <p className="text-lg text-gray-700 max-w-2xl mx-auto mb-8">
-            Book an appointment now or contact us if you have any questions about our services.
-          </p>
-          <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Link href="/booking">
-              <Button size="lg" className="bg-[#9a7d62] hover:bg-[#9a7d62]/90 text-white">
-                Book an Appointment <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
-            <Link href="/services">
-              <Button size="lg" variant="outline" className="border-[#9a7d62] text-[#9a7d62] hover:bg-[#9a7d62]/10">
-                Explore Services
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </section>
     </div>
   );
 }

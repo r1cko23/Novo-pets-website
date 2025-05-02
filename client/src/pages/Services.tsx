@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import ServiceTabs from "@/components/services/ServiceTabs";
+import { serviceImages } from "@shared/schema";
 
 export default function Services() {
   const [activeTab, setActiveTab] = useState("grooming");
@@ -41,22 +42,22 @@ export default function Services() {
             
             <div className="grid grid-cols-2 gap-4">
               <img 
-                src="/images/services/pet_spa.jpg" 
+                src={serviceImages.petSpa} 
                 alt="Luxury Pet Grooming" 
                 className="rounded-lg shadow-md h-48 object-cover w-full"
               />
               <img 
-                src="/images/services/pet_spa.jpg" 
+                src={serviceImages.spaSession} 
                 alt="Pet Spa Treatment" 
                 className="rounded-lg shadow-md h-48 object-cover w-full"
               />
               <img 
-                src="/images/services/pet_hotel.jpg" 
+                src={serviceImages.petHotel} 
                 alt="Pet Hotel Accommodations" 
                 className="rounded-lg shadow-md h-48 object-cover w-full"
               />
               <img 
-                src="/images/services/pet_daycare.jpg" 
+                src={serviceImages.petDaycare} 
                 alt="Pet Daycare Activities" 
                 className="rounded-lg shadow-md h-48 object-cover w-full"
               />
@@ -75,7 +76,7 @@ export default function Services() {
             <div className="bg-white p-6 rounded-lg shadow-md">
               <div className="h-48 mb-4 overflow-hidden rounded-md">
                 <img 
-                  src="/images/services/pet_spa.jpg" 
+                  src={serviceImages.petSpa} 
                   alt="Luxury Grooming" 
                   className="w-full h-full object-cover"
                 />
@@ -118,7 +119,7 @@ export default function Services() {
             <div className="bg-white p-6 rounded-lg shadow-md">
               <div className="h-48 mb-4 overflow-hidden rounded-md">
                 <img 
-                  src="/images/services/pet_hotel.jpg" 
+                  src={serviceImages.petHotel} 
                   alt="Pet Hotel" 
                   className="w-full h-full object-cover"
                 />
@@ -161,7 +162,7 @@ export default function Services() {
             <div className="bg-white p-6 rounded-lg shadow-md">
               <div className="h-48 mb-4 overflow-hidden rounded-md">
                 <img 
-                  src="/images/services/pet_daycare.jpg" 
+                  src={serviceImages.petDaycare} 
                   alt="Pet Daycare" 
                   className="w-full h-full object-cover"
                 />
@@ -204,7 +205,7 @@ export default function Services() {
             <div className="bg-white p-6 rounded-lg shadow-md">
               <div className="h-48 mb-4 overflow-hidden rounded-md">
                 <img 
-                  src="/images/services/paw-pickup.jpg" 
+                  src={serviceImages.pawPickup} 
                   alt="Transport Service" 
                   className="w-full h-full object-cover"
                 />
@@ -247,7 +248,7 @@ export default function Services() {
             <div className="bg-white p-6 rounded-lg shadow-md">
               <div className="h-48 mb-4 overflow-hidden rounded-md">
                 <img 
-                  src="/images/services/pet_spa.jpg" 
+                  src={serviceImages.spaSession} 
                   alt="Spa Treatments" 
                   className="w-full h-full object-cover"
                 />

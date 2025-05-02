@@ -1,8 +1,16 @@
+/* Import modern fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Dela+Gothic+One&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100;200;300;400;500;600;700;800&display=swap');
+@import url('https://api.fontshare.com/v2/css?f[]=clash-display@200,300,400,500,600,700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
+  /* Base colors */
   --background: 48 33% 97%; /* #faf7ee - Cream background */
   --foreground: 347 16% 40%; /* #8C636A - Mauve text */
   --muted: 12 13% 85%; /* #e3dcd9 - Light gray for boxes */
@@ -22,35 +30,36 @@
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 48 33% 97%;
   --ring: 347 16% 40%;
+  
+  /* Size and radius */
   --radius: 0.5rem;
+  
+  /* Brand colors */
   --cream: 48 33% 97%; /* #faf7ee - Cream background */
   --mauve: 347 16% 40%; /* #8C636A - Mauve text */
   --lightgray: 12 13% 85%; /* #e3dcd9 - Light gray for boxes */
   --star: 227 33% 85%; /* #d1d5ea - Light blue/silver for stars */
   --success: 148 35% 63%;
   --error: 0 70% 62%;
-}
-
-.dark {
-  --background: 20 14.3% 4.1%;
-  --foreground: 60 9.1% 97.8%;
-  --muted: 12 6.5% 15.1%;
-  --muted-foreground: 24 5.4% 63.9%;
-  --popover: 20 14.3% 4.1%;
-  --popover-foreground: 60 9.1% 97.8%;
-  --card: 20 14.3% 4.1%;
-  --card-foreground: 60 9.1% 97.8%;
-  --border: 12 6.5% 15.1%;
-  --input: 12 6.5% 15.1%;
-  --primary: 25 35% 50%;
-  --primary-foreground: 60 9.1% 97.8%;
-  --secondary: 140 25% 35%;
-  --secondary-foreground: 0 0% 98%;
-  --accent: 30 40% 64%;
-  --accent-foreground: 24 9.8% 10%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 60 9.1% 97.8%;
-  --ring: 35.5 91.7% 32.9%;
+  
+  /* 2025 Design Trends - Glass effect variables */
+  --glass-opacity: 0.15;
+  --glass-border-opacity: 0.5;
+  --glass-blur: 12px;
+  --glass-saturation: 180%;
+  
+  /* 2025 Design Trends - Gradient variables */
+  --gradient-angle: 135deg;
+  --gradient-speed: 8s;
+  
+  /* 2025 Design Trends - Animation timing */
+  --animation-slow: 1.5s;
+  --animation-medium: 0.8s;
+  --animation-fast: 0.3s;
+  
+  /* 2025 Design Trends - Shadow strength */
+  --shadow-strength: 5%;
+  --shadow-color: 0deg 0% 0%;
 }
 
 @layer base {
@@ -59,85 +68,67 @@
   }
 
   body {
-    @apply font-sans antialiased bg-[#faf7ee] text-[#8C636A];
+    @apply font-sans antialiased bg-[#faf7ee] text-[#8C636A] selection:bg-brand-secondary/20 selection:text-brand-secondary;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   
-  h1, h2, h3, h4, h5, h6 {
+  h1, h2, h3 {
     @apply font-serif;
+  }
+  
+  h4, h5, h6 {
+    @apply font-sans font-medium;
   }
 }
 
-/* Adding Cormorant Garamond as the main sophisticated font */
-@font-face {
-  font-family: 'Cormorant Garamond';
-  font-style: normal;
-  font-weight: 300;
-  font-display: swap;
-  src: url(https://fonts.gstatic.com/s/cormorantgaramond/v16/co3YmX5slCNuHLi8bLeY9MK7whWMhyjQAllfsw-I1hc.woff2) format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+/* 2025 Design Components */
+@layer components {
+  .glass {
+    @apply backdrop-blur-md bg-white/[var(--glass-opacity)] border border-white/[var(--glass-border-opacity)] shadow-glass;
+  }
+  
+  .gradient-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-brand-primary to-brand-secondary;
+  }
+  
+  .gradient-bg {
+    @apply bg-gradient-to-r from-brand-primary to-brand-secondary;
+  }
+  
+  .animated-gradient-bg {
+    @apply bg-gradient-to-r from-brand-primary via-brand-secondary to-brand-primary bg-[length:200%_100%] animate-gradient;
+  }
+  
+  .neo-button {
+    @apply px-6 py-3 rounded-xl transition-all duration-300
+      bg-white text-brand-primary hover:shadow-neo-light;
+  }
+  
+  .brand-shadow {
+    box-shadow: 0 10px 30px -15px hsla(var(--shadow-color) / var(--shadow-strength));
+  }
+  
+  .floating {
+    animation: float 6s ease-in-out infinite;
+  }
 }
 
-@font-face {
-  font-family: 'Cormorant Garamond';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url(https://fonts.gstatic.com/s/cormorantgaramond/v16/co3bmX5slCNuHLi8bLeY9MK7whWMhyjYqXtKky2F7g.woff2) format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-@font-face {
-  font-family: 'Cormorant Garamond';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url(https://fonts.gstatic.com/s/cormorantgaramond/v16/co3YmX5slCNuHLi8bLeY9MK7whWMhyjQWlhfsw-I1hc.woff2) format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-@font-face {
-  font-family: 'Cormorant Garamond';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url(https://fonts.gstatic.com/s/cormorantgaramond/v16/co3YmX5slCNuHLi8bLeY9MK7whWMhyjQdl9fsw-I1hc.woff2) format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-@font-face {
-  font-family: 'Cormorant Garamond';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url(https://fonts.gstatic.com/s/cormorantgaramond/v16/co3YmX5slCNuHLi8bLeY9MK7whWMhyjQEl5fsw-I1hc.woff2) format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-@font-face {
-  font-family: 'Cormorant Garamond';
-  font-style: italic;
-  font-weight: 300 700;
-  font-display: swap;
-  src: url(https://fonts.gstatic.com/s/cormorantgaramond/v16/co3WmX5slCNuHLi8bLeY9MK7whWMhyjYrEPzvD-KzhOp_D95.woff2) format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-.font-serif {
-  font-family: 'Cormorant Garamond', serif;
-}
-
-.font-sans {
-  font-family: 'Cormorant Garamond', serif;
-}
-
-.font-playfair {
-  font-family: 'Cormorant Garamond', serif;
-}
-
-.font-raleway {
-  font-family: 'Cormorant Garamond', serif;
-}
-
-.font-montserrat {
-  font-family: 'Cormorant Garamond', serif;
-}
+/* Responsive font sizes */
+@layer utilities {
+  .text-responsive-xl {
+    font-size: clamp(2.5rem, 5vw, 4rem);
+    line-height: 1.1;
+  }
+  
+  .text-responsive-lg {
+    font-size: clamp(2rem, 4vw, 3rem);
+    line-height: 1.2;
+  }
+  
+  .text-responsive-md {
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    line-height: 1.3;
+  }
+} 

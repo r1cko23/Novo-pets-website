@@ -9,11 +9,13 @@ import { Button } from "@/components/ui/button";
 export default function Home() {
   return (
     <div className="flex flex-col min-h-screen overflow-x-hidden">
-      {/* Hero takes up full viewport height */}
-      <Hero />
+      {/* Hero takes up full viewport height, adjusted for fixed navbar */}
+      <div className="relative z-0">
+        <Hero />
+      </div>
       
       {/* Content below hero section */}
-      <div className="content-below-hero flex-grow">
+      <div className="content-below-hero flex-grow relative z-10">
         <ServicesOverview />
         
         {/* About Section Teaser */}

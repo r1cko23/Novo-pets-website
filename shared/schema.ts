@@ -483,22 +483,22 @@ export const serviceOverviewItems = [
   {
     title: "Luxury Grooming & Spa",
     description: "Pamper your pet with our premium grooming services including aromatherapy and spa treatments.",
-    image: "/images/services/pet_spa.jpg"
+    image: "https://images.unsplash.com/photo-1516734212186-a967f81ad0d7?w=800&auto=format&fit=crop&q=80"
   },
   {
     title: "Boutique Pet Hotel",
     description: "Comfortable accommodations with personalized care for your pet's staycation needs.",
-    image: "/images/services/pet_hotel.jpg"
+    image: "https://images.unsplash.com/photo-1425082661705-1834bfd09dca?w=800&auto=format&fit=crop&q=80"
   },
   {
     title: "Pet DayCare",
     description: "Fun and safe supervised activities in a social setting for your pet while you're away.",
-    image: "/images/services/pet_daycare.jpg"
+    image: "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=800&auto=format&fit=crop&q=80"
   },
   {
     title: "Paw Pickup & Drop-off",
     description: "Convenient transport service for your pet to and from our facility within a 3km radius.",
-    image: "/images/services/paw-pickup.jpg"
+    image: "https://images.unsplash.com/photo-1581888227599-779811939961?w=800&auto=format&fit=crop&q=80"
   }
 ];
 
@@ -506,30 +506,43 @@ export const serviceOverviewItems = [
 export const testimonials = [
   {
     name: "Jericko and Jacob",
-    image: "/images/testimonials/jericko_and_jacob_100.jpg",
+    image: "https://images.unsplash.com/photo-1552053831-71594a27632d?w=150&auto=format&fit=crop&q=80",
     text: "Novo Pets is absolutely incredible! My dog Jacob comes back from grooming looking and smelling amazing. The staff truly care about pets and treat him like royalty.",
     serviceUsed: "Pomeranian • Full Groom Service",
     rating: 5
   },
   {
     name: "Luna & Miguel",
-    image: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=100&auto=format&fit=crop",
+    image: "https://images.unsplash.com/photo-1574158622682-e40e69881006?w=150&auto=format&fit=crop&q=80",
     text: "I've tried many pet hotels, but none compare to Novo Pets. Luna always comes back happy and well-cared for. Their pick-up service is super convenient too!",
     serviceUsed: "Siamese Cat • Pet Hotel Service",
     rating: 5
   },
   {
     name: "Rocky & Jamie",
-    image: "https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?q=80&w=100&auto=format&fit=crop",
+    image: "https://images.unsplash.com/photo-1551712702-4b7335dd8706?w=150&auto=format&fit=crop&q=80",
     text: "The Luxury Spa Package is worth every peso! Rocky's coat has never looked better, and he even seems more confident after his visits. The staff is knowledgeable and caring.",
     serviceUsed: "French Bulldog • Luxury Spa Package",
     rating: 4.5
   },
   {
     name: "Bella & Nina",
-    image: "https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=100&auto=format&fit=crop",
+    image: "https://images.unsplash.com/photo-1591946614720-90a587da4a36?w=150&auto=format&fit=crop&q=80",
     text: "Bella loves the daycare at Novo Pets! The staff sends photos throughout the day, and she comes home happily tired. Their frozen yogurt treats are her favorite!",
     serviceUsed: "Pomeranian • Daycare & Treats",
     rating: 5
   }
 ];
+
+// Service images for use throughout the application
+export const serviceImages = {
+  petSpa: "https://images.unsplash.com/photo-1527526029430-319f10814151?w=800&auto=format&fit=crop&q=80",
+  petHotel: "https://images.unsplash.com/photo-1425082661705-1834bfd09dca?w=800&auto=format&fit=crop&q=80",
+  petDaycare: "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=800&auto=format&fit=crop&q=80",
+  pawPickup: "https://images.unsplash.com/photo-1581888227599-779811939961?w=800&auto=format&fit=crop&q=80",
+  groomingServices: "https://images.unsplash.com/photo-1516734212186-a967f81ad0d7?w=800&auto=format&fit=crop&q=80",
+  spaSession: "https://images.unsplash.com/photo-1583511655826-05700442976f?w=800&auto=format&fit=crop&q=80",
+  daycarePlay: "https://images.unsplash.com/photo-1541364983171-a8ba01e95cfc?w=800&auto=format&fit=crop&q=80",
+  heroBackground: "/images/novopets_newbg.jpg",
+  logo: null // Set to null to use the original import in Navbar.tsx
+};

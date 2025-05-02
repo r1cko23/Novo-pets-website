@@ -14,12 +14,16 @@ import Booking from "@/pages/Booking";
 import Contact from "@/pages/Contact";
 import Admin from "@/pages/Admin";
 import AdminDashboard from "@/pages/AdminDashboard";
+import { useEffect } from "react";
 
 function MainLayout({ children }: { children: React.ReactNode }) {
+  const [location] = useLocation();
+  const isHomePage = location === "/";
+
   return (
     <>
       <Navbar />
-      <main className="pt-20">
+      <main className={isHomePage ? "" : "pt-28 min-h-screen"}>
         {children}
       </main>
       <Footer />
@@ -41,6 +45,11 @@ function Router() {
   
   // Use different layout based on route
   const Layout = isAdminRoute ? AdminLayout : MainLayout;
+  
+  // Scroll to top on route change
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location]);
   
   return (
     <Layout>
@@ -68,7 +77,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-        <Router />
+        <div className="antialiased min-h-screen bg-background text-foreground">
+          <Router />
+        </div>
         <Analytics />
       </TooltipProvider>
     </QueryClientProvider>

@@ -14,7 +14,8 @@ import {
   hotelPrices,
   daycarePrices,
   transportPrices,
-  treatsPrices
+  treatsPrices,
+  serviceImages
 } from "@shared/schema";
 import { cn } from "@/lib/utils";
 
@@ -91,7 +92,7 @@ export default function ServiceTabs() {
               <div className="bg-[#f8f5f2] p-6 rounded-lg shadow-md">
                 <div className="mb-4 overflow-hidden rounded-md h-64">
                   <img 
-                    src="/images/services/pet_spa.jpg" 
+                    src={serviceImages.petSpa} 
                     alt="Luxury pet spa treatments" 
                     className="w-full h-full object-cover"
                   />
@@ -141,7 +142,7 @@ export default function ServiceTabs() {
               <div className="bg-[#f8f5f2] p-6 rounded-lg shadow-md">
                 <div className="mb-4 overflow-hidden rounded-md h-64">
                   <img 
-                    src="/images/services/pet_hotel.jpg" 
+                    src={serviceImages.petHotel} 
                     alt="Pet hotel accommodations" 
                     className="w-full h-full object-cover"
                   />
@@ -201,7 +202,7 @@ export default function ServiceTabs() {
               <div className="bg-[#f8f5f2] p-6 rounded-lg shadow-md">
                 <div className="mb-4 overflow-hidden rounded-md h-64">
                   <img 
-                    src="/images/services/pet_daycare.jpg" 
+                    src={serviceImages.petDaycare} 
                     alt="Pets in daycare" 
                     className="w-full h-full object-cover"
                   />
@@ -262,7 +263,7 @@ export default function ServiceTabs() {
               <div className="bg-[#f8f5f2] p-6 rounded-lg shadow-md">
                 <div className="mb-4 overflow-hidden rounded-md h-64">
                   <img 
-                    src="/images/services/paw-pickup.jpg" 
+                    src={serviceImages.pawPickup} 
                     alt="Pet transport service" 
                     className="w-full h-full object-cover"
                   />
