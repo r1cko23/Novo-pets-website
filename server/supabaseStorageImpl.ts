@@ -343,16 +343,48 @@ export class SupabaseStorage implements IStorage {
     try {
       // Normalize the requested date
       const normalizedDate = normalizeDate(date);
-      console.log(`Getting available time slots for date: ${normalizedDate}`);
+      console.log(`[DB] Getting available time slots for date: ${normalizedDate}`);
       
       // IMPORTANT: Ensure we're querying for the *exact* date the user selected
       // We should not adjust the date here, as we want to check the availability
       // for the date the user explicitly requested
       const queryDate = normalizedDate;
       
-      console.log(`Using exact query date: ${queryDate} (no adjustment)`);
+      console.log(`[DB] Executing SQL query for date: ${queryDate}`);
       
-      // Get all grooming appointments for the specified date
+      // DIRECT DATABASE QUERY (for verification)
+      // Make a direct RAW SQL query to verify what's in the database for debug purposes
+      const { data: rawBookings, error: rawError } = await supabase.rpc('exec_sql', {
+        sql: `
+          SELECT * FROM grooming_appointments 
+          WHERE appointment_date = '${queryDate}' 
+          AND status != 'cancelled'
+        `
+      });
+      
+      if (rawBookings && Array.isArray(rawBookings)) {
+        console.log(`[DB] RAW SQL query found ${rawBookings.length} bookings for ${queryDate}`);
+        
+        // Log each booking for debugging
+        rawBookings.forEach(booking => {
+          console.log(`[DB] RAW Booking: Date=${booking.appointment_date}, Time=${booking.appointment_time}, Groomer=${booking.groomer || 'No groomer'}, Status=${booking.status}`);
+        });
+        
+        // Check specifically for 9AM bookings
+        const nineAmBookings = rawBookings.filter(b => b.appointment_time && b.appointment_time.startsWith('09:00'));
+        if (nineAmBookings.length > 0) {
+          console.log(`[DB] Found ${nineAmBookings.length} bookings at 9:00 AM through direct SQL`);
+          nineAmBookings.forEach(b => {
+            console.log(`[DB] 9:00 AM booking: ID=${b.id}, Groomer=${b.groomer}, Status=${b.status}, Time=${b.appointment_time}`);
+          });
+        } else {
+          console.log(`[DB] No 9:00 AM bookings found in raw SQL query`);
+        }
+      } else if (rawError) {
+        console.error(`[DB] Error in raw SQL query:`, rawError);
+      }
+      
+      // Get all grooming appointments for the specified date using the standard API
       // Important: Include all statuses except 'cancelled' to ensure proper availability checking
       const { data: appointments, error } = await supabase
         .from('grooming_appointments')
@@ -361,28 +393,28 @@ export class SupabaseStorage implements IStorage {
         .not('status', 'eq', 'cancelled');
       
       if (error) {
-        console.error("Error fetching appointments for availability check:", error);
+        console.error("[DB] Error fetching appointments for availability check:", error);
         throw error; // Propagate error instead of returning empty array
       }
       
-      console.log(`Found ${appointments?.length || 0} existing appointments for ${queryDate}`);
+      console.log(`[DB] Standard query found ${appointments?.length || 0} existing appointments for ${queryDate}`);
       if (appointments && appointments.length > 0) {
         appointments.forEach(appt => {
-          console.log(`Found appointment: Date=${appt.appointment_date}, Time=${appt.appointment_time}, Groomer=${appt.groomer}, Status=${appt.status}`);
+          console.log(`[DB] Found appointment: Date=${appt.appointment_date}, Time=${appt.appointment_time}, Groomer=${appt.groomer}, Status=${appt.status}`);
         });
       }
       
       // If no appointments found, do a second query with the adjusted date
       // This handles potential timezone issues in the database
       if (!appointments || appointments.length === 0) {
-        console.log("No appointments found with exact date, trying with adjusted date");
+        console.log("[DB] No appointments found with exact date, trying with adjusted date");
         
         // Try with the adjusted date (adding one day)
         const dateObj = new Date(normalizedDate);
         dateObj.setDate(dateObj.getDate() + 1);
         const adjustedDate = normalizeDate(dateObj.toISOString());
         
-        console.log(`Trying again with adjusted date: ${adjustedDate}`);
+        console.log(`[DB] Trying again with adjusted date: ${adjustedDate}`);
         
         const { data: adjustedAppointments, error: adjustedError } = await supabase
           .from('grooming_appointments')
@@ -391,11 +423,11 @@ export class SupabaseStorage implements IStorage {
           .not('status', 'eq', 'cancelled');
           
         if (adjustedError) {
-          console.error("Error fetching appointments with adjusted date:", adjustedError);
+          console.error("[DB] Error fetching appointments with adjusted date:", adjustedError);
         } else if (adjustedAppointments && adjustedAppointments.length > 0) {
-          console.log(`Found ${adjustedAppointments.length} appointments with adjusted date`);
+          console.log(`[DB] Found ${adjustedAppointments.length} appointments with adjusted date`);
           adjustedAppointments.forEach(appt => {
-            console.log(`Found appointment (adjusted date): Date=${appt.appointment_date}, Time=${appt.appointment_time}, Groomer=${appt.groomer}, Status=${appt.status}`);
+            console.log(`[DB] Found appointment (adjusted date): Date=${appt.appointment_date}, Time=${appt.appointment_time}, Groomer=${appt.groomer}, Status=${appt.status}`);
           });
           
           // Use these appointments instead
@@ -423,7 +455,7 @@ export class SupabaseStorage implements IStorage {
           let assignedGroomer = appointment.groomer || "Groomer 1";
           assignedGroomer = GROOMERS.find(g => g.toLowerCase() === assignedGroomer.toLowerCase()) || assignedGroomer;
           
-          console.log(`Marking slot as booked: ${assignedGroomer} at ${bookedTime} (Status: ${appointment.status})`);
+          console.log(`[DB] Marking slot as booked: ${assignedGroomer} at ${bookedTime} (Status: ${appointment.status})`);
           
           // Mark the slot as booked for this groomer
           GROOMERS.forEach(groomer => {

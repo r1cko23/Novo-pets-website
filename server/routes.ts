@@ -419,7 +419,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get available time slots for a specific date
   app.get("/api/availability", async (req: Request, res: Response) => {
     try {
-      const { date } = req.query;
+      const { date, refresh } = req.query;
       
       if (!date || typeof date !== 'string') {
         return res.status(400).json({ 
@@ -428,18 +428,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      console.log(`[API] Received availability request for date: ${date}`);
+      // Force database refresh if requested
+      const forceRefresh = refresh === 'true';
+      console.log(`[API] Received availability request for date: ${date} ${forceRefresh ? '(forced refresh)' : ''}`);
       
       try {
+        // Log beginning of database query
+        console.log(`[API] Querying database for bookings on ${date}`);
+        
+        // Call the storage implementation to get available time slots
+        // This should query the database directly
         const availableTimeSlots = await storage.getAvailableTimeSlots(date);
-        console.log(`[API] Returning ${availableTimeSlots.length} time slots for date ${date}`);
+        
+        // Calculate availability stats
+        const totalSlots = availableTimeSlots.length;
+        const availableCount = availableTimeSlots.filter(slot => slot.available).length;
+        const bookedCount = totalSlots - availableCount;
+        
+        console.log(`[API] Database returned ${totalSlots} time slots (${availableCount} available, ${bookedCount} booked)`);
+        
+        // Specifically check 9:00 AM slots
+        const nineAmSlots = availableTimeSlots.filter(slot => slot.time.startsWith('09:00'));
+        if (nineAmSlots.length > 0) {
+          console.log(`[API] 9:00 AM slot status from database:`, 
+            nineAmSlots.map(slot => `${slot.groomer}: ${slot.available ? 'AVAILABLE' : 'BOOKED'}`).join(', '));
+        }
         
         return res.status(200).json({ 
           success: true, 
-          availableTimeSlots 
+          availableTimeSlots,
+          _meta: {
+            source: 'database',
+            totalSlots,
+            availableCount,
+            bookedCount,
+            timestamp: new Date().toISOString()
+          }
         });
       } catch (availabilityError) {
-        console.error("Error fetching availability:", availabilityError);
+        console.error("Error fetching availability from database:", availabilityError);
         
         // Define fallback time slots (all available)
         const TIME_SLOTS = [
@@ -451,17 +478,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           GROOMERS.map(groomer => ({ 
             time, 
             groomer, 
-            available: true 
+            available: true,
+            formattedTime: `${time}:00` 
           }))
         );
         
-        console.log(`[API] Error in availability check, returning ${fallbackTimeSlots.length} fallback time slots`);
+        console.log(`[API] Database query failed! Returning ${fallbackTimeSlots.length} fallback time slots`);
         
         // Return fallback slots in case of error
         return res.status(200).json({ 
           success: true, 
           availableTimeSlots: fallbackTimeSlots,
-          message: "Using fallback availability data due to server error"
+          _meta: {
+            source: 'fallback',
+            error: availabilityError instanceof Error ? availabilityError.message : 'Unknown error',
+            timestamp: new Date().toISOString()
+          },
+          message: "Using fallback availability data due to database error"
         });
       }
     } catch (error) {
