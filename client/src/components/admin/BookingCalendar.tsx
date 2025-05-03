@@ -143,15 +143,15 @@ export default function BookingCalendar({ bookings, onStatusChange, refetchBooki
   const StatusBadge = ({ status }: { status: string }) => {
     switch (status.toLowerCase()) {
       case "pending":
-        return <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">Pending</Badge>;
+        return <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300 rounded-full px-4 py-1">Pending</Badge>;
       case "confirmed":
-        return <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">Confirmed</Badge>;
+        return <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300 rounded-full px-4 py-1">Confirmed</Badge>;
       case "completed":
-        return <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">Completed</Badge>;
+        return <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300 rounded-full px-4 py-1">Completed</Badge>;
       case "cancelled":
-        return <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300">Cancelled</Badge>;
+        return <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300 rounded-full px-4 py-1">Cancelled</Badge>;
       default:
-        return <Badge variant="outline">{status}</Badge>;
+        return <Badge variant="outline" className="rounded-full px-4 py-1">{status}</Badge>;
     }
   };
   
@@ -159,13 +159,13 @@ export default function BookingCalendar({ bookings, onStatusChange, refetchBooki
   const ServiceTypeBadge = ({ type }: { type: string }) => {
     switch (type.toLowerCase()) {
       case "grooming":
-        return <Badge className="bg-brand-tertiary text-white">Grooming</Badge>;
+        return <Badge className="bg-[#436e4f] text-white rounded-full px-4 py-1">Grooming</Badge>;
       case "hotel":
-        return <Badge className="bg-brand-primary text-white">Hotel</Badge>;
+        return <Badge className="bg-brand-primary text-white rounded-full px-4 py-1">Hotel</Badge>;
       case "daycare":
-        return <Badge className="bg-brand-secondary text-white">Daycare</Badge>;
+        return <Badge className="bg-brand-secondary text-white rounded-full px-4 py-1">Daycare</Badge>;
       default:
-        return <Badge>{type}</Badge>;
+        return <Badge className="rounded-full px-4 py-1">{type}</Badge>;
     }
   };
   
@@ -338,74 +338,77 @@ export default function BookingCalendar({ bookings, onStatusChange, refetchBooki
       
       {/* Booking Details Dialog */}
       <Dialog open={showBookingDetails} onOpenChange={setShowBookingDetails}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
-              <span>Booking Details</span>
-              <ServiceTypeBadge type={selectedBooking?.serviceType || "unknown"} />
-            </DialogTitle>
-          </DialogHeader>
+        <DialogContent className="sm:max-w-md p-0">
+          <div className="p-6 pb-0">
+            <DialogHeader>
+              <DialogTitle className="flex items-center justify-between">
+                <span className="text-xl font-medium text-brand-primary">Booking Details</span>
+                <ServiceTypeBadge type={selectedBooking?.serviceType || "unknown"} />
+              </DialogTitle>
+            </DialogHeader>
+          </div>
           
           {selectedBooking && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <div className="px-6 py-4 space-y-6">
+              <div className="grid grid-cols-2 gap-6">
                 <div>
-                  <p className="text-sm text-gray-500">Pet</p>
-                  <p className="font-medium">{selectedBooking.petName}</p>
-                  <p className="text-sm text-gray-600">{selectedBooking.petBreed} ({selectedBooking.petSize})</p>
+                  <p className="text-sm text-gray-500 mb-1">Pet</p>
+                  <p className="font-medium text-lg">{selectedBooking.petName}</p>
+                  <p className="text-gray-600">{selectedBooking.petBreed} ({selectedBooking.petSize})</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Date & Time</p>
-                  <p className="font-medium">{selectedBooking.appointmentDate}</p>
-                  <p className="text-sm text-gray-600">{selectedBooking.appointmentTime}</p>
+                  <p className="text-sm text-gray-500 mb-1">Date & Time</p>
+                  <p className="font-medium text-lg">{selectedBooking.appointmentDate}</p>
+                  <p className="text-gray-600">{selectedBooking.appointmentTime}</p>
                 </div>
               </div>
               
               <div>
-                <p className="text-sm text-gray-500">Service</p>
-                <p className="font-medium capitalize">{selectedBooking.serviceType}</p>
+                <p className="text-sm text-gray-500 mb-1">Service</p>
+                <p className="font-medium text-lg capitalize">{selectedBooking.serviceType}</p>
                 {selectedBooking.groomingService && (
-                  <p className="text-sm text-gray-600">{selectedBooking.groomingService}</p>
+                  <p className="text-gray-600">{selectedBooking.groomingService}</p>
                 )}
                 {selectedBooking.accommodationType && (
-                  <p className="text-sm text-gray-600">{selectedBooking.accommodationType}</p>
+                  <p className="text-gray-600">{selectedBooking.accommodationType}</p>
                 )}
               </div>
               
               <div>
-                <p className="text-sm text-gray-500">Client</p>
-                <p className="font-medium">{selectedBooking.customerName}</p>
-                <p className="text-sm text-gray-600">{selectedBooking.customerPhone}</p>
-                <p className="text-sm text-gray-600">{selectedBooking.customerEmail}</p>
+                <p className="text-sm text-gray-500 mb-1">Client</p>
+                <p className="font-medium text-lg">{selectedBooking.customerName}</p>
+                <p className="text-gray-600">{selectedBooking.customerPhone}</p>
+                <p className="text-gray-600">{selectedBooking.customerEmail}</p>
               </div>
               
               <div>
-                <p className="text-sm text-gray-500">Status</p>
-                <div className="flex items-center space-x-2 mt-1">
+                <p className="text-sm text-gray-500 mb-1">Status</p>
+                <div className="mt-1">
                   <StatusBadge status={selectedBooking.status} />
                 </div>
               </div>
               
               {selectedBooking.groomer && (
                 <div>
-                  <p className="text-sm text-gray-500">Assigned To</p>
+                  <p className="text-sm text-gray-500 mb-1">Assigned To</p>
                   <p className="font-medium">{selectedBooking.groomer}</p>
                 </div>
               )}
             </div>
           )}
           
-          <DialogFooter className="sm:justify-between">
+          <div className="px-6 py-4 border-t flex justify-between items-center">
             <div className="flex space-x-2">
               <Select 
                 defaultValue={selectedBooking?.status || "pending"}
                 onValueChange={(value) => {
                   if (selectedBooking) {
                     onStatusChange(selectedBooking.id, value, selectedBooking.serviceType);
+                    setShowBookingDetails(false);
                   }
                 }}
               >
-                <SelectTrigger className="w-[140px]">
+                <SelectTrigger className="w-[140px] h-10">
                   <SelectValue placeholder="Update Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -425,16 +428,16 @@ export default function BookingCalendar({ bookings, onStatusChange, refetchBooki
                 Edit Booking
               </Button>
             </div>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
       
       {/* New Booking Form Dialog */}
       <Dialog open={showNewBookingForm} onOpenChange={setShowNewBookingForm}>
-        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden">
-          <DialogHeader>
-            <DialogTitle>Create New Booking</DialogTitle>
-          </DialogHeader>
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden p-0">
+          <div className="p-6 pb-2">
+            <DialogTitle className="text-2xl font-medium text-brand-primary">Create New Booking</DialogTitle>
+          </div>
           
           <BookingForm 
             onSuccess={handleNewBookingSuccess} 
