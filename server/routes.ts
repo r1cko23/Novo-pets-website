@@ -465,18 +465,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get available time slots for a specific date
   app.get("/api/availability", async (req: Request, res: Response) => {
     try {
-      const { date, refresh } = req.query;
+      // Parse date from query parameters
+      const date = req.query.date as string;
+      // Parse the forceRefresh parameter
+      const forceRefresh = req.query.forceRefresh === 'true';
       
-      if (!date || typeof date !== 'string') {
-        return res.status(400).json({ 
-          success: false, 
-          message: "Date parameter is required" 
+      if (!date) {
+        return res.status(400).json({
+          success: false,
+          message: "Date parameter is required"
         });
       }
       
-      // Force database refresh if requested
-      const forceRefresh = refresh === 'true';
-      console.log(`[API] Received availability request for date: ${date} ${forceRefresh ? '(forced refresh)' : ''}`);
+      console.log(`Fetching availability for date: ${date} (raw date: ${new Date(date).toISOString()}, timestamp: ${Date.now()})`);
+      
+      // Log the forceRefresh parameter
+      if (forceRefresh) {
+        console.log(`[API] Force refresh requested - bypassing all caches`);
+      }
       
       try {
         // Log beginning of database query
@@ -506,6 +512,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (nineAmReservations.length > 0) {
             console.log(`[API] Active reservations for 9:00 AM:`, 
               nineAmReservations.map(r => `${r.groomer}: reserved until ${new Date(r.expiresAt).toISOString()}`).join(', '));
+              
+            // Update slots that have active reservations to show as unavailable
+            nineAmSlots.forEach(slot => {
+              const hasActiveReservation = nineAmReservations.some(r => r.groomer === slot.groomer);
+              if (hasActiveReservation && slot.available) {
+                console.log(`[API] Marking slot as unavailable due to active reservation: ${slot.groomer} at 9:00 AM`);
+                slot.available = false;
+              }
+            });
           } else {
             console.log(`[API] No active reservations for 9:00 AM slots`);
           }
@@ -521,7 +536,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             totalSlots,
             availableCount,
             bookedCount,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            forceRefresh
           }
         });
       } catch (availabilityError) {

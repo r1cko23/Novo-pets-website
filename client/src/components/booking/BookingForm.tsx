@@ -33,7 +33,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { format, add, parse } from "date-fns";
-import { CalendarIcon, Check, CreditCard, Landmark, BanknoteIcon, Loader2, AlertCircle } from "lucide-react";
+import { CalendarIcon, Check, CreditCard, Landmark, BanknoteIcon, Loader2, AlertCircle, CheckIcon } from "lucide-react";
 import { 
   bookingFormSchema, 
   ServiceType, 
@@ -204,6 +204,7 @@ export default function BookingForm() {
   const [lastAvailabilityData, setLastAvailabilityData] = useState<any>(null); // For debugging
   const [timeSlotsByGroomer, setTimeSlotsByGroomer] = useState<Record<string, TimeSlot[]>>({});
   const [groomersWithSlots, setGroomersWithSlots] = useState<string[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false); // Add the missing state variable
   const { toast } = useToast();
   
   // Default time slots (will be filtered based on availability)
@@ -974,19 +975,65 @@ export default function BookingForm() {
   
   // Function to display all possible time slots, including booked ones
   const getTimeSlotDisplay = (groomer: string) => {
-    // All possible time slots
-    const allTimeSlots = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
+    if (!timeSlotsByGroomer[groomer] || timeSlotsByGroomer[groomer].length === 0) {
+      return (
+        <div className="p-4 text-center text-gray-500">
+          No time slots available for {groomer}
+        </div>
+      );
+    }
     
-    // Set of available times for this groomer
-    const availableTimesSet = new Set(
-      timeSlotsByGroomer[groomer]?.map(slot => slot.time) || []
+    return (
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-3">
+        {timeSlotsByGroomer[groomer].map((slot) => {
+          const isSelected = selectedTime === slot.time && selectedGroomer === slot.groomer;
+          
+          // Skip booked slots if showBookedSlots is false
+          if (!showBookedSlots && !slot.available) {
+            return null;
+          }
+          
+          return (
+            <label
+              key={`${slot.groomer}-${slot.time}`}
+              className={cn(
+                "relative flex cursor-pointer rounded-lg p-3 shadow-sm border text-center items-center justify-center transition-all",
+                isSelected
+                  ? "border-primary bg-primary text-primary-foreground ring-2 ring-primary"
+                  : slot.available
+                  ? "border-gray-200 bg-white hover:bg-gray-50"
+                  : "border-red-200 bg-red-100 text-red-800 cursor-not-allowed"
+              )}
+            >
+              <input
+                type="radio"
+                name="time-slot"
+                value={slot.time}
+                disabled={!slot.available}
+                className="sr-only"
+                onChange={() => {
+                  if (slot.available) {
+                    form.setValue("appointmentTime", slot.time);
+                    setSelectedGroomer(slot.groomer);
+                  }
+                }}
+              />
+              <span className="flex flex-col">
+                {slot.formattedTime || format(parse(normalizeTimeFormat(slot.time), 'HH:mm', new Date()), 'h:mm a')}
+                {!slot.available && (
+                  <span className="font-bold text-sm mt-1 text-red-600">BOOKED</span>
+                )}
+              </span>
+              {isSelected && (
+                <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-blue-600 flex items-center justify-center">
+                  <CheckIcon className="h-3 w-3 text-white" />
+                </span>
+              )}
+            </label>
+          );
+        })}
+      </div>
     );
-    
-    return allTimeSlots.map(time => ({
-      time,
-      groomer,
-      available: availableTimesSet.has(time)
-    }));
   };
   
   // Format the remaining reservation time
@@ -1021,140 +1068,62 @@ export default function BookingForm() {
 
   // Add a function to force refresh availability data 
   const forceRefreshAvailability = async () => {
-    console.log("Force refreshing availability data...");
-    
-    if (!selectedDate) {
-      toast({
-        title: "Select a Date",
-        description: "Please select a date first",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    // Show loading toast
-    toast({
-      title: "Refreshing",
-      description: "Updating available time slots...",
-    });
+    if (!selectedDate) return;
+
+    setIsRefreshing(true);
     
     try {
-      // Clear any existing cache for this date
-      queryClient.removeQueries({queryKey: ["availability", selectedDate]});
-      
-      // Format date directly without timezone issues for direct API call
       const dateObj = new Date(selectedDate);
       const year = dateObj.getFullYear();
       const month = String(dateObj.getMonth() + 1).padStart(2, '0');
       const day = String(dateObj.getDate()).padStart(2, '0');
       const formattedDate = `${year}-${month}-${day}`;
       
-      // Add a timestamp to ensure fresh data
+      // Add a timestamp and forceRefresh parameter to bypass cache
       const timestamp = Date.now();
-      
-      // Make a direct API call first to ensure we get fresh data
-      const response = await fetch(`/api/availability?date=${formattedDate}&refresh=true&_=${timestamp}`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache'
-        }
-      });
+      const response = await fetch(`/api/availability?date=${formattedDate}&forceRefresh=true&_=${timestamp}`);
       
       if (!response.ok) {
-        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+        throw new Error(`Server returned ${response.status}`);
       }
       
       const data = await response.json();
       
-      if (!data?.availableTimeSlots || !Array.isArray(data.availableTimeSlots)) {
-        throw new Error("Invalid availability data received");
-      }
-      
-      // Process the data directly with normalized time formats
-      const newTimeSlotsByGroomer: Record<string, TimeSlot[]> = {};
-      const newGroomersWithSlots: string[] = [];
-      
-      // Process time slots, using normalized time formats
-      data.availableTimeSlots.forEach((slot: any) => {
-        // Skip invalid slots
-        if (!slot.time || !slot.groomer) return;
+      if (data.availableTimeSlots) {
+        // Clear local storage cache for this date
+        const localStorageKey = `booked_slots_${formattedDate}`;
+        localStorage.removeItem(localStorageKey);
         
-        // Format the slot with normalized time
-        const formattedSlot: TimeSlot = {
-          time: normalizeTimeFormat(slot.time),
-          groomer: slot.groomer,
-          available: !!slot.available,
-          formattedTime: format(parse(
-            normalizeTimeFormat(slot.time), 
-            'HH:mm', 
-            new Date()
-          ), 'h:mm a')
-        };
+        // Log specific information about 9:00 AM slots for debugging
+        const nineAmSlots = data.availableTimeSlots.filter((slot: any) => 
+          normalizeTimeFormat(slot.time) === '09:00'
+        );
         
-        // Add to groomer list
-        if (!newTimeSlotsByGroomer[slot.groomer]) {
-          newTimeSlotsByGroomer[slot.groomer] = [];
-          newGroomersWithSlots.push(slot.groomer);
+        if (nineAmSlots.length > 0) {
+          console.log("9:00 AM slots after force refresh:", nineAmSlots.map((slot: any) => 
+            `${slot.groomer}: ${slot.available ? 'AVAILABLE' : 'BOOKED'}`
+          ).join(', '));
         }
         
-        // Add to time slots
-        newTimeSlotsByGroomer[slot.groomer].push(formattedSlot);
-      });
-      
-      // Specifically check 9:00 AM slots
-      const allSlots: TimeSlot[] = [];
-      Object.values(newTimeSlotsByGroomer).forEach(slots => allSlots.push(...slots));
-      const nineAmSlots = allSlots.filter(slot => normalizeTimeFormat(slot.time) === '09:00');
-      
-      if (nineAmSlots.length > 0) {
-        console.log("9:00 AM slots after force refresh:", nineAmSlots.map(slot => 
-          `${slot.groomer}: ${slot.available ? 'AVAILABLE' : 'BOOKED'} (time=${slot.time})`
-        ).join(', '));
+        // Update the UI with fresh data
+        refetchAvailability();
+        
+        // Show success toast
+        toast({
+          title: "Availability Updated",
+          description: "Appointment availability has been refreshed with the latest data.",
+        });
       }
-      
-      // Sort each groomer's slots
-      Object.keys(newTimeSlotsByGroomer).forEach((groomer) => {
-        newTimeSlotsByGroomer[groomer].sort((a, b) => a.time.localeCompare(b.time));
-      });
-      
-      // Update state directly
-      setTimeSlotsByGroomer(newTimeSlotsByGroomer);
-      setGroomersWithSlots(newGroomersWithSlots);
-      
-      // Also update available time slots array for consistency
-      setAvailableTimeSlots(allSlots);
-      
-      // Update the React Query cache with normalized data
-      queryClient.setQueryData(["availability", selectedDate], {
-        ...data,
-        availableTimeSlots: allSlots
-      });
-      
-      // Manually trigger a refetch to update any other components that rely on this query
-      await refetchAvailability();
-      
-      // Log stats about the data
-      const availableSlots = allSlots.filter((slot: any) => !!slot.available).length;
-      const totalSlots = allSlots.length;
-      
-      console.log(`Refreshed availability data: ${availableSlots}/${totalSlots} slots available`);
-      console.log(`Groomers found: ${newGroomersWithSlots.join(', ')}`);
-      
-      // Notify user of successful refresh
-      toast({
-        title: "Slots Updated",
-        description: `${availableSlots} available slots for ${newGroomersWithSlots.length} groomers`,
-      });
-      
     } catch (error) {
       console.error("Error force refreshing availability:", error);
+      
       toast({
         title: "Refresh Failed",
-        description: error instanceof Error ? error.message : "Failed to refresh time slots",
-        variant: "destructive"
+        description: "Could not refresh availability data. Please try again.",
+        variant: "destructive",
       });
+    } finally {
+      setIsRefreshing(false);
     }
   };
 

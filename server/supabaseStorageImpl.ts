@@ -409,6 +409,46 @@ export class SupabaseStorage implements IStorage {
         
         if (cached && (now - cached.timestamp) < CACHE_TTL) {
           console.log(`[DB] Using cached availability data for ${normalizedDate}, created ${(now - cached.timestamp)/1000}s ago`);
+          
+          // Special check for 9:00 AM slots - always query database directly for these
+          const nineAmSlots = cached.timeSlots.filter(slot => normalizeTimeFormat(slot.time) === '09:00');
+          if (nineAmSlots.length > 0 && nineAmSlots.some(slot => slot.available)) {
+            console.log(`[DB] Found 9:00 AM slots in cache, performing direct database check to verify`);
+            
+            // Perform a direct database check for 9:00 AM slots
+            try {
+              const { data, error } = await supabase
+                .from('grooming_appointments')
+                .select('*')
+                .eq('appointment_date', normalizedDate)
+                .eq('appointment_time', '09:00:00')
+                .not('status', 'eq', 'cancelled');
+                
+              if (error) {
+                console.error(`[DB] Error verifying 9:00 AM slots: ${error.message}`);
+              } else if (data && data.length > 0) {
+                console.log(`[DB] Direct DB check found ${data.length} bookings at 9:00 AM`);
+                
+                // Mark matching slots as booked
+                data.forEach(booking => {
+                  const matchedSlot = cached.timeSlots.find(slot => 
+                    normalizeTimeFormat(slot.time) === '09:00' && 
+                    slot.groomer.toLowerCase() === (booking.groomer || 'groomer 1').toLowerCase()
+                  );
+                  
+                  if (matchedSlot && matchedSlot.available) {
+                    console.log(`[DB] Updating cached data: Marking ${matchedSlot.groomer} at 9:00 AM as booked`);
+                    matchedSlot.available = false;
+                  }
+                });
+              } else {
+                console.log(`[DB] Direct DB check confirmed no 9:00 AM bookings`);
+              }
+            } catch (verifyError) {
+              console.error(`[DB] Exception during 9:00 AM verification: ${verifyError}`);
+            }
+          }
+          
           return cached.timeSlots;
         } else if (cached) {
           console.log(`[DB] Cached data for ${normalizedDate} is stale (${(now - cached.timestamp)/1000}s old), fetching fresh data`);
@@ -447,7 +487,16 @@ export class SupabaseStorage implements IStorage {
         });
         
         // Check specifically for 9AM bookings
-        const nineAmBookings = rawBookings.filter(b => b.appointment_time && b.appointment_time.startsWith('09:00'));
+        const nineAmBookings = rawBookings.filter(b => {
+          // Handle different time formats by normalizing
+          const normalizedBookingTime = normalizeTimeFormat(b.appointment_time);
+          const isNineAM = normalizedBookingTime === '09:00';
+          if (isNineAM) {
+            console.log(`[DB] Identified 9:00 AM booking: Time=${b.appointment_time}, normalized=${normalizedBookingTime}`);
+          }
+          return isNineAM;
+        });
+        
         if (nineAmBookings.length > 0) {
           console.log(`[DB] Found ${nineAmBookings.length} bookings at 9:00 AM through direct SQL`);
           nineAmBookings.forEach(b => {
