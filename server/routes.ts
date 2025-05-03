@@ -6,6 +6,52 @@ import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { supabase } from "./supabase";
 
+// Import the normalizeTimeFormat function from supabaseStorageImpl
+// Note: Since we can't directly import from supabaseStorageImpl, let's re-implement it here
+/**
+ * Normalizes a time string to consistent "HH:MM" 24-hour format for comparison
+ * Handles various input formats: "9:00 AM", "09:00", "09:00:00", etc.
+ * @param timeStr Time string in any reasonable format
+ * @returns Normalized time in "HH:MM" 24-hour format
+ */
+function normalizeTimeFormat(timeStr: string): string {
+  if (!timeStr) return '';
+  
+  // Already in HH:MM or HH:MM:SS 24-hour format
+  if (/^([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/.test(timeStr)) {
+    return timeStr.substring(0, 5);
+  }
+  
+  // 12-hour format with AM/PM
+  const amPmMatch = timeStr.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(am|pm)$/i);
+  if (amPmMatch) {
+    let hours = parseInt(amPmMatch[1], 10);
+    const minutes = amPmMatch[2];
+    const isPM = amPmMatch[4].toLowerCase() === 'pm';
+    
+    // Convert to 24-hour format
+    if (isPM && hours < 12) hours += 12;
+    if (!isPM && hours === 12) hours = 0;
+    
+    return `${hours.toString().padStart(2, '0')}:${minutes}`;
+  }
+  
+  // If it's another format, try to parse with Date object
+  try {
+    // Use a reference date to parse just the time portion
+    const date = new Date(`2000-01-01T${timeStr}`);
+    if (!isNaN(date.getTime())) {
+      return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+    }
+  } catch (e) {
+    console.error(`Error normalizing time format for "${timeStr}":`, e);
+  }
+  
+  // Return original if couldn't normalize
+  console.warn(`Could not normalize time format for "${timeStr}", returning as is`);
+  return timeStr;
+}
+
 /**
  * IMPORTANT NOTE ON DATE HANDLING:
  * 
@@ -437,8 +483,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`[API] Querying database for bookings on ${date}`);
         
         // Call the storage implementation to get available time slots
-        // This should query the database directly
-        const availableTimeSlots = await storage.getAvailableTimeSlots(date);
+        // This should query the database directly, with force refresh if requested
+        const availableTimeSlots = await storage.getAvailableTimeSlots(date, forceRefresh);
         
         // Calculate availability stats
         const totalSlots = availableTimeSlots.length;
@@ -448,10 +494,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`[API] Database returned ${totalSlots} time slots (${availableCount} available, ${bookedCount} booked)`);
         
         // Specifically check 9:00 AM slots
-        const nineAmSlots = availableTimeSlots.filter(slot => slot.time.startsWith('09:00'));
+        const nineAmSlots = availableTimeSlots.filter(slot => normalizeTimeFormat(slot.time) === '09:00');
         if (nineAmSlots.length > 0) {
           console.log(`[API] 9:00 AM slot status from database:`, 
-            nineAmSlots.map(slot => `${slot.groomer}: ${slot.available ? 'AVAILABLE' : 'BOOKED'}`).join(', '));
+            nineAmSlots.map(slot => `${slot.groomer}: ${slot.available ? 'AVAILABLE' : 'BOOKED'} (original time: ${slot.time})`).join(', '));
+            
+          // Get all reservations for 9:00 AM
+          const nineAmReservations = Array.from(reservations.values())
+            .filter(r => r.date === date && normalizeTimeFormat(r.time) === '09:00');
+            
+          if (nineAmReservations.length > 0) {
+            console.log(`[API] Active reservations for 9:00 AM:`, 
+              nineAmReservations.map(r => `${r.groomer}: reserved until ${new Date(r.expiresAt).toISOString()}`).join(', '));
+          } else {
+            console.log(`[API] No active reservations for 9:00 AM slots`);
+          }
+        } else {
+          console.log(`[API] No 9:00 AM slots found in response`);
         }
         
         return res.status(200).json({ 
@@ -539,8 +598,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if the slot is available
       try {
         const availableTimeSlots = await storage.getAvailableTimeSlots(appointmentDate);
+        
+        // Normalize requested time for consistent comparison
+        const normalizedRequestedTime = normalizeTimeFormat(appointmentTime);
+        console.log(`[API] Checking reservation availability for normalized time: ${normalizedRequestedTime} (original: ${appointmentTime})`);
+        
         const requestedSlot = availableTimeSlots.find(
-          slot => slot.time === appointmentTime && 
+          slot => normalizeTimeFormat(slot.time) === normalizedRequestedTime && 
                   slot.groomer === groomer && 
                   slot.available === true
         );
@@ -555,12 +619,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Check if there's an existing reservation for this slot
         let slotAlreadyReserved = false;
         
-        // When checking against existing reservations, we need to use the original date
-        // since reservations are stored in memory with the original date format
+        // When checking against existing reservations, normalize times for consistent comparison
+        // but keep the same date format since dates are stored in memory with the original format
         reservations.forEach(reservation => {
+          const normalizedReservationTime = normalizeTimeFormat(reservation.time);
+          
           if (reservation.date === appointmentDate && 
-              reservation.time === appointmentTime && 
+              normalizedReservationTime === normalizedRequestedTime && 
               reservation.groomer === groomer) {
+            console.log(`[API] Found existing reservation: ${reservation.id} at ${normalizedReservationTime} (original: ${reservation.time})`);
             slotAlreadyReserved = true;
           }
         });
@@ -688,6 +755,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ 
         success: false, 
         message: "Failed to submit contact form" 
+      });
+    }
+  });
+
+  // Debug endpoint for time format testing
+  app.get("/api/debug/time-format", (req: Request, res: Response) => {
+    try {
+      const { time } = req.query;
+      
+      if (!time || typeof time !== 'string') {
+        return res.status(400).json({
+          success: false,
+          message: "Time parameter is required"
+        });
+      }
+      
+      // Test the normalizeTimeFormat function
+      const normalizedTime = normalizeTimeFormat(time);
+      
+      // Test case: check if it detects 9:00 AM and 09:00 as equivalent
+      const isNineAM = normalizedTime === '09:00';
+      const examples = [
+        { input: '9:00 AM', normalized: normalizeTimeFormat('9:00 AM'), isNineAM: normalizeTimeFormat('9:00 AM') === '09:00' },
+        { input: '09:00', normalized: normalizeTimeFormat('09:00'), isNineAM: normalizeTimeFormat('09:00') === '09:00' },
+        { input: '09:00:00', normalized: normalizeTimeFormat('09:00:00'), isNineAM: normalizeTimeFormat('09:00:00') === '09:00' }
+      ];
+      
+      return res.status(200).json({
+        success: true,
+        input: time,
+        normalized: normalizedTime,
+        isNineAM,
+        examples,
+        _meta: {
+          timestamp: new Date().toISOString()
+        }
+      });
+    } catch (error) {
+      console.error("Error in time format debug endpoint:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Error processing time format"
       });
     }
   });

@@ -21,6 +21,19 @@ const TIME_SLOTS = [
 // Define groomers
 const GROOMERS = ["Groomer 1", "Groomer 2"];
 
+// Simple in-memory cache for available time slots with expiration
+interface AvailabilityCache {
+  date: string;
+  timeSlots: TimeSlot[];
+  timestamp: number; // When this cache entry was created
+}
+
+// Cache expires after this many milliseconds (30 seconds)
+const CACHE_TTL = 30 * 1000;
+
+// Store cache by date
+const availabilityCache = new Map<string, AvailabilityCache>();
+
 /**
  * Format time string to proper time format for database
  * @param timeStr Time string in "HH:MM" format
@@ -46,6 +59,50 @@ function formatTimeFromDB(dbTime: string): string {
   
   // If it's already in simple format, return as is
   return dbTime;
+}
+
+/**
+ * Normalizes a time string to consistent "HH:MM" 24-hour format for comparison
+ * Handles various input formats: "9:00 AM", "09:00", "09:00:00", etc.
+ * @param timeStr Time string in any reasonable format
+ * @returns Normalized time in "HH:MM" 24-hour format
+ */
+function normalizeTimeFormat(timeStr: string): string {
+  if (!timeStr) return '';
+  
+  // Already in HH:MM or HH:MM:SS 24-hour format
+  if (/^([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/.test(timeStr)) {
+    return timeStr.substring(0, 5);
+  }
+  
+  // 12-hour format with AM/PM
+  const amPmMatch = timeStr.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(am|pm)$/i);
+  if (amPmMatch) {
+    let hours = parseInt(amPmMatch[1], 10);
+    const minutes = amPmMatch[2];
+    const isPM = amPmMatch[4].toLowerCase() === 'pm';
+    
+    // Convert to 24-hour format
+    if (isPM && hours < 12) hours += 12;
+    if (!isPM && hours === 12) hours = 0;
+    
+    return `${hours.toString().padStart(2, '0')}:${minutes}`;
+  }
+  
+  // If it's another format, try to parse with Date object
+  try {
+    // Use a reference date to parse just the time portion
+    const date = new Date(`2000-01-01T${timeStr}`);
+    if (!isNaN(date.getTime())) {
+      return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+    }
+  } catch (e) {
+    console.error(`Error normalizing time format for "${timeStr}":`, e);
+  }
+  
+  // Return original if couldn't normalize
+  console.warn(`Could not normalize time format for "${timeStr}", returning as is`);
+  return timeStr;
 }
 
 /**
@@ -339,11 +396,30 @@ export class SupabaseStorage implements IStorage {
     }
   }
   
-  async getAvailableTimeSlots(date: string): Promise<TimeSlot[]> {
+  async getAvailableTimeSlots(date: string, forceRefresh: boolean = false): Promise<TimeSlot[]> {
     try {
       // Normalize the requested date
       const normalizedDate = normalizeDate(date);
-      console.log(`[DB] Getting available time slots for date: ${normalizedDate}`);
+      console.log(`[DB] Getting available time slots for date: ${normalizedDate} (forceRefresh: ${forceRefresh})`);
+      
+      // Check cache first if not forcing a refresh
+      if (!forceRefresh) {
+        const cached = availabilityCache.get(normalizedDate);
+        const now = Date.now();
+        
+        if (cached && (now - cached.timestamp) < CACHE_TTL) {
+          console.log(`[DB] Using cached availability data for ${normalizedDate}, created ${(now - cached.timestamp)/1000}s ago`);
+          return cached.timeSlots;
+        } else if (cached) {
+          console.log(`[DB] Cached data for ${normalizedDate} is stale (${(now - cached.timestamp)/1000}s old), fetching fresh data`);
+          // Remove expired cache entry
+          availabilityCache.delete(normalizedDate);
+        }
+      } else {
+        console.log(`[DB] Force refresh requested, bypassing cache for ${normalizedDate}`);
+        // Clear the cache for this date when forcing a refresh
+        availabilityCache.delete(normalizedDate);
+      }
       
       // IMPORTANT: Ensure we're querying for the *exact* date the user selected
       // We should not adjust the date here, as we want to check the availability
@@ -448,7 +524,8 @@ export class SupabaseStorage implements IStorage {
       if (appointments && appointments.length > 0) {
         appointments.forEach(appointment => {
           // Format time from database time format to simple "HH:MM" string
-          const bookedTime = formatTimeFromDB(appointment.appointment_time);
+          // and normalize it for consistent comparison
+          const bookedTime = normalizeTimeFormat(formatTimeFromDB(appointment.appointment_time));
           
           // Normalize groomer name to handle case sensitivity
           // This ensures "Groomer 1" matches "groomer 1" or any case variations
@@ -471,9 +548,12 @@ export class SupabaseStorage implements IStorage {
       
       // Create the availability data structure
       TIME_SLOTS.forEach(time => {
+        // Normalize the time slot for consistent comparison
+        const normalizedTime = normalizeTimeFormat(time);
+        
         GROOMERS.forEach(groomer => {
-          const isBooked = bookedSlotsByGroomer[groomer]?.has(time) || false;
-          console.log(`Time slot ${time} for ${groomer}: ${isBooked ? 'BOOKED' : 'Available'}`);
+          const isBooked = bookedSlotsByGroomer[groomer]?.has(normalizedTime) || false;
+          console.log(`Time slot ${time} (normalized: ${normalizedTime}) for ${groomer}: ${isBooked ? 'BOOKED' : 'Available'}`);
           
           allTimeSlots.push({
             time,
@@ -491,7 +571,14 @@ export class SupabaseStorage implements IStorage {
           unavailableSlots.map(slot => `${slot.groomer} at ${slot.time}`).join(', '));
       }
       
-      console.log(`Returning ${allTimeSlots.length} time slots (${allTimeSlots.filter(s => s.available).length} available)`);
+      // Cache the results
+      availabilityCache.set(normalizedDate, {
+        date: normalizedDate,
+        timeSlots: [...allTimeSlots], // Create a copy to avoid reference issues
+        timestamp: Date.now()
+      });
+      
+      console.log(`Returning ${allTimeSlots.length} time slots (${allTimeSlots.filter(s => s.available).length} available) and updating cache`);
       return allTimeSlots;
     } catch (error) {
       console.error("Error getting available time slots:", error);
@@ -526,8 +613,13 @@ export class SupabaseStorage implements IStorage {
     try {
       // First check if the slot is available
       const availableSlots = await this.getAvailableTimeSlots(booking.appointmentDate);
+      
+      // Normalize the requested appointment time for consistent comparison
+      const normalizedRequestedTime = normalizeTimeFormat(booking.appointmentTime);
+      console.log(`[Booking] Checking availability for normalized time: ${normalizedRequestedTime} (original: ${booking.appointmentTime})`);
+      
       const requestedSlot = availableSlots.find(
-        slot => slot.time === booking.appointmentTime && 
+        slot => normalizeTimeFormat(slot.time) === normalizedRequestedTime && 
                 slot.groomer === (booking.groomer || "Groomer 1") && 
                 slot.available === true
       );
@@ -580,11 +672,15 @@ export class SupabaseStorage implements IStorage {
       
       // Final race condition check - query the database directly to see if the slot 
       // was taken while the user was filling out the form
+      // Use the formatted time for DB query (adds seconds to match DB format)
+      const formattedTimeForQuery = formatTimeForDB(booking.appointmentTime);
+      console.log(`[Booking] Performing final race condition check with time: ${formattedTimeForQuery}`);
+      
       const { data: existingBookings, error: checkError } = await supabase
         .from('grooming_appointments')
         .select('id, appointment_time, groomer')
         .eq('appointment_date', appointmentDate)
-        .eq('appointment_time', formatTimeForDB(booking.appointmentTime))
+        .eq('appointment_time', formattedTimeForQuery)
         .eq('groomer', booking.groomer || "Groomer 1")
         .not('status', 'eq', 'cancelled');
         

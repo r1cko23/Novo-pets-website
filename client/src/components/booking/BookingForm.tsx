@@ -99,6 +99,97 @@ function normalizeTimeFormat(time: string): string {
   return `${time.padStart(2, '0')}:00`;
 }
 
+// Component to display slot availability summary with color-coded indicators
+interface AvailabilitySummaryProps {
+  date: string;
+  isLoading: boolean;
+}
+
+function AvailabilitySummary({ date, isLoading }: AvailabilitySummaryProps) {
+  const [summary, setSummary] = useState<{total: number; available: number; booked: number}>({
+    total: 0,
+    available: 0,
+    booked: 0
+  });
+  
+  // Calculate the availability percentage
+  const availabilityPercentage = summary.total ? Math.round((summary.available / summary.total) * 100) : 0;
+  const bookedPercentage = summary.total ? Math.round((summary.booked / summary.total) * 100) : 0;
+  
+  // Get the status color based on availability
+  const getStatusColor = () => {
+    if (availabilityPercentage <= 20) return "bg-red-100 text-red-700 border-red-200";
+    if (availabilityPercentage <= 50) return "bg-amber-100 text-amber-700 border-amber-200";
+    return "bg-green-100 text-green-700 border-green-200";
+  };
+  
+  // Fetch availability data when date changes
+  useEffect(() => {
+    if (!date) return;
+    
+    const fetchData = async () => {
+      try {
+        const dateObj = new Date(date);
+        const year = dateObj.getFullYear();
+        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const day = String(dateObj.getDate()).padStart(2, '0');
+        const formattedDate = `${year}-${month}-${day}`;
+        
+        const response = await fetch(`/api/availability?date=${formattedDate}`);
+        const data = await response.json();
+        
+        if (data.availableTimeSlots) {
+          const total = data.availableTimeSlots.length;
+          const available = data.availableTimeSlots.filter((slot: { available: boolean }) => slot.available).length;
+          const booked = total - available;
+          
+          setSummary({ total, available, booked });
+        }
+      } catch (error) {
+        console.error("Error fetching availability summary:", error);
+      }
+    };
+    
+    fetchData();
+  }, [date]);
+  
+  if (isLoading) {
+    return (
+      <div className="flex items-center space-x-2 text-sm text-gray-500 animate-pulse">
+        <Loader2 className="h-3 w-3 animate-spin" />
+        <span>Loading availability...</span>
+      </div>
+    );
+  }
+  
+  if (summary.total === 0) {
+    return null;
+  }
+  
+  return (
+    <div className="mt-2">
+      <div className={`text-sm rounded-md px-3 py-2 border ${getStatusColor()}`}>
+        <div className="flex justify-between items-center">
+          <span className="font-medium">Slot Availability:</span>
+          <span className="font-semibold">{summary.available}/{summary.total} Available</span>
+        </div>
+        <div className="mt-1 bg-white/40 rounded-full h-2.5 overflow-hidden">
+          <div 
+            className={`h-full ${bookedPercentage > 80 ? 'bg-red-500' : bookedPercentage > 50 ? 'bg-amber-500' : 'bg-green-500'}`} 
+            style={{ width: `${bookedPercentage}%` }}
+          ></div>
+        </div>
+        {bookedPercentage >= 70 && (
+          <p className="text-xs mt-1.5 font-medium">
+            <AlertCircle className="inline h-3 w-3 mr-1" />
+            High demand: {bookedPercentage}% of slots already booked
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function BookingForm() {
   const [step, setStep] = useState(1);
   const [bookingReference, setBookingReference] = useState("");
@@ -1055,6 +1146,31 @@ export default function BookingForm() {
     }
   }, [selectedGroomer, selectedDate, refetchAvailability]);
 
+  // Utility function to get availability summary for a date
+  const getAvailabilitySummary = async (date: Date): Promise<{total: number; available: number; booked: number}> => {
+    try {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const formattedDate = `${year}-${month}-${day}`;
+      
+      const response = await fetch(`/api/availability?date=${formattedDate}`);
+      const data = await response.json();
+      
+      if (data.availableTimeSlots) {
+        const total = data.availableTimeSlots.length;
+        const available = data.availableTimeSlots.filter((slot: TimeSlot) => slot.available).length;
+        const booked = total - available;
+        
+        return { total, available, booked };
+      }
+    } catch (error) {
+      console.error("Error getting availability summary:", error);
+    }
+    
+    return { total: 0, available: 0, booked: 0 };
+  };
+
   return (
     <div className="bg-white rounded-xl overflow-hidden shadow-lg w-full max-w-4xl mx-auto my-8">
       <div className="md:flex">
@@ -1102,6 +1218,20 @@ export default function BookingForm() {
           
         {/* Main form content */}
         <div className="md:w-2/3 p-8">
+          {/* Prominent booking advisory */}
+          <Alert className="mb-6 bg-blue-50 border-blue-200 shadow-sm">
+            <div className="flex items-start">
+              <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5 mr-3" />
+              <div>
+                <AlertTitle className="text-blue-700 font-medium">Important Booking Information</AlertTitle>
+                <AlertDescription className="text-blue-600">
+                  To see accurate availability, please select your preferred date and groomer. 
+                  Red time slots indicate already booked or unavailable times.
+                </AlertDescription>
+              </div>
+            </div>
+          </Alert>
+
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
               {/* Step 1: Service Selection */}
@@ -1325,6 +1455,12 @@ export default function BookingForm() {
                               </div>
                             </PopoverContent>
                           </Popover>
+                          {field.value && (
+                            <AvailabilitySummary 
+                              date={format(new Date(field.value), "yyyy-MM-dd")} 
+                              isLoading={isLoadingAvailability} 
+                            />
+                          )}
                           <FormMessage />
                         </FormItem>
                       )}
@@ -1396,19 +1532,34 @@ export default function BookingForm() {
                                       const totalSlots = groomerSlots.length;
                                       // Calculate availability percentage
                                       const availabilityPercentage = totalSlots ? (availableSlots / totalSlots) * 100 : 0;
+                                      const bookedPercentage = 100 - availabilityPercentage;
                                       
                                       return (
                                         <SelectItem key={groomer} value={groomer}>
-                                          <div className="flex items-center justify-between w-full">
-                                            <span>{groomer}</span>
-                                            <span className={cn(
-                                              "text-xs ml-2 px-1.5 py-0.5 rounded font-medium",
-                                              availabilityPercentage === 0 ? "bg-red-100 text-red-700" : 
-                                              availabilityPercentage < 30 ? "bg-amber-100 text-amber-700" : 
-                                              "bg-green-100 text-green-700"
-                                            )}>
-                                              {availableSlots}/{totalSlots} slots available
-                                            </span>
+                                          <div className="flex flex-col w-full">
+                                            <div className="flex items-center justify-between">
+                                              <span className="font-medium">{groomer}</span>
+                                              <span className={cn(
+                                                "text-xs ml-2 px-2 py-0.5 rounded-full font-medium",
+                                                availabilityPercentage === 0 ? "bg-red-100 text-red-700" : 
+                                                availabilityPercentage < 30 ? "bg-amber-100 text-amber-700" : 
+                                                "bg-green-100 text-green-700"
+                                              )}>
+                                                {availableSlots}/{totalSlots} available
+                                              </span>
+                                            </div>
+                                            {/* Show availability progress bar */}
+                                            <div className="mt-1.5 w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                                              <div 
+                                                className={cn(
+                                                  "h-full",
+                                                  bookedPercentage > 70 ? "bg-red-500" :
+                                                  bookedPercentage > 40 ? "bg-amber-500" : 
+                                                  "bg-green-500"
+                                                )}
+                                                style={{ width: `${bookedPercentage}%` }}
+                                              ></div>
+                                            </div>
                                           </div>
                                         </SelectItem>
                                       );
@@ -1520,7 +1671,7 @@ export default function BookingForm() {
                                         disabled={slot.available !== true}
                                         className={cn(
                                           "flex items-center py-2 px-2 relative",
-                                          slot.available !== true && "opacity-80 bg-gray-50"
+                                          slot.available !== true && "opacity-90 bg-red-50 border-l-4 border-red-400"
                                         )}
                                       >
                                         <div className="flex justify-between w-full items-center">
@@ -1538,7 +1689,7 @@ export default function BookingForm() {
                                                 <path d="M18 6 6 18"></path>
                                                 <path d="m6 6 12 12"></path>
                                               </svg>
-                                              Booked
+                                              Unavailable
                                             </span>
                                           )}
                                           {slot.available === true && (
@@ -1582,7 +1733,7 @@ export default function BookingForm() {
                                   <path d="m6 6 12 12"></path>
                                 </svg>
                               </div>
-                              <span className="text-red-700">Booked</span>
+                              <span className="text-red-700">Unavailable/Booked</span>
                             </div>
                           </div>
                           <FormMessage />
