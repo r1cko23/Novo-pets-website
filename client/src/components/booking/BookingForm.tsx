@@ -509,6 +509,36 @@ export default function BookingForm() {
           }
         } catch (error) {
           console.error("Failed to create reservation", error);
+          
+          // Handle already booked slot errors specifically
+          if (error instanceof Error && 
+              ((error as any).isSlotUnavailable || 
+               error.message?.includes('already booked') || 
+               error.message?.includes('not available'))) {
+            
+            // Extract slot info
+            const slotInfo = (error as any).slotInfo || {
+              date: selectedDate,
+              time: normalizedTime,
+              groomer: selectedGroomer
+            };
+            
+            // Mark this slot as booked in the UI and localStorage for persistence
+            markSlotAsBooked(slotInfo.time, slotInfo.groomer);
+            
+            // Force refresh availability data
+            refetchAvailability();
+            
+            // Notify user
+            toast({
+              title: "Time Slot Unavailable",
+              description: "This time slot has already been booked. Please select another time.",
+              variant: "destructive",
+            });
+            
+            // Reset selected time
+            form.setValue("appointmentTime", "");
+          }
         }
       }
     };
@@ -1171,6 +1201,56 @@ export default function BookingForm() {
     return { total: 0, available: 0, booked: 0 };
   };
 
+  // Add this function to pre-check if a specific slot is known to be booked in the UI
+  const isSlotKnownBooked = (time: string, groomer: string): boolean => {
+    try {
+      // Normalize time for consistent comparison
+      const normalizedTime = normalizeTimeFormat(time);
+      
+      // First check the server data
+      const slot = availableTimeSlots.find(
+        s => normalizeTimeFormat(s.time) === normalizedTime && s.groomer === groomer
+      );
+      
+      if (slot) {
+        return !slot.available; // If we have data for this slot, use its availability state
+      }
+      
+      // If we don't have server data yet, check if we've seen a booking error for this slot
+      const errorKey = `${selectedDate}:${normalizedTime}:${groomer}`;
+      return localStorage.getItem(`booked_slot:${errorKey}`) === 'true';
+    } catch (e) {
+      console.error("Error checking if slot is known booked:", e);
+      return false;
+    }
+  };
+  
+  // Function to mark a specific slot as booked
+  const markSlotAsBooked = (time: string, groomer: string) => {
+    try {
+      // Normalize time for consistent comparison
+      const normalizedTime = normalizeTimeFormat(time);
+      
+      // Update local storage to remember this slot is booked
+      const errorKey = `${selectedDate}:${normalizedTime}:${groomer}`;
+      localStorage.setItem(`booked_slot:${errorKey}`, 'true');
+      
+      // Update the UI
+      setAvailableTimeSlots(prevSlots => 
+        prevSlots.map(slot => {
+          if (normalizeTimeFormat(slot.time) === normalizedTime && slot.groomer === groomer) {
+            return { ...slot, available: false };
+          }
+          return slot;
+        })
+      );
+      
+      console.log(`Manually marked slot ${time} with ${groomer} as booked`);
+    } catch (e) {
+      console.error("Error marking slot as booked:", e);
+    }
+  };
+
   return (
     <div className="bg-white rounded-xl overflow-hidden shadow-lg w-full max-w-4xl mx-auto my-8">
       <div className="md:flex">
@@ -1663,36 +1743,38 @@ export default function BookingForm() {
                                 timeSlotsByGroomer[selectedGroomer]?.length > 0 ? (
                                   // Map through and display the slots, filtering based on showBookedSlots
                                   timeSlotsByGroomer[selectedGroomer]
-                                    .filter(slot => showBookedSlots || slot.available === true)
+                                    .filter(slot => showBookedSlots || (slot.available === true && !isSlotKnownBooked(slot.time, slot.groomer)))
                                     .map((slot) => (
                                       <SelectItem 
                                         key={`${slot.time}-${slot.groomer}`} 
                                         value={slot.time}
-                                        disabled={slot.available !== true}
+                                        disabled={!slot.available || isSlotKnownBooked(slot.time, slot.groomer)}
                                         className={cn(
                                           "flex items-center py-2 px-2 relative",
-                                          slot.available !== true && "opacity-90 bg-red-50 border-l-4 border-red-400"
+                                          (!slot.available || isSlotKnownBooked(slot.time, slot.groomer)) && 
+                                            "opacity-90 bg-red-50 border-l-4 border-red-400"
                                         )}
                                       >
                                         <div className="flex justify-between w-full items-center">
                                           <div className="flex items-center">
                                             <span className={cn(
                                               "text-base",
-                                              slot.available !== true && "line-through text-gray-400"
+                                              (slot.available !== true || isSlotKnownBooked(slot.time, slot.groomer)) && "line-through text-gray-400"
                                             )}>
                                               {slot.formattedTime || format(parse(normalizeTimeFormat(slot.time), 'HH:mm', new Date()), 'h:mm a')}
                                             </span>
                                           </div>
-                                          {slot.available !== true && (
-                                            <span className="text-red-500 text-xs font-semibold px-2 py-1 bg-red-50 rounded-full ml-2 flex items-center">
+                                          {/* Check for booked slots both via slot.available and our manual check */}
+                          {(slot.available !== true || isSlotKnownBooked(slot.time, slot.groomer)) && (
+                                            <span className="text-white text-xs font-bold px-2 py-1 bg-red-500 rounded-full ml-2 flex items-center">
                                               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
                                                 <path d="M18 6 6 18"></path>
                                                 <path d="m6 6 12 12"></path>
                                               </svg>
-                                              Unavailable
+                                              BOOKED
                                             </span>
                                           )}
-                                          {slot.available === true && (
+                                          {slot.available === true && !isSlotKnownBooked(slot.time, slot.groomer) && (
                                             <span className="text-green-600 text-xs font-semibold px-2 py-1 bg-green-50 rounded-full ml-2 flex items-center">
                                               <Check className="h-3 w-3 mr-1" />
                                               Available
@@ -1726,14 +1808,14 @@ export default function BookingForm() {
                               </div>
                               <span className="text-green-700">Available</span>
                             </div>
-                            <div className="flex items-center border border-red-100 rounded px-2 py-1 bg-red-50/40">
-                              <div className="w-3 h-3 rounded-full bg-red-100 mr-1.5 flex items-center justify-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-600">
+                            <div className="flex items-center border border-red-300 rounded px-2 py-1 bg-red-100/60">
+                              <div className="w-3 h-3 rounded-full bg-red-500 mr-1.5 flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                   <path d="M18 6 6 18"></path>
                                   <path d="m6 6 12 12"></path>
                                 </svg>
                               </div>
-                              <span className="text-red-700">Unavailable/Booked</span>
+                              <span className="text-red-700 font-medium">Booked</span>
                             </div>
                           </div>
                           <FormMessage />

@@ -120,19 +120,46 @@ export function invalidateAvailabilityQueries(date?: string, forceRefresh = fals
 
 // Helper function to create a reservation for a time slot
 export async function createReservation(date: string, time: string, groomer: string) {
-  const response = await apiRequest('POST', '/api/reservations', {
-    appointmentDate: date,
-    appointmentTime: time,
-    groomer
-  });
-  
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Failed to create reservation');
+  try {
+    console.log(`Creating reservation: date=${date}, time=${time}, groomer=${groomer}`);
+    
+    const response = await apiRequest('POST', '/api/reservations', {
+      appointmentDate: date,
+      appointmentTime: time,
+      groomer
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      
+      // Create specific error for already booked slots
+      if (errorData.message?.includes('no longer available') || 
+          errorData.message?.includes('temporarily reserved') || 
+          errorData.message?.includes('already booked')) {
+        
+        console.error(`Reservation failed - slot already booked: ${date} at ${time} with ${groomer}`);
+        
+        // Force immediate refresh of availability data
+        await invalidateAvailabilityQueries(date, true);
+        
+        const error = new Error(errorData.message || 'This time slot is already booked');
+        error.name = 'SlotUnavailableError';
+        (error as any).slotInfo = { date, time, groomer };
+        (error as any).isSlotUnavailable = true;
+        throw error;
+      }
+      
+      throw new Error(errorData.message || 'Failed to create reservation');
+    }
+    
+    // Force refresh availability data after creating a reservation
+    await invalidateAvailabilityQueries(date, true);
+    
+    return response.json();
+  } catch (error) {
+    console.error('Reservation creation error:', error);
+    
+    // Re-throw the error to be handled by the caller
+    throw error;
   }
-  
-  // Force refresh availability data after creating a reservation
-  await invalidateAvailabilityQueries(date, true);
-  
-  return response.json();
 }
