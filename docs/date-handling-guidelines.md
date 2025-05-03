@@ -28,12 +28,14 @@ When working with dates on the client side:
 - The API will not perform timezone conversions on input date strings
 - All date validation is handled by the isValidDateString() function
 - Dates will be stored in the database exactly as provided by the client
+- For all endpoints that accept dates, we implement a cleaning procedure to strip any time components and ensure YYYY-MM-DD format
 
 ## Common Pitfalls to Avoid
 - Using Date.toISOString() which includes time and applies UTC conversion
 - Using libraries like moment.js or date-fns to format dates for API requests
 - Performing implicit Date object conversions which can trigger timezone shifts
 - Allowing Date objects to be serialized directly to JSON
+- Storing dates with time components in the database, which can cause timezone issues
 
 ## Testing Date Handling
 When testing the API:

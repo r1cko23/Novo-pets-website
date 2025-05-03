@@ -299,7 +299,7 @@ function isValidDateString(dateString) {
   if (!dateString) return false;
   
   try {
-    // First check if it's in YYYY-MM-DD format
+    // Only accept YYYY-MM-DD format (most strict version)
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
       const [year, month, day] = dateString.split('-').map(num => parseInt(num, 10));
       // Check if it's a valid date (month is 0-based in JS Date)
@@ -312,19 +312,9 @@ function isValidDateString(dateString) {
       return isValid;
     }
     
-    // If it's not in YYYY-MM-DD format, check if it's a valid ISO string or other valid date format
-    const date = new Date(dateString);
-    const isValid = !isNaN(date.getTime());
-    
-    if (isValid) {
-      // Log the normalized date format for debugging
-      const normalized = date.toLocaleDateString('en-CA'); // en-CA uses YYYY-MM-DD format
-      console.log(`Parsed date string ${dateString} to normalized form: ${normalized}`);
-    } else {
-      console.log(`Date string ${dateString} is not a valid date`);
-    }
-    
-    return isValid;
+    // Reject any other formats with explicit warning
+    console.warn(`Date string ${dateString} is not in YYYY-MM-DD format - rejecting`);
+    return false;
   } catch (e) {
     console.error(`Error validating date string: ${dateString}`, e);
     return false;
@@ -809,11 +799,39 @@ app.post('/api/reservations', async (req, res) => {
       });
     }
     
+    // Clean the date string to ensure consistent format (YYYY-MM-DD)
+    console.log(`Original reservation date: ${appointmentDate}`);
+    
+    // Use the same date cleaning logic as in the bookings endpoint
+    let cleanDateStr;
+    
+    // If the input is already a simple YYYY-MM-DD string, use it directly
+    if (/^\d{4}-\d{2}-\d{2}$/.test(appointmentDate)) {
+      cleanDateStr = appointmentDate;
+      console.log(`Date is already in YYYY-MM-DD format: ${cleanDateStr}`);
+    } 
+    // If it's an ISO string or contains timezone info, extract just the date part
+    else if (appointmentDate.includes('T')) {
+      cleanDateStr = appointmentDate.split('T')[0];
+      console.log(`Extracted date part from ISO string: ${cleanDateStr}`);
+    } 
+    // For any other format, parse and reformat to YYYY-MM-DD
+    else {
+      const dateObj = new Date(appointmentDate);
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      cleanDateStr = `${year}-${month}-${day}`;
+      console.log(`Parsed and reformatted date: ${cleanDateStr}`);
+    }
+    
+    console.log(`Using cleaned date string for reservation check: ${cleanDateStr}`);
+    
     // Check if slot is available with a more robust query
     const { data: bookings, error } = await supabase
       .from('grooming_appointments')
       .select('*')
-      .eq('appointment_date', appointmentDate)
+      .eq('appointment_date', cleanDateStr)
       .eq('appointment_time', appointmentTime)
       .eq('groomer', groomer)
       .in('status', ['confirmed', 'pending']);
@@ -883,15 +901,41 @@ app.post('/api/bookings', async (req, res) => {
     
     // Fix timezone issues by ensuring the date is in YYYY-MM-DD format
     // This corrects for browsers sending dates in local timezone which can cause off-by-one day errors
-    const processedDate = new Date(appointmentDate);
-    // Log the original date and the processed date for debugging
     console.log(`Original appointment date: ${appointmentDate}`);
-    console.log(`Processed date object: ${processedDate}`);
     
-    // FIXED: Use the original YYYY-MM-DD string directly to avoid timezone conversion issues
-    // This ensures the date entered by the user is exactly the date stored in the database
-    const localDateStr = appointmentDate;
-    console.log(`Using exact date string from input: ${localDateStr}`);
+    // IMPORTANT: Strip out any time portion from the date string to ensure consistent date handling
+    // First ensure we have a valid date string
+    let cleanDateStr;
+    
+    // If the input is already a simple YYYY-MM-DD string, use it directly
+    if (/^\d{4}-\d{2}-\d{2}$/.test(appointmentDate)) {
+      cleanDateStr = appointmentDate;
+      console.log(`Date is already in YYYY-MM-DD format: ${cleanDateStr}`);
+    } 
+    // If it's an ISO string or contains timezone info, extract just the date part
+    else if (appointmentDate.includes('T')) {
+      cleanDateStr = appointmentDate.split('T')[0];
+      console.log(`Extracted date part from ISO string: ${cleanDateStr}`);
+    } 
+    // For any other format, parse and reformat to YYYY-MM-DD
+    else {
+      const dateObj = new Date(appointmentDate);
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      cleanDateStr = `${year}-${month}-${day}`;
+      console.log(`Parsed and reformatted date: ${cleanDateStr}`);
+    }
+    
+    // Validate the cleaned date string
+    if (!isValidDateString(cleanDateStr)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid date format. Please use YYYY-MM-DD format."
+      });
+    }
+    
+    console.log(`Using cleaned date string for booking: ${cleanDateStr}`);
     
     // Generate a reference number with prefix based on service type
     const prefix = serviceType === 'hotel' ? 'NVP-H-' : 'NVP-G-';
@@ -901,11 +945,11 @@ app.post('/api/bookings', async (req, res) => {
     // Hotel bookings
     if (serviceType === 'hotel') {
       // For hotel stays, use check_in_date and check_out_date fields
-      const checkInDate = localDateStr;  // Use the exact date string from input
+      const checkInDate = cleanDateStr;  // Use the exact date string from input
       
       // Calculate check-out date based on duration without timezone issues
       // Parse the date parts directly to avoid timezone conversions
-      const [year, month, day] = appointmentDate.split('-').map(Number);
+      const [year, month, day] = cleanDateStr.split('-').map(Number);
       // Create a new date using local timezone (month is 0-indexed in JavaScript)
       const checkOutDate = new Date(year, month - 1, day + (durationDays || 1));
       
@@ -964,7 +1008,7 @@ app.post('/api/bookings', async (req, res) => {
     else {
       // Create grooming booking data object with the timezone-corrected date
       const groomingBookingData = {
-        appointment_date: localDateStr,  // Use the timezone-corrected date
+        appointment_date: cleanDateStr,  // Use the cleaned date string
         appointment_time: appointmentTime,
         pet_name: petName,
         pet_breed: petBreed,
@@ -998,7 +1042,7 @@ app.post('/api/bookings', async (req, res) => {
       }
       
       // Clear availability cache for this date
-      clearAvailabilityCache(localDateStr);
+      clearAvailabilityCache(cleanDateStr);
       
       console.log('Grooming booking created successfully:', data);
       
