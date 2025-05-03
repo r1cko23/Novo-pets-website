@@ -135,15 +135,20 @@ interface BookingFormProps {
 const convertTo24Hour = (timeStr: string): string => {
   if (!timeStr) return '';
   
+  console.log(`Converting time format: "${timeStr}"`);
+  
   // Remove any spaces and convert to uppercase for consistency
   const time = timeStr.replace(/\s/g, '').toUpperCase();
   
   // Extract the components
-  const [hourMin, period] = time.split(/([AP]M)/).filter(Boolean);
-  const [hourStr, minuteStr] = hourMin.split(':');
+  const match = time.match(/^(\d{1,2}):(\d{2})(AM|PM)$/);
+  if (!match) {
+    console.error(`Invalid time format: "${timeStr}"`);
+    return timeStr;
+  }
   
+  const [_, hourStr, minuteStr, period] = match;
   let hour = parseInt(hourStr, 10);
-  const minute = minuteStr;
   
   // Convert hour based on AM/PM
   if (period === 'PM' && hour < 12) {
@@ -155,7 +160,10 @@ const convertTo24Hour = (timeStr: string): string => {
   // Format hour with leading zero if needed
   const hourFormatted = hour.toString().padStart(2, '0');
   
-  return `${hourFormatted}:${minute}`;
+  const result = `${hourFormatted}:${minuteStr}`;
+  console.log(`Converted time: "${timeStr}" to "${result}"`);
+  
+  return result;
 };
 
 export default function BookingForm({ onSuccess, onCancel }: BookingFormProps) {

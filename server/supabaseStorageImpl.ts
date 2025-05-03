@@ -366,6 +366,11 @@ export class SupabaseStorage implements IStorage {
       }
       
       console.log(`Found ${appointments?.length || 0} existing appointments for ${queryDate}`);
+      if (appointments && appointments.length > 0) {
+        appointments.forEach(appt => {
+          console.log(`Found appointment: Date=${appt.appointment_date}, Time=${appt.appointment_time}, Groomer=${appt.groomer}, Status=${appt.status}`);
+        });
+      }
       
       // If no appointments found, do a second query with the adjusted date
       // This handles potential timezone issues in the database
@@ -389,6 +394,10 @@ export class SupabaseStorage implements IStorage {
           console.error("Error fetching appointments with adjusted date:", adjustedError);
         } else if (adjustedAppointments && adjustedAppointments.length > 0) {
           console.log(`Found ${adjustedAppointments.length} appointments with adjusted date`);
+          adjustedAppointments.forEach(appt => {
+            console.log(`Found appointment (adjusted date): Date=${appt.appointment_date}, Time=${appt.appointment_time}, Groomer=${appt.groomer}, Status=${appt.status}`);
+          });
+          
           // Use these appointments instead
           appointments.length = 0;
           appointments.push(...adjustedAppointments);
@@ -414,7 +423,7 @@ export class SupabaseStorage implements IStorage {
           let assignedGroomer = appointment.groomer || "Groomer 1";
           assignedGroomer = GROOMERS.find(g => g.toLowerCase() === assignedGroomer.toLowerCase()) || assignedGroomer;
           
-          console.log(`Booking found: ${assignedGroomer} at ${bookedTime} (Status: ${appointment.status})`);
+          console.log(`Marking slot as booked: ${assignedGroomer} at ${bookedTime} (Status: ${appointment.status})`);
           
           // Mark the slot as booked for this groomer
           GROOMERS.forEach(groomer => {
@@ -425,9 +434,6 @@ export class SupabaseStorage implements IStorage {
         });
       }
       
-      // Also check temporary reservations in memory
-      // (This step is handled in routes.ts before creating a booking)
-      
       // Generate all time slots with availability information
       const allTimeSlots: TimeSlot[] = [];
       
@@ -435,6 +441,8 @@ export class SupabaseStorage implements IStorage {
       TIME_SLOTS.forEach(time => {
         GROOMERS.forEach(groomer => {
           const isBooked = bookedSlotsByGroomer[groomer]?.has(time) || false;
+          console.log(`Time slot ${time} for ${groomer}: ${isBooked ? 'BOOKED' : 'Available'}`);
+          
           allTimeSlots.push({
             time,
             groomer,

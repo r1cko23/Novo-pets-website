@@ -970,6 +970,24 @@ export default function BookingForm() {
     }
   };
 
+  // Add this code at the beginning of the component where other useEffect hooks are defined:
+
+  // Force refresh availability data whenever the date or groomer changes
+  useEffect(() => {
+    if (selectedDate) {
+      console.log(`Date changed, refreshing availability data for ${selectedDate}`);
+      refetchAvailability();
+    }
+  }, [selectedDate, refetchAvailability]);
+  
+  // Force refresh availability data whenever the groomer selection changes
+  useEffect(() => {
+    if (selectedGroomer && selectedDate) {
+      console.log(`Groomer changed to ${selectedGroomer}, refreshing availability data`);
+      refetchAvailability();
+    }
+  }, [selectedGroomer, selectedDate, refetchAvailability]);
+
   return (
     <div className="bg-white rounded-xl overflow-hidden shadow-lg w-full max-w-4xl mx-auto my-8">
       <div className="md:flex">
