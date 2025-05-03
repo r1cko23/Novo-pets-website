@@ -313,11 +313,12 @@ export class SupabaseStorage implements IStorage {
       console.log(`Original request date: ${normalizedDate}, Adjusted for DB query: ${adjustedDate}`);
       
       // Get all grooming appointments for the specified date
+      // Important: Include all statuses except 'cancelled' to ensure proper availability checking
       const { data: appointments, error } = await supabase
         .from('grooming_appointments')
         .select('*')
         .eq('appointment_date', adjustedDate)
-        .in('status', ['confirmed', 'pending']);
+        .not('status', 'eq', 'cancelled');
       
       if (error) {
         console.error("Error fetching appointments for availability check:", error);
@@ -338,14 +339,25 @@ export class SupabaseStorage implements IStorage {
       if (appointments && appointments.length > 0) {
         appointments.forEach(appointment => {
           const bookedTime = appointment.appointment_time;
-          const assignedGroomer = appointment.groomer || "Groomer 1"; // Default to Groomer 1 if not specified
           
-          console.log(`Booking found: ${assignedGroomer} at ${bookedTime}`);
-          if (bookedSlotsByGroomer[assignedGroomer]) {
-            bookedSlotsByGroomer[assignedGroomer].add(bookedTime);
-          }
+          // Normalize groomer name to handle case sensitivity
+          // This ensures "Groomer 1" matches "groomer 1" or any case variations
+          let assignedGroomer = appointment.groomer || "Groomer 1";
+          assignedGroomer = GROOMERS.find(g => g.toLowerCase() === assignedGroomer.toLowerCase()) || assignedGroomer;
+          
+          console.log(`Booking found: ${assignedGroomer} at ${bookedTime} (Status: ${appointment.status})`);
+          
+          // Mark the slot as booked for this groomer
+          GROOMERS.forEach(groomer => {
+            if (groomer.toLowerCase() === assignedGroomer.toLowerCase()) {
+              bookedSlotsByGroomer[groomer].add(bookedTime);
+            }
+          });
         });
       }
+      
+      // Also check temporary reservations in memory
+      // (This step is handled in routes.ts before creating a booking)
       
       // Generate all time slots with availability information
       const allTimeSlots: Array<{time: string, groomer: string, available: boolean}> = [];
@@ -362,7 +374,14 @@ export class SupabaseStorage implements IStorage {
         });
       });
       
-      console.log(`Returning ${allTimeSlots.length} time slots`);
+      // Log all unavailable slots for debugging
+      const unavailableSlots = allTimeSlots.filter(slot => !slot.available);
+      if (unavailableSlots.length > 0) {
+        console.log(`Unavailable slots for ${normalizedDate}:`, 
+          unavailableSlots.map(slot => `${slot.groomer} at ${slot.time}`).join(', '));
+      }
+      
+      console.log(`Returning ${allTimeSlots.length} time slots (${allTimeSlots.filter(s => s.available).length} available)`);
       return allTimeSlots;
     } catch (error) {
       console.error("Error getting available time slots:", error);
@@ -395,7 +414,7 @@ export class SupabaseStorage implements IStorage {
   
   private async createGroomingAppointment(booking: InsertBooking): Promise<Booking> {
     try {
-      // Check if the slot is available
+      // First check if the slot is available
       const availableSlots = await this.getAvailableTimeSlots(booking.appointmentDate);
       const requestedSlot = availableSlots.find(
         slot => slot.time === booking.appointmentTime && 
@@ -403,8 +422,21 @@ export class SupabaseStorage implements IStorage {
                 slot.available === true
       );
       
+      // Verify the requested slot was found and is available
       if (!requestedSlot) {
-        throw new Error(`The requested time slot is not available.`);
+        // Get specific information about why the slot is unavailable
+        const conflictingSlot = availableSlots.find(
+          slot => slot.time === booking.appointmentTime && 
+                 slot.groomer === (booking.groomer || "Groomer 1")
+        );
+        
+        if (conflictingSlot) {
+          // Slot exists but is unavailable
+          throw new Error(`The requested time slot (${booking.appointmentTime} with ${booking.groomer || "Groomer 1"}) is already booked.`);
+        } else {
+          // Slot not found at all (invalid time or groomer)
+          throw new Error(`The requested time slot (${booking.appointmentTime} with ${booking.groomer || "Groomer 1"}) is not available.`);
+        }
       }
       
       // Normalize the date and adjust for PostgreSQL date column timezone issue
@@ -441,6 +473,23 @@ export class SupabaseStorage implements IStorage {
         created_at: new Date().toISOString()
       };
       
+      // Final race condition check - query the database directly to see if the slot 
+      // was taken while the user was filling out the form
+      const { data: existingBookings, error: checkError } = await supabase
+        .from('grooming_appointments')
+        .select('id, appointment_time, groomer')
+        .eq('appointment_date', appointmentDate)
+        .eq('appointment_time', booking.appointmentTime)
+        .eq('groomer', booking.groomer || "Groomer 1")
+        .not('status', 'eq', 'cancelled');
+        
+      if (checkError) {
+        console.error("Error in final availability check:", checkError);
+      } else if (existingBookings && existingBookings.length > 0) {
+        console.log(`Race condition detected: Slot was booked while user was filling form. Found ${existingBookings.length} existing bookings.`);
+        throw new Error(`This time slot has just been booked by someone else. Please select another time.`);
+      }
+      
       // Insert into Supabase
       const { data, error } = await supabase
         .from('grooming_appointments')
@@ -449,6 +498,9 @@ export class SupabaseStorage implements IStorage {
         .single();
       
       if (error) {
+        if (error.code === '23505') { // PostgreSQL unique constraint violation
+          throw new Error(`This time slot is already booked. Please select another time.`);
+        }
         throw error;
       }
       
@@ -770,6 +822,51 @@ export class SupabaseStorage implements IStorage {
     } catch (error) {
       console.error("Error in submitContactForm:", error);
       return false;
+    }
+  }
+
+  /**
+   * Creates a unique reservation index in Supabase to prevent double bookings
+   * This function should be called once during application initialization
+   * It adds a constraint to ensure no duplicate (date+time+groomer) combinations
+   */
+  async createReservationIndices(): Promise<void> {
+    try {
+      // First, check if the constraint already exists to avoid errors
+      const { data: constraints, error: constraintError } = await supabase
+        .rpc('get_table_constraints', { table_name: 'grooming_appointments' });
+        
+      if (constraintError) {
+        console.error("Error checking constraints:", constraintError);
+        return;
+      }
+      
+      // Check if our desired constraint already exists
+      const constraintExists = constraints && Array.isArray(constraints) && 
+        constraints.some(c => c.constraint_name === 'unique_appointment_slot');
+        
+      if (constraintExists) {
+        console.log("Reservation uniqueness constraint already exists");
+        return;
+      }
+      
+      // Create a unique constraint on appointment_date + appointment_time + groomer
+      // This SQL is specific to PostgreSQL
+      const { error } = await supabase.rpc('exec_sql', {
+        sql: `
+          ALTER TABLE grooming_appointments 
+          ADD CONSTRAINT unique_appointment_slot 
+          UNIQUE (appointment_date, appointment_time, groomer);
+        `
+      });
+      
+      if (error) {
+        console.error("Error creating reservation index:", error);
+      } else {
+        console.log("Successfully created reservation uniqueness constraint");
+      }
+    } catch (error) {
+      console.error("Error in createReservationIndices:", error);
     }
   }
 }

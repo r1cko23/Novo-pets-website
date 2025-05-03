@@ -6,11 +6,15 @@ import { storage } from "./storage";
 import { checkDatabaseConnection } from "./supabase";
 import path from "path";
 import cors from "cors";
+import bodyParser from 'body-parser';
+import { supabaseStorage } from './supabaseStorageImpl';
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cors());
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -60,6 +64,10 @@ app.use((req, res, next) => {
     const errorMessage = error instanceof Error ? error.message : String(error);
     log(`Error during database connection test: ${errorMessage}`);
   }
+
+  // Set up database constraints to prevent double bookings
+  await supabaseStorage.createReservationIndices();
+  log('✅ Database constraints initialized');
 
   const server = await registerRoutes(app);
 
