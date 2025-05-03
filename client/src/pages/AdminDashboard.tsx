@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -22,6 +22,30 @@ import { format } from "date-fns";
 import { Loader2, Calendar as CalendarIcon, List } from "lucide-react";
 import BookingCalendar from "@/components/admin/BookingCalendar";
 
+// Add styles directly in the component file as CSS
+const animations = `
+  @keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+  }
+  
+  @keyframes shimmer {
+    0% { background-position: -100% 0; }
+    100% { background-position: 100% 0; }
+  }
+  
+  .pulse-animation {
+    animation: pulse 2s infinite ease-in-out;
+  }
+  
+  .shimmer-animation {
+    background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.8) 50%, rgba(255,255,255,0) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1s infinite;
+  }
+`;
+
 export default function AdminDashboard() {
   const [_, setLocation] = useLocation();
   const { toast } = useToast();
@@ -32,6 +56,41 @@ export default function AdminDashboard() {
   const [showCancellationDialog, setShowCancellationDialog] = useState(false);
   const [pendingCompletion, setPendingCompletion] = useState<{id: number, bookingType?: string} | null>(null);
   const [pendingCancellation, setPendingCancellation] = useState<{id: number, bookingType?: string} | null>(null);
+  // Add state for auto-refresh interval
+  const [refreshInterval, setRefreshInterval] = useState<number | false>(30000); // Default: refresh every 30 seconds
+  // Add state to track new bookings
+  const [previousBookingCount, setPreviousBookingCount] = useState<number>(0);
+  const [newBookingsCount, setNewBookingsCount] = useState<number>(0);
+  const [lastRefreshTime, setLastRefreshTime] = useState<Date>(new Date());
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  // Add sound notification toggle
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+  const notificationAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Initialize notification sound
+  useEffect(() => {
+    // Create audio element for notification sound
+    notificationAudioRef.current = new Audio('/notification.mp3');
+    
+    // Check if there's a saved preference for sound
+    const savedSoundPreference = localStorage.getItem('adminSoundNotifications');
+    if (savedSoundPreference) {
+      setSoundEnabled(savedSoundPreference === 'true');
+    }
+    
+    // Clean up
+    return () => {
+      if (notificationAudioRef.current) {
+        notificationAudioRef.current.pause();
+        notificationAudioRef.current = null;
+      }
+    };
+  }, []);
+
+  // Save sound preference when changed
+  useEffect(() => {
+    localStorage.setItem('adminSoundNotifications', soundEnabled.toString());
+  }, [soundEnabled]);
 
   // Check if admin is logged in
   useEffect(() => {
@@ -48,9 +107,10 @@ export default function AdminDashboard() {
   }, [setLocation, toast]);
 
   // Fetch all bookings
-  const { data: bookings, isLoading, error, refetch } = useQuery({
+  const { data: bookings, isLoading, error, refetch, dataUpdatedAt, isFetching } = useQuery({
     queryKey: ["admin-bookings"],
     queryFn: async () => {
+      setIsRefreshing(true);
       try {
         const adminEmail = sessionStorage.getItem("adminEmail");
         
@@ -90,15 +150,71 @@ export default function AdminDashboard() {
         
         const data = await response.json();
         console.log(`Successfully fetched ${data.length} bookings`);
+        setIsRefreshing(false);
         return data;
       } catch (error) {
         console.error("Error in booking fetch function:", error);
+        setIsRefreshing(false);
         throw error;
       }
     },
     retry: 1,
-    refetchOnWindowFocus: false
+    refetchOnWindowFocus: true,
+    refetchInterval: refreshInterval, // Add auto-refresh interval
+    staleTime: 15000 // Consider data stale after 15 seconds
   });
+
+  // Track new bookings
+  useEffect(() => {
+    if (bookings && previousBookingCount > 0) {
+      // Count only pending or confirmed bookings (not completed/cancelled)
+      const currentActiveBookings = bookings.filter((booking: any) => 
+        booking.status === 'pending' || booking.status === 'confirmed'
+      ).length;
+      
+      const newCount = Math.max(0, currentActiveBookings - previousBookingCount);
+      
+      if (newCount > 0) {
+        // Show notification
+        toast({
+          title: `${newCount} New Booking${newCount > 1 ? 's' : ''}`,
+          description: "New bookings have been added to the dashboard",
+        });
+        
+        // Play notification sound if enabled
+        if (soundEnabled && notificationAudioRef.current) {
+          try {
+            notificationAudioRef.current.currentTime = 0;
+            notificationAudioRef.current.play().catch(err => {
+              console.error("Failed to play notification sound:", err);
+            });
+          } catch (error) {
+            console.error("Error playing notification sound:", error);
+          }
+        }
+        
+        // Update the count
+        setNewBookingsCount(newCount);
+      }
+      
+      // Update the last refresh time
+      setLastRefreshTime(new Date(dataUpdatedAt));
+    }
+    
+    // Always update the previous count for next comparison
+    if (bookings) {
+      const activeBookingsCount = bookings.filter((booking: any) => 
+        booking.status === 'pending' || booking.status === 'confirmed'
+      ).length;
+      
+      setPreviousBookingCount(activeBookingsCount);
+    }
+  }, [bookings, dataUpdatedAt]);
+  
+  // Reset new bookings count when changing tabs or filters
+  useEffect(() => {
+    setNewBookingsCount(0);
+  }, [activeTab, filter]);
 
   // Filter bookings based on active tab
   const filteredBookings = bookings ? bookings.filter((booking: any) => {
@@ -240,21 +356,124 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-100">
+      <style dangerouslySetInnerHTML={{ __html: animations }} />
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <h1 className="text-xl font-semibold text-brand-primary">Novo Pets Admin Dashboard</h1>
-          <Button variant="outline" onClick={handleLogout}>Logout</Button>
+          <div className="flex items-center space-x-4">
+            {/* Add refresh controls */}
+            <div className="flex items-center space-x-2">
+              <Select
+                value={refreshInterval === false ? "off" : refreshInterval.toString()}
+                onValueChange={(value) => {
+                  if (value === "off") {
+                    setRefreshInterval(false);
+                    toast({
+                      title: "Auto-refresh disabled",
+                      description: "You'll need to manually refresh for new bookings",
+                    });
+                  } else {
+                    const interval = parseInt(value);
+                    setRefreshInterval(interval);
+                    toast({
+                      title: "Auto-refresh enabled",
+                      description: `Dashboard will refresh every ${interval / 1000} seconds`,
+                    });
+                  }
+                }}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <div className="flex items-center">
+                    <Loader2 className={`h-4 w-4 mr-2 ${refreshInterval !== false ? "animate-spin" : ""}`} />
+                    <span>
+                      {refreshInterval === false 
+                        ? "Auto-refresh: Off" 
+                        : `Refresh: ${refreshInterval / 1000}s`}
+                    </span>
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="off">Auto-refresh: Off</SelectItem>
+                  <SelectItem value="5000">5 seconds</SelectItem>
+                  <SelectItem value="15000">15 seconds</SelectItem>
+                  <SelectItem value="30000">30 seconds</SelectItem>
+                  <SelectItem value="60000">1 minute</SelectItem>
+                  <SelectItem value="300000">5 minutes</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              {/* Add sound toggle button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSoundEnabled(!soundEnabled)}
+                className={`flex items-center ${soundEnabled ? 'text-green-600' : 'text-gray-400'}`}
+                title={soundEnabled ? "Sound notifications enabled" : "Sound notifications disabled"}
+              >
+                {soundEnabled ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M11 5 6 9H2v6h4l5 4V5z"></path>
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M11 5 6 9H2v6h4l5 4V5z"></path>
+                    <line x1="23" y1="9" x2="17" y2="15"></line>
+                    <line x1="17" y1="9" x2="23" y2="15"></line>
+                  </svg>
+                )}
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => refetch()}
+                className="flex items-center"
+              >
+                <svg 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  width="16" 
+                  height="16" 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="2" 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  className="mr-1"
+                >
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                  <path d="M3 3v5h5" />
+                </svg>
+                Refresh
+              </Button>
+            </div>
+            <Button variant="outline" onClick={handleLogout}>Logout</Button>
+          </div>
         </div>
       </header>
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-brand-primary mb-2">Booking Management</h2>
-            <p className="text-gray-600">View and manage all pet bookings</p>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+          <div className="flex items-center space-x-4 mb-4 md:mb-0">
+            <h2 className="text-2xl font-bold text-gray-900">Booking Management</h2>
+            {newBookingsCount > 0 && (
+              <Badge className="bg-green-500 hover:bg-green-600">
+                {newBookingsCount} new booking{newBookingsCount > 1 ? 's' : ''}
+              </Badge>
+            )}
+            <div className={`text-xs text-gray-500 flex items-center ${refreshInterval !== false ? 'pulse-animation' : ''}`}>
+              <span className="mr-1">Last refreshed:</span> 
+              <span className={isFetching ? 'shimmer-animation bg-gray-100 rounded px-1' : ''}>
+                {format(lastRefreshTime, 'HH:mm:ss')}
+              </span>
+              {isFetching && (
+                <Loader2 className="h-3 w-3 animate-spin ml-1 text-gray-400" />
+              )}
+            </div>
           </div>
           
-          <div className="mt-4 sm:mt-0 flex items-center space-x-2">
+          <div className="flex flex-col md:flex-row md:items-center space-y-4 md:space-y-0 md:space-x-4">
             {/* View toggle: List vs Calendar */}
             <div className="bg-white rounded-md border border-gray-200 p-1 flex">
               <Button
