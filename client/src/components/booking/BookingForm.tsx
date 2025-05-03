@@ -63,6 +63,42 @@ interface BookingFormValuesWithReservation extends Omit<BookingFormValues, 'groo
   groomer?: string; // Make groomer optional string only (no null)
 }
 
+// Add a new time format utility function near the top of the file after imports
+function normalizeTimeFormat(time: string): string {
+  // Remove any AM/PM and spaces, convert to 24-hour format
+  if (!time) return '';
+  
+  // If time includes AM/PM, convert to 24-hour format
+  if (time.toUpperCase().includes('AM') || time.toUpperCase().includes('PM')) {
+    const timeStr = time.replace(/\s/g, '').toUpperCase();
+    const match = timeStr.match(/^(\d{1,2}):(\d{2})(AM|PM)$/);
+    if (match) {
+      const [_, hourStr, minuteStr, period] = match;
+      let hour = parseInt(hourStr, 10);
+      
+      // Convert hour based on AM/PM
+      if (period === 'PM' && hour < 12) {
+        hour += 12;
+      } else if (period === 'AM' && hour === 12) {
+        hour = 0;
+      }
+      
+      // Format hour with leading zero if needed
+      const hourFormatted = hour.toString().padStart(2, '0');
+      return `${hourFormatted}:${minuteStr}`;
+    }
+  }
+  
+  // If it already has a colon, it's likely in HH:MM format
+  if (time.includes(':')) {
+    // Ensure it's in the format "HH:MM" by taking first 5 chars
+    return time.substring(0, 5);
+  }
+  
+  // If it's just a number, assume it's hours and add ":00"
+  return `${time.padStart(2, '0')}:00`;
+}
+
 export default function BookingForm() {
   const [step, setStep] = useState(1);
   const [bookingReference, setBookingReference] = useState("");
@@ -316,10 +352,13 @@ export default function BookingForm() {
           reservationTimerRef.current = null;
         }
         
+        // Normalize the selected time for consistent comparison
+        const normalizedTime = normalizeTimeFormat(selectedTime);
+        
         // Check if the current time matches our existing reservation
         if (reservation && 
             reservation.date === selectedDate && 
-            reservation.time === selectedTime && 
+            normalizeTimeFormat(reservation.time) === normalizedTime && 
             reservation.groomer === selectedGroomer) {
           // We already have a valid reservation for this slot
           return;
@@ -327,10 +366,10 @@ export default function BookingForm() {
         
         // Create a new reservation
         try {
-          console.log(`Creating reservation for ${selectedDate} at ${selectedTime} with ${selectedGroomer}`);
+          console.log(`Creating reservation for ${selectedDate} at ${normalizedTime} (from ${selectedTime}) with ${selectedGroomer}`);
           const result = await createReservation(
             selectedDate,
-            selectedTime,
+            normalizedTime, // Use normalized time
             selectedGroomer
           );
           
@@ -341,7 +380,7 @@ export default function BookingForm() {
               id: result.reservationId,
               expiresAt,
               date: selectedDate,
-              time: selectedTime,
+              time: normalizedTime, // Store normalized time
               groomer: selectedGroomer
             });
             
@@ -397,8 +436,20 @@ export default function BookingForm() {
   useEffect(() => {
     if (availabilityData?.availableTimeSlots) {
       // Explicitly type the data coming from the API
-      const typedTimeSlots: TimeSlot[] = availabilityData.availableTimeSlots;
-      console.log("Setting available time slots:", typedTimeSlots);
+      const typedTimeSlots: TimeSlot[] = availabilityData.availableTimeSlots.map((slot: any) => ({
+        ...slot,
+        // Normalize time format to ensure consistent comparison
+        time: normalizeTimeFormat(slot.time),
+        formattedTime: slot.formattedTime || format(parse(
+          normalizeTimeFormat(slot.time), 
+          'HH:mm', 
+          new Date()
+        ), 'h:mm a'),
+        // Ensure available is boolean type
+        available: !!slot.available
+      }));
+      
+      console.log("Setting available time slots with normalized formats:", typedTimeSlots);
       
       // DEBUG: Check the 'available' property on each slot
       const availableCount = typedTimeSlots.filter(slot => !!slot.available).length;
@@ -409,11 +460,11 @@ export default function BookingForm() {
       setLastAvailabilityData(availabilityData);
       setDebugDataLoaded(true);
       
-      // Specifically check 9:00 AM slots
-      const nineAmSlots = typedTimeSlots.filter(slot => slot.time === '09:00');
+      // Specifically check 9:00 AM slots with normalized format
+      const nineAmSlots = typedTimeSlots.filter(slot => normalizeTimeFormat(slot.time) === '09:00');
       if (nineAmSlots.length > 0) {
-        console.log("9:00 AM slot status in state update:", nineAmSlots.map(slot => 
-          `${slot.groomer}: ${!!slot.available ? 'AVAILABLE' : 'BOOKED'}`
+        console.log("9:00 AM slot status with normalized format:", nineAmSlots.map(slot => 
+          `${slot.groomer}: ${!!slot.available ? 'AVAILABLE' : 'BOOKED'} (time=${slot.time})`
         ).join(', '));
       }
       
@@ -425,8 +476,9 @@ export default function BookingForm() {
       const currentGroomer = selectedGroomer;
       
       if (currentTime && currentGroomer) {
+        const normalizedCurrentTime = normalizeTimeFormat(currentTime);
         const isStillAvailable = typedTimeSlots.some(
-          slot => slot.time === currentTime && 
+          slot => normalizeTimeFormat(slot.time) === normalizedCurrentTime && 
                  slot.groomer === currentGroomer && 
                  !!slot.available === true
         );
@@ -876,8 +928,11 @@ export default function BookingForm() {
       const day = String(dateObj.getDate()).padStart(2, '0');
       const formattedDate = `${year}-${month}-${day}`;
       
+      // Add a timestamp to ensure fresh data
+      const timestamp = Date.now();
+      
       // Make a direct API call first to ensure we get fresh data
-      const response = await fetch(`/api/availability?date=${formattedDate}&refresh=true&_=${Date.now()}`, {
+      const response = await fetch(`/api/availability?date=${formattedDate}&refresh=true&_=${timestamp}`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
@@ -896,22 +951,22 @@ export default function BookingForm() {
         throw new Error("Invalid availability data received");
       }
       
-      // Process the data directly
+      // Process the data directly with normalized time formats
       const newTimeSlotsByGroomer: Record<string, TimeSlot[]> = {};
       const newGroomersWithSlots: string[] = [];
       
-      // Process time slots
+      // Process time slots, using normalized time formats
       data.availableTimeSlots.forEach((slot: any) => {
         // Skip invalid slots
         if (!slot.time || !slot.groomer) return;
         
-        // Format the slot
+        // Format the slot with normalized time
         const formattedSlot: TimeSlot = {
-          time: slot.time.includes(':') ? slot.time : `${slot.time}:00`,
+          time: normalizeTimeFormat(slot.time),
           groomer: slot.groomer,
           available: !!slot.available,
           formattedTime: format(parse(
-            slot.time.includes(':') ? slot.time : `${slot.time}:00`, 
+            normalizeTimeFormat(slot.time), 
             'HH:mm', 
             new Date()
           ), 'h:mm a')
@@ -927,6 +982,17 @@ export default function BookingForm() {
         newTimeSlotsByGroomer[slot.groomer].push(formattedSlot);
       });
       
+      // Specifically check 9:00 AM slots
+      const allSlots: TimeSlot[] = [];
+      Object.values(newTimeSlotsByGroomer).forEach(slots => allSlots.push(...slots));
+      const nineAmSlots = allSlots.filter(slot => normalizeTimeFormat(slot.time) === '09:00');
+      
+      if (nineAmSlots.length > 0) {
+        console.log("9:00 AM slots after force refresh:", nineAmSlots.map(slot => 
+          `${slot.groomer}: ${slot.available ? 'AVAILABLE' : 'BOOKED'} (time=${slot.time})`
+        ).join(', '));
+      }
+      
       // Sort each groomer's slots
       Object.keys(newTimeSlotsByGroomer).forEach((groomer) => {
         newTimeSlotsByGroomer[groomer].sort((a, b) => a.time.localeCompare(b.time));
@@ -937,19 +1003,20 @@ export default function BookingForm() {
       setGroomersWithSlots(newGroomersWithSlots);
       
       // Also update available time slots array for consistency
-      const allSlots: TimeSlot[] = [];
-      Object.values(newTimeSlotsByGroomer).forEach(slots => allSlots.push(...slots));
       setAvailableTimeSlots(allSlots);
       
-      // Update the React Query cache
-      queryClient.setQueryData(["availability", selectedDate], data);
+      // Update the React Query cache with normalized data
+      queryClient.setQueryData(["availability", selectedDate], {
+        ...data,
+        availableTimeSlots: allSlots
+      });
       
       // Manually trigger a refetch to update any other components that rely on this query
       await refetchAvailability();
       
       // Log stats about the data
-      const availableSlots = data.availableTimeSlots.filter((slot: any) => !!slot.available).length;
-      const totalSlots = data.availableTimeSlots.length;
+      const availableSlots = allSlots.filter((slot: any) => !!slot.available).length;
+      const totalSlots = allSlots.length;
       
       console.log(`Refreshed availability data: ${availableSlots}/${totalSlots} slots available`);
       console.log(`Groomers found: ${newGroomersWithSlots.join(', ')}`);
@@ -1462,7 +1529,7 @@ export default function BookingForm() {
                                               "text-base",
                                               slot.available !== true && "line-through text-gray-400"
                                             )}>
-                                              {format(parse(slot.time, 'HH:mm', new Date()), 'h:mm a')}
+                                              {slot.formattedTime || format(parse(normalizeTimeFormat(slot.time), 'HH:mm', new Date()), 'h:mm a')}
                                             </span>
                                           </div>
                                           {slot.available !== true && (
