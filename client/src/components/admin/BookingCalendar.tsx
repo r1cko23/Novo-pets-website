@@ -100,8 +100,17 @@ export default function BookingCalendar({ bookings, onStatusChange, refetchBooki
       // TODO: Implement priority filtering when priorities are defined
       
       try {
-        const bookingDate = parseISO(booking.appointmentDate);
-        return isSameDay(bookingDate, day);
+        // Correctly parse the date to avoid timezone issues
+        // Parse the date parts directly to ensure we get the exact date as stored
+        const dateParts = booking.appointmentDate.split('-').map(Number);
+        const bookingDate = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+        
+        // Compare only year, month, and day to avoid timezone issues
+        return (
+          bookingDate.getFullYear() === day.getFullYear() &&
+          bookingDate.getMonth() === day.getMonth() &&
+          bookingDate.getDate() === day.getDate()
+        );
       } catch (error) {
         console.error("Error parsing date:", booking.appointmentDate);
         return false;
