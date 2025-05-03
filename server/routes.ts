@@ -6,6 +6,21 @@ import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { supabase } from "./supabase";
 
+/**
+ * IMPORTANT NOTE ON DATE HANDLING:
+ * 
+ * When working with PostgreSQL date columns (not text), there's a timezone issue
+ * where dates can appear shifted by 1 day when stored and retrieved.
+ * 
+ * Our approach:
+ * 1. For database queries: Add +1 day to adjust for PostgreSQL's timezone behavior
+ * 2. For client display: Subtract -1 day from retrieved dates to show the correct original date
+ * 
+ * This adjustment is handled in the storage implementation for all date-related operations.
+ * If the database schema is changed to use 'text' instead of 'date' columns, this adjustment
+ * would not be necessary.
+ */
+
 // Simple in-memory store for temporary reservations
 // In production, this should be moved to a proper database or cache like Redis
 interface TimeSlotReservation {
@@ -506,6 +521,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Check if there's an existing reservation for this slot
         let slotAlreadyReserved = false;
+        
+        // When checking against existing reservations, we need to use the original date
+        // since reservations are stored in memory with the original date format
         reservations.forEach(reservation => {
           if (reservation.date === appointmentDate && 
               reservation.time === appointmentTime && 
@@ -526,6 +544,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const expiresIn = 10 * 60 * 1000; // 10 minutes in milliseconds
         const expiresAt = Date.now() + expiresIn;
         
+        // Store with the original date since this is just an in-memory reservation
         reservations.set(reservationId, {
           id: reservationId,
           date: appointmentDate,

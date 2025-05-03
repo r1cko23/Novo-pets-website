@@ -17,15 +17,38 @@ const GROOMERS = ["Groomer 1", "Groomer 2"];
 
 /**
  * Utility function to normalize date strings to YYYY-MM-DD format
+ * Handles timezone conversion to ensure dates are stored correctly
+ * NOTE: PostgreSQL date columns have timezone issues - if the column is 'date' type
+ * rather than 'text', PostgreSQL will convert the date to UTC and this can cause
+ * the date to appear as one day earlier when retrieved
  */
 function normalizeDate(dateStr: string): string {
   try {
+    console.log(`Normalizing date input: "${dateStr}"`);
+    
+    // If the string is already in YYYY-MM-DD format with no time component
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      console.log(`Date "${dateStr}" is already in YYYY-MM-DD format`);
+      return dateStr;
+    }
+    
+    // Parse the date in the local timezone
     const date = new Date(dateStr);
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      throw new Error(`Invalid date: ${dateStr}`);
+    }
+    
+    // Format in local timezone as YYYY-MM-DD
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     
-    return `${year}-${month}-${day}`;
+    const normalizedDate = `${year}-${month}-${day}`;
+    console.log(`Normalized date "${dateStr}" to "${normalizedDate}" in local timezone`);
+    
+    return normalizedDate;
   } catch (error) {
     console.error(`Error normalizing date ${dateStr}:`, error);
     // Fallback to simple string manipulation if Date parsing fails
@@ -77,42 +100,58 @@ export class SupabaseStorage implements IStorage {
       }
       
       // Map grooming appointments to Booking type
-      const groomingBookings = groomingData.map(appointment => ({
-        id: appointment.id,
-        serviceType: ServiceType.GROOMING,
-        groomingService: appointment.grooming_service,
-        accommodationType: null,
-        durationHours: null,
-        durationDays: null,
-        appointmentDate: appointment.appointment_date,
-        appointmentTime: appointment.appointment_time,
-        petName: appointment.pet_name,
-        petBreed: appointment.pet_breed,
-        petSize: appointment.pet_size as typeof PetSize[keyof typeof PetSize],
-        addOnServices: appointment.add_on_services,
-        specialRequests: appointment.special_requests,
-        needsTransport: appointment.needs_transport,
-        transportType: appointment.transport_type,
-        pickupAddress: appointment.pickup_address,
-        includeTreats: false,
-        treatType: null,
-        customerName: appointment.customer_name,
-        customerPhone: appointment.customer_phone,
-        customerEmail: appointment.customer_email,
-        paymentMethod: "cash", // Default since we're removing payment methods
-        groomer: appointment.groomer,
-        status: appointment.status,
-        totalPrice: null,
-        reference: appointment.reference,
-        createdAt: new Date(appointment.created_at)
-      }));
+      const groomingBookings = groomingData.map(appointment => {
+        // Adjust the date for display (subtract one day to compensate for PostgreSQL date column)
+        const displayDate = new Date(appointment.appointment_date);
+        displayDate.setDate(displayDate.getDate() - 1);
+        const correctedDate = normalizeDate(displayDate.toISOString());
+        
+        return {
+          id: appointment.id,
+          serviceType: ServiceType.GROOMING,
+          groomingService: appointment.grooming_service,
+          accommodationType: null,
+          durationHours: null,
+          durationDays: null,
+          appointmentDate: correctedDate, // Use corrected date
+          appointmentTime: appointment.appointment_time,
+          petName: appointment.pet_name,
+          petBreed: appointment.pet_breed,
+          petSize: appointment.pet_size as typeof PetSize[keyof typeof PetSize],
+          addOnServices: appointment.add_on_services,
+          specialRequests: appointment.special_requests,
+          needsTransport: appointment.needs_transport,
+          transportType: appointment.transport_type,
+          pickupAddress: appointment.pickup_address,
+          includeTreats: false,
+          treatType: null,
+          customerName: appointment.customer_name,
+          customerPhone: appointment.customer_phone,
+          customerEmail: appointment.customer_email,
+          paymentMethod: "cash", // Default since we're removing payment methods
+          groomer: appointment.groomer,
+          status: appointment.status,
+          totalPrice: null,
+          reference: appointment.reference,
+          createdAt: new Date(appointment.created_at)
+        };
+      });
       
       // Map hotel bookings to Booking type
       const hotelBookings = hotelData.map(booking => {
-        // Calculate duration in days
+        // Adjust dates for display
         const checkInDate = new Date(booking.check_in_date);
+        checkInDate.setDate(checkInDate.getDate() - 1);
+        const correctedCheckInDate = normalizeDate(checkInDate.toISOString());
+        
         const checkOutDate = new Date(booking.check_out_date);
-        const durationDays = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+        checkOutDate.setDate(checkOutDate.getDate() - 1);
+        const correctedCheckOutDate = normalizeDate(checkOutDate.toISOString());
+        
+        // Calculate duration in days using corrected dates
+        const checkInObj = new Date(correctedCheckInDate);
+        const checkOutObj = new Date(correctedCheckOutDate);
+        const durationDays = Math.ceil((checkOutObj.getTime() - checkInObj.getTime()) / (1000 * 60 * 60 * 24));
         
         return {
           id: booking.id,
@@ -121,7 +160,7 @@ export class SupabaseStorage implements IStorage {
           accommodationType: booking.accommodation_type,
           durationHours: null,
           durationDays: durationDays,
-          appointmentDate: booking.check_in_date, // Use check-in date as appointment date
+          appointmentDate: correctedCheckInDate, // Use corrected date
           appointmentTime: "12:00", // Default check-in time
           petName: booking.pet_name,
           petBreed: booking.pet_breed,
@@ -163,6 +202,11 @@ export class SupabaseStorage implements IStorage {
         .maybeSingle();
       
       if (groomingData) {
+        // Adjust the date for display (subtract one day to compensate for PostgreSQL date column)
+        const displayDate = new Date(groomingData.appointment_date);
+        displayDate.setDate(displayDate.getDate() - 1);
+        const correctedDate = normalizeDate(displayDate.toISOString());
+        
         return {
           id: groomingData.id,
           serviceType: ServiceType.GROOMING,
@@ -170,7 +214,7 @@ export class SupabaseStorage implements IStorage {
           accommodationType: null,
           durationHours: null,
           durationDays: null,
-          appointmentDate: groomingData.appointment_date,
+          appointmentDate: correctedDate, // Use corrected date
           appointmentTime: groomingData.appointment_time,
           petName: groomingData.pet_name,
           petBreed: groomingData.pet_breed,
@@ -202,10 +246,19 @@ export class SupabaseStorage implements IStorage {
         .maybeSingle();
       
       if (hotelData) {
-        // Calculate duration in days
+        // Adjust dates for display
         const checkInDate = new Date(hotelData.check_in_date);
+        checkInDate.setDate(checkInDate.getDate() - 1);
+        const correctedCheckInDate = normalizeDate(checkInDate.toISOString());
+        
         const checkOutDate = new Date(hotelData.check_out_date);
-        const durationDays = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+        checkOutDate.setDate(checkOutDate.getDate() - 1);
+        const correctedCheckOutDate = normalizeDate(checkOutDate.toISOString());
+        
+        // Calculate duration in days using corrected dates
+        const checkInObj = new Date(correctedCheckInDate);
+        const checkOutObj = new Date(correctedCheckOutDate);
+        const durationDays = Math.ceil((checkOutObj.getTime() - checkInObj.getTime()) / (1000 * 60 * 60 * 24));
         
         return {
           id: hotelData.id,
@@ -214,7 +267,7 @@ export class SupabaseStorage implements IStorage {
           accommodationType: hotelData.accommodation_type,
           durationHours: null,
           durationDays: durationDays,
-          appointmentDate: hotelData.check_in_date,
+          appointmentDate: correctedCheckInDate, // Use corrected date
           appointmentTime: "12:00", // Default check-in time
           petName: hotelData.pet_name,
           petBreed: hotelData.pet_breed,
@@ -247,14 +300,23 @@ export class SupabaseStorage implements IStorage {
   
   async getAvailableTimeSlots(date: string): Promise<Array<{time: string, groomer: string, available: boolean}>> {
     try {
+      // Normalize the requested date
       const normalizedDate = normalizeDate(date);
       console.log(`Getting available time slots for date: ${normalizedDate}`);
+      
+      // Adjust the date for PostgreSQL date column timezone issue
+      // If the database is using a 'date' column (not 'text'), we need to add one day
+      const dateObj = new Date(normalizedDate);
+      dateObj.setDate(dateObj.getDate() + 1);
+      const adjustedDate = normalizeDate(dateObj.toISOString());
+      
+      console.log(`Original request date: ${normalizedDate}, Adjusted for DB query: ${adjustedDate}`);
       
       // Get all grooming appointments for the specified date
       const { data: appointments, error } = await supabase
         .from('grooming_appointments')
         .select('*')
-        .eq('appointment_date', normalizedDate)
+        .eq('appointment_date', adjustedDate)
         .in('status', ['confirmed', 'pending']);
       
       if (error) {
@@ -262,7 +324,7 @@ export class SupabaseStorage implements IStorage {
         throw error; // Propagate error instead of returning empty array
       }
       
-      console.log(`Found ${appointments?.length || 0} existing appointments for ${normalizedDate}`);
+      console.log(`Found ${appointments?.length || 0} existing appointments for ${adjustedDate}`);
       
       // Track booked slots for each groomer
       const bookedSlotsByGroomer: Record<string, Set<string>> = {};
@@ -345,9 +407,21 @@ export class SupabaseStorage implements IStorage {
         throw new Error(`The requested time slot is not available.`);
       }
       
+      // Normalize the date and adjust for PostgreSQL date column timezone issue
+      // If the database is using a 'date' column (not 'text'), we need to add one day
+      // to compensate for PostgreSQL's timezone handling
+      let appointmentDate = normalizeDate(booking.appointmentDate);
+      
+      // Add one day to the date to counteract PostgreSQL timezone adjustment
+      const dateObj = new Date(appointmentDate);
+      dateObj.setDate(dateObj.getDate() + 1);
+      appointmentDate = normalizeDate(dateObj.toISOString());
+      
+      console.log(`Original appointment date: ${booking.appointmentDate}, Adjusted for DB: ${appointmentDate}`);
+      
       // Prepare data for Supabase
       const appointmentData = {
-        appointment_date: normalizeDate(booking.appointmentDate),
+        appointment_date: appointmentDate,
         appointment_time: booking.appointmentTime,
         pet_name: booking.petName,
         pet_breed: booking.petBreed,
@@ -378,6 +452,11 @@ export class SupabaseStorage implements IStorage {
         throw error;
       }
       
+      // When returning the booking, adjust the date back to display correctly
+      const displayDate = new Date(data.appointment_date);
+      displayDate.setDate(displayDate.getDate() - 1);
+      const correctedDate = normalizeDate(displayDate.toISOString());
+      
       // Convert to Booking type
       return {
         id: data.id,
@@ -386,7 +465,7 @@ export class SupabaseStorage implements IStorage {
         accommodationType: null,
         durationHours: null,
         durationDays: null,
-        appointmentDate: data.appointment_date,
+        appointmentDate: correctedDate, // Use corrected date for display
         appointmentTime: data.appointment_time,
         petName: data.pet_name,
         petBreed: data.pet_breed,
@@ -416,21 +495,36 @@ export class SupabaseStorage implements IStorage {
   
   private async createHotelBooking(booking: InsertBooking): Promise<Booking> {
     try {
+      // Normalize the check-in date
+      let checkInDate = normalizeDate(booking.appointmentDate);
+      
       // Calculate check-out date based on duration
-      const checkInDate = normalizeDate(booking.appointmentDate);
       const duration = booking.durationDays || 1;
       
+      // Create date objects for calculations
       const checkInDateObj = new Date(checkInDate);
       const checkOutDateObj = new Date(checkInDateObj);
       checkOutDateObj.setDate(checkOutDateObj.getDate() + duration);
-      const checkOutDate = normalizeDate(checkOutDateObj.toISOString());
+      let checkOutDate = normalizeDate(checkOutDateObj.toISOString());
       
-      console.log(`Creating hotel booking: Check-in ${checkInDate}, Check-out ${checkOutDate}, Duration: ${duration} days`);
+      // Adjust dates for PostgreSQL date column timezone issue
+      // Add one day to counteract PostgreSQL timezone handling
+      const adjustedCheckInDateObj = new Date(checkInDate);
+      adjustedCheckInDateObj.setDate(adjustedCheckInDateObj.getDate() + 1);
+      const adjustedCheckInDate = normalizeDate(adjustedCheckInDateObj.toISOString());
+      
+      const adjustedCheckOutDateObj = new Date(checkOutDate);
+      adjustedCheckOutDateObj.setDate(adjustedCheckOutDateObj.getDate() + 1);
+      const adjustedCheckOutDate = normalizeDate(adjustedCheckOutDateObj.toISOString());
+      
+      console.log(`Original check-in: ${checkInDate}, Adjusted for DB: ${adjustedCheckInDate}`);
+      console.log(`Original check-out: ${checkOutDate}, Adjusted for DB: ${adjustedCheckOutDate}`);
+      console.log(`Creating hotel booking: Duration: ${duration} days`);
       
       // Prepare data for Supabase
       const hotelData = {
-        check_in_date: checkInDate,
-        check_out_date: checkOutDate,
+        check_in_date: adjustedCheckInDate,
+        check_out_date: adjustedCheckOutDate,
         accommodation_type: booking.accommodationType || 'Standard',
         pet_name: booking.petName,
         pet_breed: booking.petBreed,
@@ -496,6 +590,11 @@ export class SupabaseStorage implements IStorage {
       
       console.log("Hotel booking created successfully:", data.id);
       
+      // When returning the booking, adjust the dates back to display correctly
+      const displayCheckInDate = new Date(data.check_in_date);
+      displayCheckInDate.setDate(displayCheckInDate.getDate() - 1);
+      const correctedCheckInDate = normalizeDate(displayCheckInDate.toISOString());
+      
       // Convert to Booking type
       return {
         id: data.id,
@@ -504,7 +603,7 @@ export class SupabaseStorage implements IStorage {
         accommodationType: data.accommodation_type,
         durationHours: null,
         durationDays: duration,
-        appointmentDate: data.check_in_date,
+        appointmentDate: correctedCheckInDate, // Use corrected date for display
         appointmentTime: "12:00", // Default check-in time
         petName: data.pet_name,
         petBreed: data.pet_breed,
