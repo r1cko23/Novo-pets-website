@@ -116,7 +116,15 @@ export default function BookingForm() {
   // Function to check if a date is fully booked
   const checkDateAvailability = async (date: string) => {
     try {
-      const formattedDate = format(new Date(date), "yyyy-MM-dd");
+      // Format date directly from the string without timezone issues
+      const dateObj = new Date(date);
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      const formattedDate = `${year}-${month}-${day}`;
+      
+      console.log(`Checking availability for ${formattedDate}`);
+      
       const response = await apiRequest("GET", `/api/availability?date=${formattedDate}`);
       const data = await response.json();
       
@@ -163,9 +171,17 @@ export default function BookingForm() {
       try {
         // Add timestamp to prevent caching and force refresh flag
         const timestamp = new Date().getTime();
-        const formattedDate = format(new Date(selectedDate), "yyyy-MM-dd");
         
-        console.log(`Fetching availability for date: ${formattedDate} (timestamp: ${timestamp})`);
+        // IMPORTANT: Format the date as YYYY-MM-DD without timezone conversion
+        // Extract year, month, day directly from the date object to avoid timezone issues
+        // Ensure we have a proper Date object
+        const dateObject = new Date(selectedDate);
+        const year = dateObject.getFullYear();
+        const month = String(dateObject.getMonth() + 1).padStart(2, '0');
+        const day = String(dateObject.getDate()).padStart(2, '0');
+        const formattedDate = `${year}-${month}-${day}`;
+        
+        console.log(`Fetching availability for date: ${formattedDate} (raw date: ${dateObject.toISOString()}, timestamp: ${timestamp})`);
         
         // First try the direct API call with proper error handling
         try {
@@ -525,7 +541,14 @@ export default function BookingForm() {
       // After successful booking, invalidate and refetch availability data
       // to make sure it's updated for all users
       if (selectedDate) {
-        const formattedDate = format(new Date(selectedDate), "yyyy-MM-dd");
+        // Format date directly without timezone issues
+        const dateObj = new Date(selectedDate);
+        const year = dateObj.getFullYear();
+        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const day = String(dateObj.getDate()).padStart(2, '0');
+        const formattedDate = `${year}-${month}-${day}`;
+        
+        console.log(`Invalidating availability queries for date: ${formattedDate}`);
         invalidateAvailabilityQueries(formattedDate);
       } else {
         invalidateAvailabilityQueries();
@@ -576,7 +599,14 @@ export default function BookingForm() {
         
         // Use a more aggressive approach to refresh availability data
         if (selectedDate) {
-          const formattedDate = format(new Date(selectedDate), "yyyy-MM-dd");
+          // Format date directly without timezone issues
+          const dateObj = new Date(selectedDate);
+          const year = dateObj.getFullYear();
+          const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+          const day = String(dateObj.getDate()).padStart(2, '0');
+          const formattedDate = `${year}-${month}-${day}`;
+          
+          console.log(`Invalidating availability queries for date after error: ${formattedDate}`);
           
           // Invalidate the cache for this date
           invalidateAvailabilityQueries(formattedDate);
@@ -795,7 +825,13 @@ export default function BookingForm() {
     try {
       // Add timestamp and refresh parameter to get fresh data
       const timestamp = new Date().getTime();
-      const formattedDate = format(new Date(selectedDate), "yyyy-MM-dd");
+      
+      // Format date directly without timezone issues
+      const dateObj = new Date(selectedDate);
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      const formattedDate = `${year}-${month}-${day}`;
       
       console.log(`Fetching fresh availability for date: ${formattedDate} with timestamp: ${timestamp}`);
       

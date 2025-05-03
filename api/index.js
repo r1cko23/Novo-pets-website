@@ -625,9 +625,10 @@ app.get('/api/availability', async (req, res) => {
       });
     }
     
-    // Ensure consistent date format handling regardless of client timezone
+    // IMPORTANT: Use the exact input date string without any transformation
+    // This ensures the date entered by the user is exactly the date used in the query
     const normalizedDate = date;
-    console.log(`Using normalized date for availability check: ${normalizedDate}`);
+    console.log(`Using exact date string for availability check: ${normalizedDate}`);
     
     // Get all bookings for this date to determine availability with the most recent data
     // Include both confirmed and pending statuses as booked
@@ -662,6 +663,15 @@ app.get('/api/availability', async (req, res) => {
     }
     
     console.log(`Found ${groomingBookings?.length || 0} grooming bookings and ${hotelBookings?.length || 0} hotel bookings for date ${normalizedDate}`);
+    
+    // Log actual booking dates to help debug
+    if (groomingBookings && groomingBookings.length > 0) {
+      console.log('Grooming booking dates:', groomingBookings.map(b => `${b.appointment_date} ${b.appointment_time}`));
+    }
+    
+    if (hotelBookings && hotelBookings.length > 0) {
+      console.log('Hotel booking dates:', hotelBookings.map(b => `Check-in: ${b.check_in_date}, Check-out: ${b.check_out_date}`));
+    }
     
     // Combined all booked time slots
     const bookedSlotsMap = {};
@@ -878,10 +888,10 @@ app.post('/api/bookings', async (req, res) => {
     console.log(`Original appointment date: ${appointmentDate}`);
     console.log(`Processed date object: ${processedDate}`);
     
-    // Get the date in YYYY-MM-DD format using the local timezone
-    // This ensures it matches the date shown in the UI
-    const localDateStr = processedDate.toLocaleDateString('en-CA'); // en-CA uses YYYY-MM-DD format
-    console.log(`Corrected date string: ${localDateStr}`);
+    // FIXED: Use the original YYYY-MM-DD string directly to avoid timezone conversion issues
+    // This ensures the date entered by the user is exactly the date stored in the database
+    const localDateStr = appointmentDate;
+    console.log(`Using exact date string from input: ${localDateStr}`);
     
     // Generate a reference number with prefix based on service type
     const prefix = serviceType === 'hotel' ? 'NVP-H-' : 'NVP-G-';
@@ -891,14 +901,18 @@ app.post('/api/bookings', async (req, res) => {
     // Hotel bookings
     if (serviceType === 'hotel') {
       // For hotel stays, use check_in_date and check_out_date fields
-      const checkInDate = localDateStr;  // Use the timezone-corrected date
+      const checkInDate = localDateStr;  // Use the exact date string from input
       
-      // Calculate check-out date based on duration
-      const checkOutDate = new Date(processedDate);
-      checkOutDate.setDate(checkOutDate.getDate() + (durationDays || 1));
+      // Calculate check-out date based on duration without timezone issues
+      // Parse the date parts directly to avoid timezone conversions
+      const [year, month, day] = appointmentDate.split('-').map(Number);
+      // Create a new date using local timezone (month is 0-indexed in JavaScript)
+      const checkOutDate = new Date(year, month - 1, day + (durationDays || 1));
       
-      // Format check-out date in local timezone to avoid off-by-one errors
-      const formattedCheckOutDate = checkOutDate.toLocaleDateString('en-CA');
+      // Format check-out date as YYYY-MM-DD string
+      const formattedCheckOutDate = `${checkOutDate.getFullYear()}-${String(checkOutDate.getMonth() + 1).padStart(2, '0')}-${String(checkOutDate.getDate()).padStart(2, '0')}`;
+      
+      console.log(`Calculated check-out date: ${formattedCheckOutDate} (for ${durationDays || 1} days stay)`);
       
       const hotelBookingData = {
         check_in_date: checkInDate,

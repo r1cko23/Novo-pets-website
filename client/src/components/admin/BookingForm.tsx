@@ -158,8 +158,8 @@ export default function BookingForm({ onSuccess, onCancel }: BookingFormProps) {
     try {
       setIsSubmitting(true);
 
-      // Format the date to YYYY-MM-DD while preserving the exact date selected
-      // This ensures the local date selected by the user is preserved
+      // Format the date to YYYY-MM-DD without timezone issues
+      // Extract year, month, day directly from the date object
       const selectedDate = values.appointmentDate;
       const year = selectedDate.getFullYear();
       const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
@@ -167,7 +167,7 @@ export default function BookingForm({ onSuccess, onCancel }: BookingFormProps) {
       const formattedDate = `${year}-${month}-${day}`;
       
       console.log("Selected date:", selectedDate);
-      console.log("Formatted date for submission:", formattedDate);
+      console.log("Formatted date for submission (YYYY-MM-DD):", formattedDate);
       
       // Prepare data for submission - ensure all required fields are included
       const bookingData = {
