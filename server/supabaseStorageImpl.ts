@@ -7,13 +7,46 @@ import {
 } from "../shared/schema";
 import { supabase } from "./supabase";
 
-// Define array of time slots
+// Add PaymentMethod enum
+enum PaymentMethod {
+  CASH = "cash",
+  CARD = "card"
+}
+
+// Define array of time slots in 24-hour format
 const TIME_SLOTS = [
   "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"
 ];
 
 // Define groomers
 const GROOMERS = ["Groomer 1", "Groomer 2"];
+
+/**
+ * Format time string to proper time format for database
+ * @param timeStr Time string in "HH:MM" format
+ * @returns Time string in "HH:MM:00" format for PostgreSQL time
+ */
+function formatTimeForDB(timeStr: string): string {
+  return `${timeStr}:00`;
+}
+
+/**
+ * Format time from database (time) to simple time string
+ * @param dbTime Time from database in time format
+ * @returns Time string in "HH:MM" format
+ */
+function formatTimeFromDB(dbTime: string): string {
+  if (!dbTime) return '';
+  
+  // Extract just the hours and minutes, handling different formats
+  if (dbTime.includes(':')) {
+    // If in format like "09:00:00" or similar
+    return dbTime.substring(0, 5);
+  }
+  
+  // If it's already in simple format, return as is
+  return dbTime;
+}
 
 /**
  * Utility function to normalize date strings to YYYY-MM-DD format
@@ -62,12 +95,20 @@ function normalizeDate(dateStr: string): string {
   }
 }
 
+// Define TimeSlot interface
+interface TimeSlot {
+  time: string;
+  groomer: string;
+  available: boolean;
+  formattedTime?: string; // Add optional formatted time property
+}
+
 export interface IStorage {
   // Booking methods
   getBookings(): Promise<Booking[]>;
   getBooking(id: number): Promise<Booking | null>;
   createBooking(booking: InsertBooking): Promise<Booking>;
-  getAvailableTimeSlots(date: string): Promise<Array<{time: string, groomer: string, available: boolean}>>;
+  getAvailableTimeSlots(date: string): Promise<TimeSlot[]>;
   updateBookingStatus(id: number, status: string): Promise<Booking>;
   
   // Contact form methods
@@ -114,7 +155,7 @@ export class SupabaseStorage implements IStorage {
           durationHours: null,
           durationDays: null,
           appointmentDate: correctedDate, // Use corrected date
-          appointmentTime: appointment.appointment_time,
+          appointmentTime: formatTimeFromDB(appointment.appointment_time),
           petName: appointment.pet_name,
           petBreed: appointment.pet_breed,
           petSize: appointment.pet_size as typeof PetSize[keyof typeof PetSize],
@@ -215,7 +256,7 @@ export class SupabaseStorage implements IStorage {
           durationHours: null,
           durationDays: null,
           appointmentDate: correctedDate, // Use corrected date
-          appointmentTime: groomingData.appointment_time,
+          appointmentTime: formatTimeFromDB(groomingData.appointment_time),
           petName: groomingData.pet_name,
           petBreed: groomingData.pet_breed,
           petSize: groomingData.pet_size as typeof PetSize[keyof typeof PetSize],
@@ -298,26 +339,25 @@ export class SupabaseStorage implements IStorage {
     }
   }
   
-  async getAvailableTimeSlots(date: string): Promise<Array<{time: string, groomer: string, available: boolean}>> {
+  async getAvailableTimeSlots(date: string): Promise<TimeSlot[]> {
     try {
       // Normalize the requested date
       const normalizedDate = normalizeDate(date);
       console.log(`Getting available time slots for date: ${normalizedDate}`);
       
-      // Adjust the date for PostgreSQL date column timezone issue
-      // If the database is using a 'date' column (not 'text'), we need to add one day
-      const dateObj = new Date(normalizedDate);
-      dateObj.setDate(dateObj.getDate() + 1);
-      const adjustedDate = normalizeDate(dateObj.toISOString());
+      // IMPORTANT: Ensure we're querying for the *exact* date the user selected
+      // We should not adjust the date here, as we want to check the availability
+      // for the date the user explicitly requested
+      const queryDate = normalizedDate;
       
-      console.log(`Original request date: ${normalizedDate}, Adjusted for DB query: ${adjustedDate}`);
+      console.log(`Using exact query date: ${queryDate} (no adjustment)`);
       
       // Get all grooming appointments for the specified date
       // Important: Include all statuses except 'cancelled' to ensure proper availability checking
       const { data: appointments, error } = await supabase
         .from('grooming_appointments')
         .select('*')
-        .eq('appointment_date', adjustedDate)
+        .eq('appointment_date', queryDate)
         .not('status', 'eq', 'cancelled');
       
       if (error) {
@@ -325,7 +365,35 @@ export class SupabaseStorage implements IStorage {
         throw error; // Propagate error instead of returning empty array
       }
       
-      console.log(`Found ${appointments?.length || 0} existing appointments for ${adjustedDate}`);
+      console.log(`Found ${appointments?.length || 0} existing appointments for ${queryDate}`);
+      
+      // If no appointments found, do a second query with the adjusted date
+      // This handles potential timezone issues in the database
+      if (!appointments || appointments.length === 0) {
+        console.log("No appointments found with exact date, trying with adjusted date");
+        
+        // Try with the adjusted date (adding one day)
+        const dateObj = new Date(normalizedDate);
+        dateObj.setDate(dateObj.getDate() + 1);
+        const adjustedDate = normalizeDate(dateObj.toISOString());
+        
+        console.log(`Trying again with adjusted date: ${adjustedDate}`);
+        
+        const { data: adjustedAppointments, error: adjustedError } = await supabase
+          .from('grooming_appointments')
+          .select('*')
+          .eq('appointment_date', adjustedDate)
+          .not('status', 'eq', 'cancelled');
+          
+        if (adjustedError) {
+          console.error("Error fetching appointments with adjusted date:", adjustedError);
+        } else if (adjustedAppointments && adjustedAppointments.length > 0) {
+          console.log(`Found ${adjustedAppointments.length} appointments with adjusted date`);
+          // Use these appointments instead
+          appointments.length = 0;
+          appointments.push(...adjustedAppointments);
+        }
+      }
       
       // Track booked slots for each groomer
       const bookedSlotsByGroomer: Record<string, Set<string>> = {};
@@ -338,7 +406,8 @@ export class SupabaseStorage implements IStorage {
       // Populate booked slots for each groomer
       if (appointments && appointments.length > 0) {
         appointments.forEach(appointment => {
-          const bookedTime = appointment.appointment_time;
+          // Format time from database time format to simple "HH:MM" string
+          const bookedTime = formatTimeFromDB(appointment.appointment_time);
           
           // Normalize groomer name to handle case sensitivity
           // This ensures "Groomer 1" matches "groomer 1" or any case variations
@@ -360,7 +429,7 @@ export class SupabaseStorage implements IStorage {
       // (This step is handled in routes.ts before creating a booking)
       
       // Generate all time slots with availability information
-      const allTimeSlots: Array<{time: string, groomer: string, available: boolean}> = [];
+      const allTimeSlots: TimeSlot[] = [];
       
       // Create the availability data structure
       TIME_SLOTS.forEach(time => {
@@ -369,7 +438,8 @@ export class SupabaseStorage implements IStorage {
           allTimeSlots.push({
             time,
             groomer,
-            available: !isBooked
+            available: !isBooked,
+            formattedTime: formatTimeForDB(time)
           });
         });
       });
@@ -386,10 +456,10 @@ export class SupabaseStorage implements IStorage {
     } catch (error) {
       console.error("Error getting available time slots:", error);
       // Return all slots as available as a fallback instead of an empty array
-      const fallbackSlots: Array<{time: string, groomer: string, available: boolean}> = [];
+      const fallbackSlots: TimeSlot[] = [];
       TIME_SLOTS.forEach(time => {
         GROOMERS.forEach(groomer => {
-          fallbackSlots.push({ time, groomer, available: true });
+          fallbackSlots.push({ time, groomer, available: true, formattedTime: formatTimeForDB(time) });
         });
       });
       console.log(`Error occurred, returning ${fallbackSlots.length} fallback available slots`);
@@ -439,22 +509,17 @@ export class SupabaseStorage implements IStorage {
         }
       }
       
-      // Normalize the date and adjust for PostgreSQL date column timezone issue
-      // If the database is using a 'date' column (not 'text'), we need to add one day
-      // to compensate for PostgreSQL's timezone handling
-      let appointmentDate = normalizeDate(booking.appointmentDate);
+      // Use the exact date from the booking request
+      // Do not adjust for PostgreSQL timezone issues, as we want to store the date
+      // exactly as requested by the user
+      const appointmentDate = normalizeDate(booking.appointmentDate);
       
-      // Add one day to the date to counteract PostgreSQL timezone adjustment
-      const dateObj = new Date(appointmentDate);
-      dateObj.setDate(dateObj.getDate() + 1);
-      appointmentDate = normalizeDate(dateObj.toISOString());
-      
-      console.log(`Original appointment date: ${booking.appointmentDate}, Adjusted for DB: ${appointmentDate}`);
+      console.log(`Using exact appointment date for DB storage: ${appointmentDate}`);
       
       // Prepare data for Supabase
       const appointmentData = {
         appointment_date: appointmentDate,
-        appointment_time: booking.appointmentTime,
+        appointment_time: formatTimeForDB(booking.appointmentTime),
         pet_name: booking.petName,
         pet_breed: booking.petBreed,
         pet_size: booking.petSize,
@@ -479,7 +544,7 @@ export class SupabaseStorage implements IStorage {
         .from('grooming_appointments')
         .select('id, appointment_time, groomer')
         .eq('appointment_date', appointmentDate)
-        .eq('appointment_time', booking.appointmentTime)
+        .eq('appointment_time', formatTimeForDB(booking.appointmentTime))
         .eq('groomer', booking.groomer || "Groomer 1")
         .not('status', 'eq', 'cancelled');
         
@@ -504,12 +569,8 @@ export class SupabaseStorage implements IStorage {
         throw error;
       }
       
-      // When returning the booking, adjust the date back to display correctly
-      const displayDate = new Date(data.appointment_date);
-      displayDate.setDate(displayDate.getDate() - 1);
-      const correctedDate = normalizeDate(displayDate.toISOString());
-      
-      // Convert to Booking type
+      // Return the booking with the exact same date as stored in the database
+      // No need to adjust the date anymore
       return {
         id: data.id,
         serviceType: ServiceType.GROOMING,
@@ -517,8 +578,8 @@ export class SupabaseStorage implements IStorage {
         accommodationType: null,
         durationHours: null,
         durationDays: null,
-        appointmentDate: correctedDate, // Use corrected date for display
-        appointmentTime: data.appointment_time,
+        appointmentDate: data.appointment_date, // Use the exact date from the database
+        appointmentTime: formatTimeFromDB(data.appointment_time),
         petName: data.pet_name,
         petBreed: data.pet_breed,
         petSize: data.pet_size as typeof PetSize[keyof typeof PetSize],
@@ -527,16 +588,16 @@ export class SupabaseStorage implements IStorage {
         needsTransport: data.needs_transport,
         transportType: data.transport_type,
         pickupAddress: data.pickup_address,
-        includeTreats: false,
-        treatType: null,
+        includeTreats: data.include_treats || false,
+        treatType: data.treat_type || null,
         customerName: data.customer_name,
         customerPhone: data.customer_phone,
         customerEmail: data.customer_email,
-        paymentMethod: "cash",
-        groomer: data.groomer,
+        paymentMethod: data.payment_method || PaymentMethod.CASH,
         status: data.status,
-        totalPrice: null,
+        groomer: data.groomer,
         reference: data.reference,
+        totalPrice: null,
         createdAt: new Date(data.created_at)
       };
     } catch (error) {
@@ -712,7 +773,7 @@ export class SupabaseStorage implements IStorage {
           durationHours: null,
           durationDays: null,
           appointmentDate: updatedGrooming.appointment_date,
-          appointmentTime: updatedGrooming.appointment_time,
+          appointmentTime: formatTimeFromDB(updatedGrooming.appointment_time),
           petName: updatedGrooming.pet_name,
           petBreed: updatedGrooming.pet_breed,
           petSize: updatedGrooming.pet_size as typeof PetSize[keyof typeof PetSize],

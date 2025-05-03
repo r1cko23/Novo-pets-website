@@ -31,7 +31,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { ServiceType, PetSize, PaymentMethod } from "shared/schema";
+import { ServiceType, PetSize } from "shared/schema";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Define available time slots
@@ -83,11 +83,6 @@ const bookingFormSchema = z.object({
   customerPhone: z.string().min(6, { message: "Please enter a valid phone number" }),
   customerEmail: z.string().email({ message: "Please enter a valid email address" }),
   
-  // Payment details
-  paymentMethod: z.enum(["cash", "bank_transfer", "online"], {
-    required_error: "Please select a payment method",
-  }),
-  
   // Status
   status: z.enum(["pending", "confirmed"], {
     required_error: "Please select a status",
@@ -136,6 +131,33 @@ interface BookingFormProps {
   onCancel: () => void;
 }
 
+// Add a function to convert time from AM/PM format to 24-hour format
+const convertTo24Hour = (timeStr: string): string => {
+  if (!timeStr) return '';
+  
+  // Remove any spaces and convert to uppercase for consistency
+  const time = timeStr.replace(/\s/g, '').toUpperCase();
+  
+  // Extract the components
+  const [hourMin, period] = time.split(/([AP]M)/).filter(Boolean);
+  const [hourStr, minuteStr] = hourMin.split(':');
+  
+  let hour = parseInt(hourStr, 10);
+  const minute = minuteStr;
+  
+  // Convert hour based on AM/PM
+  if (period === 'PM' && hour < 12) {
+    hour += 12;
+  } else if (period === 'AM' && hour === 12) {
+    hour = 0;
+  }
+  
+  // Format hour with leading zero if needed
+  const hourFormatted = hour.toString().padStart(2, '0');
+  
+  return `${hourFormatted}:${minute}`;
+};
+
 export default function BookingForm({ onSuccess, onCancel }: BookingFormProps) {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -166,8 +188,12 @@ export default function BookingForm({ onSuccess, onCancel }: BookingFormProps) {
       const day = String(selectedDate.getDate()).padStart(2, '0');
       const formattedDate = `${year}-${month}-${day}`;
       
+      // Convert time from AM/PM to 24-hour format (e.g., "09:00 AM" to "09:00")
+      const formattedTime = convertTo24Hour(values.appointmentTime);
+      
       console.log("Selected date:", selectedDate);
       console.log("Formatted date for submission (YYYY-MM-DD):", formattedDate);
+      console.log("Formatted time for submission (24h):", formattedTime);
       
       // Prepare data for submission - ensure all required fields are included
       const bookingData = {
@@ -182,7 +208,7 @@ export default function BookingForm({ onSuccess, onCancel }: BookingFormProps) {
         
         // Appointment details
         appointmentDate: formattedDate,
-        appointmentTime: values.appointmentTime,
+        appointmentTime: formattedTime,
         
         // Pet information
         petName: values.petName,
@@ -196,9 +222,6 @@ export default function BookingForm({ onSuccess, onCancel }: BookingFormProps) {
         customerName: values.customerName,
         customerPhone: values.customerPhone,
         customerEmail: values.customerEmail,
-        
-        // Payment details
-        paymentMethod: values.paymentMethod,
         
         // Status
         status: values.status,
@@ -287,13 +310,6 @@ export default function BookingForm({ onSuccess, onCancel }: BookingFormProps) {
     { value: "giant", label: "Giant (40kg+)" },
   ];
   
-  // Define payment method options
-  const paymentMethodOptions = [
-    { value: "cash", label: "Cash" },
-    { value: "bank_transfer", label: "Bank Transfer" },
-    { value: "online", label: "Online Payment" },
-  ];
-  
   // Define groomer options (this would typically come from your database)
   const groomerOptions = [
     { value: "Groomer 1", label: "Groomer 1" },
@@ -328,7 +344,7 @@ export default function BookingForm({ onSuccess, onCancel }: BookingFormProps) {
               <TabsTrigger value="service" className="data-[state=active]:bg-white">Service</TabsTrigger>
               <TabsTrigger value="pet" className="data-[state=active]:bg-white">Pet Details</TabsTrigger>
               <TabsTrigger value="customer" className="data-[state=active]:bg-white">Customer</TabsTrigger>
-              <TabsTrigger value="payment" className="data-[state=active]:bg-white">Payment</TabsTrigger>
+              <TabsTrigger value="status" className="data-[state=active]:bg-white">Status</TabsTrigger>
             </TabsList>
             
             {/* Service Tab */}
@@ -678,33 +694,8 @@ export default function BookingForm({ onSuccess, onCancel }: BookingFormProps) {
               />
             </TabsContent>
             
-            {/* Payment Tab */}
-            <TabsContent value="payment" className="space-y-4 pt-4">
-              <FormField
-                control={form.control}
-                name="paymentMethod"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-gray-700 font-medium">Payment Method</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger className="h-12 bg-white">
-                          <SelectValue placeholder="Select payment method" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {paymentMethodOptions.map(option => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
+            {/* Status Tab */}
+            <TabsContent value="status" className="space-y-4 pt-4">
               <FormField
                 control={form.control}
                 name="status"
