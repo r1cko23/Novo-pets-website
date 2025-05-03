@@ -73,6 +73,10 @@ export default function BookingForm() {
   const reservationTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [reservationTimeLeft, setReservationTimeLeft] = useState<number | null>(null);
   const [showBookedSlots, setShowBookedSlots] = useState(true);
+  const [debugDataLoaded, setDebugDataLoaded] = useState(false); // For debugging
+  const [lastAvailabilityData, setLastAvailabilityData] = useState<any>(null); // For debugging
+  const [timeSlotsByGroomer, setTimeSlotsByGroomer] = useState<Record<string, TimeSlot[]>>({});
+  const [groomersWithSlots, setGroomersWithSlots] = useState<string[]>([]);
   const { toast } = useToast();
   
   // Default time slots (will be filtered based on availability)
@@ -401,6 +405,10 @@ export default function BookingForm() {
       const bookedCount = typedTimeSlots.length - availableCount;
       console.log(`DEBUG: Time slot availability processing: ${availableCount} available, ${bookedCount} booked`);
       
+      // For debugging, save the availability data
+      setLastAvailabilityData(availabilityData);
+      setDebugDataLoaded(true);
+      
       // Specifically check 9:00 AM slots
       const nineAmSlots = typedTimeSlots.filter(slot => slot.time === '09:00');
       if (nineAmSlots.length > 0) {
@@ -443,14 +451,11 @@ export default function BookingForm() {
     } else {
       // Clear available time slots if no data is available
       setAvailableTimeSlots([]);
+      setDebugDataLoaded(false);
     }
   }, [availabilityData, form, selectedGroomer, reservation, selectedDate]);
   
-  // Organize time slots by groomer
-  const timeSlotsByGroomer: Record<string, TimeSlot[]> = {};
-  const groomersWithSlots: string[] = [];
-  
-  // Track fully booked time slots
+  // Track availability statistics per time
   const [timeSlotAvailability, setTimeSlotAvailability] = useState<Record<string, { totalSlots: number, available: number }>>({});
   
   // Process availability data when it changes
@@ -490,15 +495,18 @@ export default function BookingForm() {
       // Update the state
       setTimeSlotAvailability(timeStats);
       
-      // Add the groomers and their time slots to the state
+      // Sort each groomer's time slots
       Object.keys(newTimeSlotsByGroomer).forEach((groomer) => {
-        timeSlotsByGroomer[groomer] = newTimeSlotsByGroomer[groomer].sort((a, b) => {
+        newTimeSlotsByGroomer[groomer].sort((a, b) => {
           return a.time.localeCompare(b.time);
         });
       });
       
-      groomersWithSlots.length = 0;
-      groomersWithSlots.push(...newGroomersWithSlots);
+      // Update the state variables
+      setTimeSlotsByGroomer(newTimeSlotsByGroomer);
+      setGroomersWithSlots(newGroomersWithSlots);
+      
+      console.log(`Updated state: ${newGroomersWithSlots.length} groomers with time slots`);
       
       // Check if there are any available slots at all
       const anyAvailableSlots = availabilityData.availableTimeSlots.some(slot => slot.available);
@@ -511,8 +519,12 @@ export default function BookingForm() {
           return prev;
         });
       }
+    } else {
+      // Clear the structures when there's no data
+      setTimeSlotsByGroomer({});
+      setGroomersWithSlots([]);
     }
-  }, [availabilityData]);
+  }, [availabilityData, selectedDate]);
   
   // Mutation for submitting form
   const mutation = useMutation({
@@ -838,6 +850,15 @@ export default function BookingForm() {
   const forceRefreshAvailability = async () => {
     console.log("Force refreshing availability data...");
     
+    if (!selectedDate) {
+      toast({
+        title: "Select a Date",
+        description: "Please select a date first",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     // Show loading toast
     toast({
       title: "Refreshing",
@@ -845,19 +866,18 @@ export default function BookingForm() {
     });
     
     try {
-      // Add timestamp and refresh parameter to get fresh data
-      const timestamp = new Date().getTime();
+      // Clear any existing cache for this date
+      queryClient.removeQueries({queryKey: ["availability", selectedDate]});
       
-      // Format date directly without timezone issues
+      // Format date directly without timezone issues for direct API call
       const dateObj = new Date(selectedDate);
       const year = dateObj.getFullYear();
       const month = String(dateObj.getMonth() + 1).padStart(2, '0');
       const day = String(dateObj.getDate()).padStart(2, '0');
       const formattedDate = `${year}-${month}-${day}`;
       
-      console.log(`Fetching fresh availability for date: ${formattedDate} with timestamp: ${timestamp}`);
-      
-      const response = await fetch(`/api/availability?date=${formattedDate}&refresh=true&_=${timestamp}`, {
+      // Make a direct API call first to ensure we get fresh data
+      const response = await fetch(`/api/availability?date=${formattedDate}&refresh=true&_=${Date.now()}`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
@@ -867,90 +887,84 @@ export default function BookingForm() {
       });
       
       if (!response.ok) {
-        throw new Error(`Failed to refresh availability data: ${response.status} ${response.statusText}`);
+        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
       }
       
-      // Get the raw response text for debugging
-      const responseText = await response.text();
-      console.log(`Raw availability response (${response.status}): ${responseText.substring(0, 200)}${responseText.length > 200 ? '...' : ''}`);
+      const data = await response.json();
       
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error("Failed to parse availability response:", parseError);
-        throw new Error("Invalid JSON in availability response");
+      if (!data?.availableTimeSlots || !Array.isArray(data.availableTimeSlots)) {
+        throw new Error("Invalid availability data received");
       }
       
-      // Debug the availability data
-      console.log(`Got ${data.availableTimeSlots?.length || 0} time slots from server`);
+      // Process the data directly
+      const newTimeSlotsByGroomer: Record<string, TimeSlot[]> = {};
+      const newGroomersWithSlots: string[] = [];
       
-      // Log each time slot (limited to avoid console spam)
-      if (data.availableTimeSlots && data.availableTimeSlots.length > 0) {
-        console.log("Sample of time slots:");
-        for (let i = 0; i < Math.min(data.availableTimeSlots.length, 5); i++) {
-          const slot = data.availableTimeSlots[i];
-          console.log(`- Time: ${slot.time}, Groomer: ${slot.groomer}, Available: ${slot.available}`);
-        }
+      // Process time slots
+      data.availableTimeSlots.forEach((slot: any) => {
+        // Skip invalid slots
+        if (!slot.time || !slot.groomer) return;
         
-        // Collect and log stats about availability
-        const unavailableCount = data.availableTimeSlots.filter((slot: any) => !slot.available).length;
-        const availableCount = data.availableTimeSlots.length - unavailableCount;
-        console.log(`Availability stats: ${availableCount} available, ${unavailableCount} booked`);
-        
-        // Log any fully booked time slots
-        const timeSlotStats: Record<string, {total: number, booked: number}> = {};
-        data.availableTimeSlots.forEach((slot: any) => {
-          if (!timeSlotStats[slot.time]) {
-            timeSlotStats[slot.time] = {total: 0, booked: 0};
-          }
-          timeSlotStats[slot.time].total++;
-          if (!slot.available) {
-            timeSlotStats[slot.time].booked++;
-          }
-        });
-        
-        // Find any fully booked time slots
-        const fullyBookedTimes = Object.entries(timeSlotStats)
-          .filter(([_, stats]) => stats.booked === stats.total)
-          .map(([time]) => time);
-          
-        if (fullyBookedTimes.length > 0) {
-          console.log("Fully booked time slots:", fullyBookedTimes);
-        }
-      }
-      
-      // Manually update the React Query cache with properly processed data
-      queryClient.setQueryData(["availability", selectedDate], {
-        success: true,
-        availableTimeSlots: data.availableTimeSlots.map((slot: any) => ({
-          ...slot,
-          // Ensure time format is consistent
+        // Format the slot
+        const formattedSlot: TimeSlot = {
           time: slot.time.includes(':') ? slot.time : `${slot.time}:00`,
-          // Add formatted time for display
+          groomer: slot.groomer,
+          available: !!slot.available,
           formattedTime: format(parse(
             slot.time.includes(':') ? slot.time : `${slot.time}:00`, 
             'HH:mm', 
             new Date()
-          ), 'h:mm a'),
-          // Ensure the available property is correctly typed as boolean
-          available: !!slot.available
-        }))
+          ), 'h:mm a')
+        };
+        
+        // Add to groomer list
+        if (!newTimeSlotsByGroomer[slot.groomer]) {
+          newTimeSlotsByGroomer[slot.groomer] = [];
+          newGroomersWithSlots.push(slot.groomer);
+        }
+        
+        // Add to time slots
+        newTimeSlotsByGroomer[slot.groomer].push(formattedSlot);
       });
       
-      // Also trigger a normal refetch to ensure UI updates
+      // Sort each groomer's slots
+      Object.keys(newTimeSlotsByGroomer).forEach((groomer) => {
+        newTimeSlotsByGroomer[groomer].sort((a, b) => a.time.localeCompare(b.time));
+      });
+      
+      // Update state directly
+      setTimeSlotsByGroomer(newTimeSlotsByGroomer);
+      setGroomersWithSlots(newGroomersWithSlots);
+      
+      // Also update available time slots array for consistency
+      const allSlots: TimeSlot[] = [];
+      Object.values(newTimeSlotsByGroomer).forEach(slots => allSlots.push(...slots));
+      setAvailableTimeSlots(allSlots);
+      
+      // Update the React Query cache
+      queryClient.setQueryData(["availability", selectedDate], data);
+      
+      // Manually trigger a refetch to update any other components that rely on this query
       await refetchAvailability();
+      
+      // Log stats about the data
+      const availableSlots = data.availableTimeSlots.filter((slot: any) => !!slot.available).length;
+      const totalSlots = data.availableTimeSlots.length;
+      
+      console.log(`Refreshed availability data: ${availableSlots}/${totalSlots} slots available`);
+      console.log(`Groomers found: ${newGroomersWithSlots.join(', ')}`);
       
       // Notify user of successful refresh
       toast({
         title: "Slots Updated",
-        description: "Available time slots have been refreshed.",
+        description: `${availableSlots} available slots for ${newGroomersWithSlots.length} groomers`,
       });
+      
     } catch (error) {
       console.error("Error force refreshing availability:", error);
       toast({
         title: "Refresh Failed",
-        description: "Failed to refresh time slots. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to refresh time slots",
         variant: "destructive"
       });
     }
@@ -1107,6 +1121,17 @@ export default function BookingForm() {
               {step === 2 && (
                 <div className="space-y-6">
                   <h3 className="font-playfair text-xl font-semibold text-[#9a7d62] mb-6">Choose Date & Time</h3>
+                  
+                  {/* Debug info - only visible during development */}
+                  {process.env.NODE_ENV === 'development' && (
+                    <div className="bg-gray-100 p-2 text-xs text-gray-500 rounded">
+                      <div>Debug: {debugDataLoaded ? 'Data loaded' : 'No data'}</div>
+                      <div>Groomers: {groomersWithSlots.length > 0 ? groomersWithSlots.join(', ') : 'None'}</div>
+                      <div>Slots: {Object.keys(timeSlotsByGroomer).length > 0 ? 
+                        Object.keys(timeSlotsByGroomer).map(g => `${g}(${timeSlotsByGroomer[g]?.length || 0})`).join(', ') : 
+                        'None'}</div>
+                    </div>
+                  )}
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <FormField

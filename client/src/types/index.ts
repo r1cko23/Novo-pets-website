@@ -2,6 +2,7 @@ export interface TimeSlot {
   time: string;
   groomer: string;
   available: boolean;
+  formattedTime?: string;
 }
 
 export interface Reservation {
