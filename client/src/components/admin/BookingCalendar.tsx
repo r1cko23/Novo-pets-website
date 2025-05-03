@@ -47,8 +47,8 @@ export default function BookingCalendar({ bookings, onStatusChange }: BookingCal
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [showBookingDetails, setShowBookingDetails] = useState(false);
-  const [filterServiceType, setFilterServiceType] = useState<string | null>(null);
-  const [filterPriority, setFilterPriority] = useState<string | null>(null);
+  const [filterServiceType, setFilterServiceType] = useState<string | null>("all");
+  const [filterPriority, setFilterPriority] = useState<string | null>("all");
   
   // Generate days for current month view
   const monthStart = startOfMonth(currentDate);
@@ -90,7 +90,7 @@ export default function BookingCalendar({ bookings, onStatusChange }: BookingCal
   const getBookingsForDay = (day: Date) => {
     return bookings.filter(booking => {
       // Filter by service type if selected
-      if (filterServiceType && booking.serviceType !== filterServiceType) {
+      if (filterServiceType && filterServiceType !== "all" && booking.serviceType !== filterServiceType) {
         return false;
       }
       
@@ -179,24 +179,24 @@ export default function BookingCalendar({ bookings, onStatusChange }: BookingCal
         </div>
         
         <div className="flex items-center space-x-4">
-          <Select value={filterServiceType || ""} onValueChange={(value) => setFilterServiceType(value || null)}>
+          <Select value={filterServiceType || "all"} onValueChange={(value) => setFilterServiceType(value)}>
             <SelectTrigger className="w-[150px]">
               <SelectValue placeholder="Service Type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Services</SelectItem>
+              <SelectItem value="all">All Services</SelectItem>
               <SelectItem value="grooming">Grooming</SelectItem>
               <SelectItem value="hotel">Hotel</SelectItem>
               <SelectItem value="daycare">Daycare</SelectItem>
             </SelectContent>
           </Select>
           
-          <Select value={filterPriority || ""} onValueChange={(value) => setFilterPriority(value || null)}>
+          <Select value={filterPriority || "all"} onValueChange={(value) => setFilterPriority(value)}>
             <SelectTrigger className="w-[120px]">
               <SelectValue placeholder="Priority" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All</SelectItem>
+              <SelectItem value="all">All</SelectItem>
               <SelectItem value="high">High</SelectItem>
               <SelectItem value="normal">Normal</SelectItem>
               <SelectItem value="low">Low</SelectItem>
@@ -208,8 +208,8 @@ export default function BookingCalendar({ bookings, onStatusChange }: BookingCal
             size="sm"
             className="ml-2 text-gray-600 hover:bg-gray-100"
             onClick={() => {
-              setFilterServiceType(null);
-              setFilterPriority(null);
+              setFilterServiceType("all");
+              setFilterPriority("all");
             }}
           >
             Reset Filters
@@ -375,7 +375,7 @@ export default function BookingCalendar({ bookings, onStatusChange }: BookingCal
           <DialogFooter className="sm:justify-between">
             <div className="flex space-x-2">
               <Select 
-                defaultValue={selectedBooking?.status}
+                defaultValue={selectedBooking?.status || "pending"}
                 onValueChange={(value) => {
                   if (selectedBooking) {
                     onStatusChange(selectedBooking.id, value, selectedBooking.serviceType);
