@@ -276,16 +276,6 @@ export default function AdminDashboard() {
                 Calendar
               </Button>
             </div>
-            
-            <Button 
-              variant="default" 
-              className="bg-brand-tertiary hover:bg-brand-tertiary/90"
-              onClick={() => {
-                window.location.href = "/";
-              }}
-            >
-              Create New Booking
-            </Button>
           </div>
         </div>
         
@@ -296,6 +286,7 @@ export default function AdminDashboard() {
             <BookingCalendar 
               bookings={bookings || []} 
               onStatusChange={handleStatusChange} 
+              refetchBookings={refetch}
             />
           </div>
         ) : (

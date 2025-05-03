@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import BookingForm from "./BookingForm";
 
 // Define types
 interface Booking {
@@ -41,12 +42,14 @@ interface Booking {
 interface BookingCalendarProps {
   bookings: Booking[];
   onStatusChange: (id: number, status: string, serviceType?: string) => void;
+  refetchBookings: () => void;
 }
 
-export default function BookingCalendar({ bookings, onStatusChange }: BookingCalendarProps) {
+export default function BookingCalendar({ bookings, onStatusChange, refetchBookings }: BookingCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [showBookingDetails, setShowBookingDetails] = useState(false);
+  const [showNewBookingForm, setShowNewBookingForm] = useState(false);
   const [filterServiceType, setFilterServiceType] = useState<string | null>("all");
   const [filterPriority, setFilterPriority] = useState<string | null>("all");
   
@@ -162,6 +165,13 @@ export default function BookingCalendar({ bookings, onStatusChange }: BookingCal
     return booking.appointmentTime;
   };
   
+  // Handle new booking success
+  const handleNewBookingSuccess = () => {
+    setShowNewBookingForm(false);
+    // Refetch bookings after a new booking is created
+    refetchBookings();
+  };
+  
   return (
     <div className="h-full flex flex-col">
       {/* Calendar Header */}
@@ -219,7 +229,11 @@ export default function BookingCalendar({ bookings, onStatusChange }: BookingCal
             <Settings className="h-4 w-4" />
           </Button>
           
-          <Button variant="default" className="bg-brand-tertiary hover:bg-brand-tertiary/90">
+          <Button 
+            variant="default" 
+            className="bg-brand-tertiary hover:bg-brand-tertiary/90"
+            onClick={() => setShowNewBookingForm(true)}
+          >
             <Plus className="h-5 w-5 mr-1" /> New Booking
           </Button>
         </div>
@@ -403,6 +417,20 @@ export default function BookingCalendar({ bookings, onStatusChange }: BookingCal
               </Button>
             </div>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* New Booking Form Dialog */}
+      <Dialog open={showNewBookingForm} onOpenChange={setShowNewBookingForm}>
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Create New Booking</DialogTitle>
+          </DialogHeader>
+          
+          <BookingForm 
+            onSuccess={handleNewBookingSuccess} 
+            onCancel={() => setShowNewBookingForm(false)} 
+          />
         </DialogContent>
       </Dialog>
     </div>
