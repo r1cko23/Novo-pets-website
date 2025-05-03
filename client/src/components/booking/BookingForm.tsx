@@ -72,7 +72,7 @@ export default function BookingForm() {
   const [reservation, setReservation] = useState<Reservation | null>(null);
   const reservationTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [reservationTimeLeft, setReservationTimeLeft] = useState<number | null>(null);
-  const [showBookedSlots, setShowBookedSlots] = useState(false);
+  const [showBookedSlots, setShowBookedSlots] = useState(true);
   const { toast } = useToast();
   
   // Default time slots (will be filtered based on availability)
@@ -446,51 +446,73 @@ export default function BookingForm() {
     }
   }, [availabilityData, form, selectedGroomer, reservation, selectedDate]);
   
-  // Group time slots by groomer and sort to put available slots first
-  const timeSlotsByGroomer = availableTimeSlots.reduce((acc, slot) => {
-    // Create the groomer key if it doesn't exist
-    if (!acc[slot.groomer]) {
-      acc[slot.groomer] = [];
-    }
-    
-    // Ensure the available property is a boolean
-    const processedSlot = {
-      ...slot,
-      available: !!slot.available, // Convert to true boolean
-    };
-    
-    // Add the processed slot to the groomer's array
-    acc[slot.groomer].push(processedSlot);
-    return acc;
-  }, {} as Record<string, TimeSlot[]>);
+  // Organize time slots by groomer
+  const timeSlotsByGroomer: Record<string, TimeSlot[]> = {};
+  const groomersWithSlots: string[] = [];
   
-  // Sort time slots within each groomer to put available slots first
-  Object.keys(timeSlotsByGroomer).forEach(groomer => {
-    timeSlotsByGroomer[groomer].sort((a, b) => {
-      // Available slots come first
-      if (a.available && !b.available) return -1;
-      if (!a.available && b.available) return 1;
-      // Otherwise sort by time
-      return a.time.localeCompare(b.time);
-    });
-  });
-
-  // Debug: Print grouped time slots with availability
-  console.log("DEBUG timeSlotsByGroomer stats:");
-  Object.entries(timeSlotsByGroomer).forEach(([groomer, slots]) => {
-    const availableSlots = slots.filter(s => !!s.available).length;
-    const totalSlots = slots.length;
-    console.log(`- ${groomer}: ${availableSlots}/${totalSlots} available`);
-    
-    // Check 9:00 AM slot specifically
-    const nineAmSlot = slots.find(s => s.time === '09:00');
-    if (nineAmSlot) {
-      console.log(`  9:00 AM: ${nineAmSlot.available ? 'AVAILABLE' : 'BOOKED'}`);
+  // Track fully booked time slots
+  const [timeSlotAvailability, setTimeSlotAvailability] = useState<Record<string, { totalSlots: number, available: number }>>({});
+  
+  // Process availability data when it changes
+  useEffect(() => {
+    if (availabilityData?.availableTimeSlots && Array.isArray(availabilityData.availableTimeSlots)) {
+      // Clear the existing data
+      const newTimeSlotsByGroomer: Record<string, TimeSlot[]> = {};
+      const newGroomersWithSlots: string[] = [];
+      
+      // Track availability statistics per time
+      const timeStats: Record<string, { totalSlots: number, available: number }> = {};
+      
+      // Group time slots by groomer
+      availabilityData.availableTimeSlots.forEach((slot) => {
+        // Skip if the slot doesn't have expected properties
+        if (!slot || !slot.time || !slot.groomer) return;
+        
+        // Create groomer entry if it doesn't exist yet
+        if (!newTimeSlotsByGroomer[slot.groomer]) {
+          newTimeSlotsByGroomer[slot.groomer] = [];
+          newGroomersWithSlots.push(slot.groomer);
+        }
+        
+        // Add the slot to the groomer's list
+        newTimeSlotsByGroomer[slot.groomer].push(slot);
+        
+        // Track availability stats per time slot
+        if (!timeStats[slot.time]) {
+          timeStats[slot.time] = { totalSlots: 0, available: 0 };
+        }
+        timeStats[slot.time].totalSlots++;
+        if (slot.available) {
+          timeStats[slot.time].available++;
+        }
+      });
+      
+      // Update the state
+      setTimeSlotAvailability(timeStats);
+      
+      // Add the groomers and their time slots to the state
+      Object.keys(newTimeSlotsByGroomer).forEach((groomer) => {
+        timeSlotsByGroomer[groomer] = newTimeSlotsByGroomer[groomer].sort((a, b) => {
+          return a.time.localeCompare(b.time);
+        });
+      });
+      
+      groomersWithSlots.length = 0;
+      groomersWithSlots.push(...newGroomersWithSlots);
+      
+      // Check if there are any available slots at all
+      const anyAvailableSlots = availabilityData.availableTimeSlots.some(slot => slot.available);
+      if (!anyAvailableSlots && selectedDate) {
+        // If there are no available slots, add this date to the fully booked dates
+        setFullyBookedDates(prev => {
+          if (!prev.includes(selectedDate)) {
+            return [...prev, selectedDate];
+          }
+          return prev;
+        });
+      }
     }
-  });
-
-  // Get list of groomers with slots
-  const groomersWithSlots = Object.keys(timeSlotsByGroomer);
+  }, [availabilityData]);
   
   // Mutation for submitting form
   const mutation = useMutation({
@@ -1156,8 +1178,41 @@ export default function BookingForm() {
                                     date.getDay() === 0
                                   );
                                 }}
+                                modifiers={{
+                                  fullyBooked: (date) => {
+                                    // Convert the date to a string to match with fully booked dates
+                                    const dateStr = date.toISOString();
+                                    return fullyBookedDates.some(bookedDate => 
+                                      dateStr.split('T')[0] === new Date(bookedDate).toISOString().split('T')[0]
+                                    );
+                                  }
+                                }}
+                                modifiersClassNames={{
+                                  fullyBooked: "text-red-500 line-through bg-red-50/50"
+                                }}
                                 initialFocus
                               />
+                              <div className="p-3 border-t border-gray-100 flex flex-col gap-2">
+                                <p className="text-xs font-medium text-gray-500">Date Legend:</p>
+                                <div className="flex flex-col gap-1.5 text-xs">
+                                  <div className="flex items-center">
+                                    <div className="w-4 h-4 rounded-sm bg-white border border-gray-200 mr-2"></div>
+                                    <span>Available</span>
+                                  </div>
+                                  <div className="flex items-center">
+                                    <div className="w-4 h-4 rounded-sm bg-red-50/50 text-red-500 flex items-center justify-center text-[10px] line-through mr-2">
+                                      <span>1</span>
+                                    </div>
+                                    <span>Fully Booked</span>
+                                  </div>
+                                  <div className="flex items-center">
+                                    <div className="w-4 h-4 rounded-sm bg-gray-100 text-gray-400 flex items-center justify-center text-[10px] mr-2">
+                                      <span>1</span>
+                                    </div>
+                                    <span>Past Date or Sunday (Closed)</span>
+                                  </div>
+                                </div>
+                              </div>
                             </PopoverContent>
                           </Popover>
                           <FormMessage />
@@ -1224,11 +1279,30 @@ export default function BookingForm() {
                                 </FormControl>
                                 <SelectContent>
                                   {groomersWithSlots.length > 0 ? (
-                                    groomersWithSlots.map((groomer) => (
-                                      <SelectItem key={groomer} value={groomer}>
-                                        {groomer}
-                                      </SelectItem>
-                                    ))
+                                    groomersWithSlots.map((groomer) => {
+                                      // Calculate available slots for this groomer
+                                      const groomerSlots = timeSlotsByGroomer[groomer] || [];
+                                      const availableSlots = groomerSlots.filter(slot => slot.available).length;
+                                      const totalSlots = groomerSlots.length;
+                                      // Calculate availability percentage
+                                      const availabilityPercentage = totalSlots ? (availableSlots / totalSlots) * 100 : 0;
+                                      
+                                      return (
+                                        <SelectItem key={groomer} value={groomer}>
+                                          <div className="flex items-center justify-between w-full">
+                                            <span>{groomer}</span>
+                                            <span className={cn(
+                                              "text-xs ml-2 px-1.5 py-0.5 rounded font-medium",
+                                              availabilityPercentage === 0 ? "bg-red-100 text-red-700" : 
+                                              availabilityPercentage < 30 ? "bg-amber-100 text-amber-700" : 
+                                              "bg-green-100 text-green-700"
+                                            )}>
+                                              {availableSlots}/{totalSlots} slots available
+                                            </span>
+                                          </div>
+                                        </SelectItem>
+                                      );
+                                    })
                                   ) : (
                                     <div className="px-4 py-6 text-center">
                                       {selectedDate && !isLoadingAvailability ? (
@@ -1268,7 +1342,7 @@ export default function BookingForm() {
                                   className="h-3 w-3"
                                 />
                                 <Label htmlFor="show-booked" className="text-xs text-gray-500">
-                                  Show booked slots
+                                  {showBookedSlots ? "Hiding" : "Show"} booked slots
                                 </Label>
                               </div>
                               {selectedDate && selectedGroomer && (
@@ -1335,13 +1409,21 @@ export default function BookingForm() {
                                         value={slot.time}
                                         disabled={slot.available !== true}
                                         className={cn(
-                                          slot.available !== true && "opacity-70 line-through text-red-400 cursor-not-allowed bg-gray-100"
+                                          "flex items-center py-2 px-2 relative",
+                                          slot.available !== true && "opacity-80 bg-gray-50"
                                         )}
                                       >
                                         <div className="flex justify-between w-full items-center">
-                                          <span>{slot.time}</span>
+                                          <div className="flex items-center">
+                                            <span className={cn(
+                                              "text-base",
+                                              slot.available !== true && "line-through text-gray-400"
+                                            )}>
+                                              {format(parse(slot.time, 'HH:mm', new Date()), 'h:mm a')}
+                                            </span>
+                                          </div>
                                           {slot.available !== true && (
-                                            <span className="text-red-500 text-xs font-medium ml-2 flex items-center">
+                                            <span className="text-red-500 text-xs font-semibold px-2 py-1 bg-red-50 rounded-full ml-2 flex items-center">
                                               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
                                                 <path d="M18 6 6 18"></path>
                                                 <path d="m6 6 12 12"></path>
@@ -1349,15 +1431,21 @@ export default function BookingForm() {
                                               Booked
                                             </span>
                                           )}
+                                          {slot.available === true && (
+                                            <span className="text-green-600 text-xs font-semibold px-2 py-1 bg-green-50 rounded-full ml-2 flex items-center">
+                                              <Check className="h-3 w-3 mr-1" />
+                                              Available
+                                            </span>
+                                          )}
                                         </div>
                                       </SelectItem>
                                     ))
                                 ) : (
-                                  // No slots for this groomer
                                   <div className="px-4 py-6 text-center">
                                     <div className="flex flex-col items-center">
-                                      <p className="text-sm text-red-500 font-semibold">No slots available</p>
-                                      <p className="text-xs text-gray-500 mt-1">Please select another groomer or date</p>
+                                      <AlertCircle className="h-6 w-6 text-red-500 mb-2" />
+                                      <p className="text-sm text-red-500 font-semibold">No available slots</p>
+                                      <p className="text-xs text-gray-500 mt-1">Please select another date or groomer</p>
                                     </div>
                                   </div>
                                 )
@@ -1368,11 +1456,25 @@ export default function BookingForm() {
                               )}
                             </SelectContent>
                           </Select>
-                          {selectedDate && !selectedGroomer && (
-                            <p className="text-sm text-amber-500 mt-1">
-                              Please select a groomer to see available time slots.
-                            </p>
-                          )}
+                          
+                          {/* Time slots legend */}
+                          <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                            <div className="flex items-center border border-green-100 rounded px-2 py-1 bg-green-50/40">
+                              <div className="w-3 h-3 rounded-full bg-green-100 mr-1.5 flex items-center justify-center">
+                                <Check className="h-2 w-2 text-green-600" />
+                              </div>
+                              <span className="text-green-700">Available</span>
+                            </div>
+                            <div className="flex items-center border border-red-100 rounded px-2 py-1 bg-red-50/40">
+                              <div className="w-3 h-3 rounded-full bg-red-100 mr-1.5 flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-600">
+                                  <path d="M18 6 6 18"></path>
+                                  <path d="m6 6 12 12"></path>
+                                </svg>
+                              </div>
+                              <span className="text-red-700">Booked</span>
+                            </div>
+                          </div>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -1793,6 +1895,21 @@ export default function BookingForm() {
                 >
                   try again now
                 </button>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Show alert when no slots are available */}
+          {selectedDate && availabilityData?.availableTimeSlots && 
+           Array.isArray(availabilityData.availableTimeSlots) && 
+           availabilityData.availableTimeSlots.length > 0 && 
+           !availabilityData.availableTimeSlots.some(slot => slot.available) && (
+            <Alert variant="destructive" className="mt-3">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Fully Booked</AlertTitle>
+              <AlertDescription>
+                All time slots for {format(new Date(selectedDate), "MMMM d, yyyy")} are fully booked. 
+                Please select a different date.
               </AlertDescription>
             </Alert>
           )}
