@@ -19,13 +19,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
-import { Loader2 } from "lucide-react";
+import { Loader2, Calendar as CalendarIcon, List } from "lucide-react";
+import BookingCalendar from "@/components/admin/BookingCalendar";
 
 export default function AdminDashboard() {
   const [_, setLocation] = useLocation();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("all");
   const [filter, setFilter] = useState("all");
+  const [viewMode, setViewMode] = useState<"list" | "calendar">("calendar"); // Set default to calendar view
   const [showCompletionDialog, setShowCompletionDialog] = useState(false);
   const [showCancellationDialog, setShowCancellationDialog] = useState(false);
   const [pendingCompletion, setPendingCompletion] = useState<{id: number, bookingType?: string} | null>(null);
@@ -240,7 +242,7 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-gray-100">
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-semibold text-[#9a7d62]">Novo Pets Admin Dashboard</h1>
+          <h1 className="text-xl font-semibold text-brand-primary">Novo Pets Admin Dashboard</h1>
           <Button variant="outline" onClick={handleLogout}>Logout</Button>
         </div>
       </header>
@@ -248,115 +250,154 @@ export default function AdminDashboard() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Bookings</h2>
-            <p className="text-gray-600">Manage all pet grooming and hotel bookings</p>
+            <h2 className="text-2xl font-bold text-brand-primary mb-2">Booking Management</h2>
+            <p className="text-gray-600">View and manage all pet bookings</p>
           </div>
           
-          <div className="mt-4 sm:mt-0 sm:ml-4 flex items-center space-x-4">
-            <Select value={filter} onValueChange={setFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="confirmed">Confirmed</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="mt-4 sm:mt-0 flex items-center space-x-2">
+            {/* View toggle: List vs Calendar */}
+            <div className="bg-white rounded-md border border-gray-200 p-1 flex">
+              <Button
+                variant={viewMode === "list" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("list")}
+                className={viewMode === "list" ? "bg-brand-tertiary text-white" : ""}
+              >
+                <List className="h-4 w-4 mr-1" />
+                List
+              </Button>
+              <Button
+                variant={viewMode === "calendar" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("calendar")}
+                className={viewMode === "calendar" ? "bg-brand-tertiary text-white" : ""}
+              >
+                <CalendarIcon className="h-4 w-4 mr-1" />
+                Calendar
+              </Button>
+            </div>
             
             <Button 
               variant="default" 
-              onClick={() => refetch()}
-              className="bg-[#9a7d62] hover:bg-[#9a7d62]/90"
+              className="bg-brand-tertiary hover:bg-brand-tertiary/90"
+              onClick={() => {
+                window.location.href = "/";
+              }}
             >
-              Refresh
+              Create New Booking
             </Button>
           </div>
         </div>
         
-        <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-6">
-            <TabsTrigger value="all">All Bookings</TabsTrigger>
-            <TabsTrigger value="grooming">Grooming</TabsTrigger>
-            <TabsTrigger value="hotel">Pet Hotel</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="all" className="mt-0">
-            <BookingsList 
-              bookings={filteredBookings} 
+        {/* Conditional rendering based on view mode */}
+        {viewMode === "calendar" ? (
+          /* Calendar View */
+          <div className="bg-white rounded-lg shadow-sm p-6 min-h-[600px]">
+            <BookingCalendar 
+              bookings={bookings || []} 
               onStatusChange={handleStatusChange} 
             />
-          </TabsContent>
-          
-          <TabsContent value="grooming" className="mt-0">
-            <BookingsList 
-              bookings={filteredBookings} 
-              onStatusChange={handleStatusChange} 
-            />
-          </TabsContent>
-          
-          <TabsContent value="hotel" className="mt-0">
-            <BookingsList 
-              bookings={filteredBookings} 
-              onStatusChange={handleStatusChange} 
-            />
-          </TabsContent>
-        </Tabs>
+          </div>
+        ) : (
+          /* List View */
+          <div>
+            <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
+              <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
+                  <TabsList className="mb-4">
+                    <TabsTrigger value="all">All Bookings</TabsTrigger>
+                    <TabsTrigger value="grooming">Grooming</TabsTrigger>
+                    <TabsTrigger value="hotel">Hotel</TabsTrigger>
+                    <TabsTrigger value="daycare">Daycare</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                
+                <div className="flex space-x-4">
+                  <Select value={filter} onValueChange={setFilter}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Filter by status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="confirmed">Confirmed</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <BookingsList 
+                bookings={filteredBookings} 
+                onStatusChange={handleStatusChange} 
+              />
+            </div>
+          </div>
+        )}
       </main>
       
-      {/* Confirmation dialog for completing a booking */}
+      {/* Completion Confirmation Dialog */}
       <AlertDialog open={showCompletionDialog} onOpenChange={setShowCompletionDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Mark booking as completed?</AlertDialogTitle>
+            <AlertDialogTitle>Mark Booking as Completed</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the booking from the database. This action cannot be undone.
+              Are you sure you want to mark this booking as completed? 
+              This will archive the booking from the active list.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setPendingCompletion(null)}>
               Cancel
             </AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={() => {
                 if (pendingCompletion) {
-                  updateBookingStatus(pendingCompletion.id, "completed", pendingCompletion.bookingType);
+                  updateBookingStatus(
+                    pendingCompletion.id, 
+                    "completed", 
+                    pendingCompletion.bookingType
+                  );
                   setPendingCompletion(null);
                 }
               }}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-green-600 hover:bg-green-700"
             >
-              Complete and Delete
+              Confirm Completion
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
       
-      {/* Confirmation dialog for cancelling a booking */}
+      {/* Cancellation Confirmation Dialog */}
       <AlertDialog open={showCancellationDialog} onOpenChange={setShowCancellationDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Cancel this booking?</AlertDialogTitle>
+            <AlertDialogTitle>Cancel Booking</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the booking from the database. This action cannot be undone.
+              Are you sure you want to cancel this booking? 
+              This action will mark the booking as cancelled and archive it.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setPendingCancellation(null)}>
               No, Keep Booking
             </AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={() => {
                 if (pendingCancellation) {
-                  updateBookingStatus(pendingCancellation.id, "cancelled", pendingCancellation.bookingType);
+                  updateBookingStatus(
+                    pendingCancellation.id, 
+                    "cancelled", 
+                    pendingCancellation.bookingType
+                  );
                   setPendingCancellation(null);
                 }
               }}
               className="bg-red-600 hover:bg-red-700"
             >
-              Yes, Cancel and Delete
+              Yes, Cancel Booking
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -365,137 +406,132 @@ export default function AdminDashboard() {
   );
 }
 
-// Bookings list component
 function BookingsList({ bookings, onStatusChange }: { 
   bookings: any[], 
   onStatusChange: (id: number, status: string, bookingType?: string) => void 
 }) {
-  if (bookings.length === 0) {
+  if (!bookings || bookings.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow p-6 text-center">
-        <p className="text-gray-600">No bookings found</p>
+      <div className="text-center py-12">
+        <p className="text-gray-500 mb-4">No bookings found matching your filters</p>
+        <Button variant="outline">Clear Filters</Button>
       </div>
     );
   }
-
-  // Helper function to safely format dates
+  
   const safeFormatDate = (dateString: string) => {
     try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) {
-        return "Invalid date";
+      if (!dateString) return "Invalid date";
+      
+      // Simple validation to check if it looks like a date
+      if (!/^\d{4}-\d{2}-\d{2}/.test(dateString)) {
+        return dateString; // Return as is if it doesn't look like ISO format
       }
-      return format(date, "MMM d, yyyy");
+      
+      const date = new Date(dateString);
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return dateString;
+      }
+      
+      return format(date, 'PPP'); // Format: Jan 1, 2021
     } catch (error) {
       console.error("Error formatting date:", error);
-      return "Invalid date";
+      return dateString;
     }
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {bookings.map((booking) => (
-        <Card key={booking.id} className="overflow-hidden">
-          <CardHeader className="pb-4">
-            <div className="flex justify-between items-start">
-              <div>
-                <CardTitle className="text-lg">{booking.petName}</CardTitle>
-                <CardDescription>{booking.petBreed} ({booking.petSize || 'Unknown size'})</CardDescription>
-              </div>
-              <StatusBadge status={booking.status} />
-            </div>
-          </CardHeader>
-          
-          <CardContent className="pb-4">
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Service:</span>
-                <span className="font-medium">
-                  {booking.serviceType === "grooming" 
-                    ? `Grooming (${booking.groomingService || 'Basic'})` 
-                    : `Pet Hotel (${booking.accommodationType || 'Standard'})`}
-                </span>
-              </div>
-              
-              {booking.serviceType === "grooming" ? (
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Date & Time:</span>
-                  <span className="font-medium">
-                    {safeFormatDate(booking.appointmentDate)} at {booking.appointmentTime}
-                  </span>
-                </div>
-              ) : (
-                <>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Check-in:</span>
-                    <span className="font-medium">
-                      {safeFormatDate(booking.checkInDate)}
-                    </span>
+    <div className="mt-2">
+      <div className="grid grid-cols-1 gap-4">
+        {bookings.map((booking: any) => (
+          <Card key={booking.id} className="overflow-hidden border-l-4 border-l-brand-tertiary">
+            <CardContent className="p-0">
+              <div className="flex flex-col md:flex-row">
+                <div className="p-4 md:w-2/3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="font-semibold text-lg">{booking.petName}</h3>
+                        <StatusBadge status={booking.status} />
+                      </div>
+                      
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 text-sm text-gray-600 mb-2">
+                        <div className="flex items-center">
+                          <Badge variant="outline" className="mr-2 text-xs">
+                            {booking.serviceType.toUpperCase()}
+                          </Badge>
+                          {booking.groomingService && booking.serviceType === "grooming" && (
+                            <span>{booking.groomingService}</span>
+                          )}
+                          {booking.accommodationType && booking.serviceType === "hotel" && (
+                            <span>{booking.accommodationType}</span>
+                          )}
+                        </div>
+                        <div className="hidden sm:block">•</div>
+                        <div>{booking.petBreed}</div>
+                        <div className="hidden sm:block">•</div>
+                        <div className="capitalize">{booking.petSize} size</div>
+                      </div>
+                      
+                      <div className="flex items-center gap-2 text-gray-600 text-sm">
+                        <p>
+                          <span className="font-medium">Date:</span> {safeFormatDate(booking.appointmentDate)}
+                        </p>
+                        <p className="hidden sm:inline">•</p>
+                        <p className="hidden sm:block">
+                          <span className="font-medium">Time:</span> {booking.appointmentTime}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Check-out:</span>
-                    <span className="font-medium">
-                      {safeFormatDate(booking.checkOutDate)}
-                    </span>
-                  </div>
-                </>
-              )}
-              
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Customer:</span>
-                <span className="font-medium">{booking.customerName}</span>
-              </div>
-              
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Contact:</span>
-                <span className="font-medium">{booking.customerPhone}</span>
-              </div>
-              
-              {booking.specialRequests && (
-                <div className="text-sm mt-2">
-                  <p className="text-gray-500 mb-1">Special Requests:</p>
-                  <p className="text-sm">{booking.specialRequests}</p>
                 </div>
-              )}
-            </div>
-          </CardContent>
-          
-          <CardFooter className="pt-0">
-            <Select 
-              defaultValue={booking.status}
-              onValueChange={(value) => onStatusChange(booking.id, value, booking.serviceType)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Change Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="confirmed">Confirmed</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
-              </SelectContent>
-            </Select>
-          </CardFooter>
-        </Card>
-      ))}
+                
+                <div className="bg-gray-50 p-4 md:w-1/3 flex flex-col justify-between">
+                  <div>
+                    <p className="font-medium">{booking.customerName}</p>
+                    <p className="text-sm text-gray-600">{booking.customerPhone}</p>
+                    <p className="text-sm text-gray-600">{booking.customerEmail}</p>
+                  </div>
+                  
+                  <div className="mt-4 flex flex-col gap-2">
+                    <Select 
+                      defaultValue={booking.status}
+                      onValueChange={(value) => onStatusChange(booking.id, value, booking.serviceType)}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Update Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="confirmed">Confirmed</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }
 
-// Status badge component
 function StatusBadge({ status }: { status: string }) {
-  const colorMap: Record<string, string> = {
-    confirmed: "bg-green-100 text-green-800",
-    pending: "bg-yellow-100 text-yellow-800",
-    cancelled: "bg-red-100 text-red-800", 
-    completed: "bg-blue-100 text-blue-800",
-  };
-  
-  const color = colorMap[status] || "bg-gray-100 text-gray-800";
-  
-  return (
-    <Badge className={`${color} font-medium`} variant="outline">
-      {status.charAt(0).toUpperCase() + status.slice(1)}
-    </Badge>
-  );
+  switch (status.toLowerCase()) {
+    case "pending":
+      return <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">Pending</Badge>;
+    case "confirmed":
+      return <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">Confirmed</Badge>;
+    case "completed":
+      return <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">Completed</Badge>;
+    case "cancelled":
+      return <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300">Cancelled</Badge>;
+    default:
+      return <Badge variant="outline">{status}</Badge>;
+  }
 } 
