@@ -615,17 +615,26 @@ app.get('/api/availability', async (req, res) => {
       });
     }
     
-    // IMPORTANT: Use the exact input date string without any transformation
-    // This ensures the date entered by the user is exactly the date used in the query
+    // IMPORTANT: Use the exact input date string for tracking and response
     const normalizedDate = date;
-    console.log(`Using exact date string for availability check: ${normalizedDate}`);
+    console.log(`Using exact date string for availability tracking: ${normalizedDate}`);
+    
+    // Since the database uses DATE type, we need to adjust for timezone handling by PostgreSQL
+    // Parse the date and add 1 day to compensate for PostgreSQL's timezone conversion
+    const [year, month, day] = normalizedDate.split('-').map(Number);
+    const dateForDb = new Date(year, month - 1, day);
+    dateForDb.setDate(dateForDb.getDate() + 1); // Add 1 day to compensate for timezone conversion
+    
+    // Format the adjusted date back to YYYY-MM-DD
+    const adjustedDateStr = `${dateForDb.getFullYear()}-${String(dateForDb.getMonth() + 1).padStart(2, '0')}-${String(dateForDb.getDate()).padStart(2, '0')}`;
+    console.log(`Adjusted date for database query: ${adjustedDateStr} (added 1 day to compensate for timezone conversion)`);
     
     // Get all bookings for this date to determine availability with the most recent data
     // Include both confirmed and pending statuses as booked
     let groomingQuery = supabase
       .from('grooming_appointments')
       .select('appointment_date, appointment_time, groomer, status')
-      .eq('appointment_date', normalizedDate)
+      .eq('appointment_date', adjustedDateStr) // Use adjusted date for DB query
       .in('status', ['confirmed', 'pending']);
     
     // Instead of using options, let's ensure we get the most recent data
@@ -644,7 +653,7 @@ app.get('/api/availability', async (req, res) => {
     const { data: hotelBookings, error: hotelError } = await supabase
       .from('hotel_bookings')
       .select('check_in_date, check_out_date, accommodation_type, status')
-      .or(`check_in_date.eq.${normalizedDate},and(check_in_date.lt.${normalizedDate},check_out_date.gte.${normalizedDate})`)
+      .or(`check_in_date.eq.${adjustedDateStr},and(check_in_date.lt.${adjustedDateStr},check_out_date.gte.${adjustedDateStr})`) // Use adjusted date
       .in('status', ['confirmed', 'pending']);
       
     if (hotelError) {
@@ -652,7 +661,7 @@ app.get('/api/availability', async (req, res) => {
       throw hotelError;
     }
     
-    console.log(`Found ${groomingBookings?.length || 0} grooming bookings and ${hotelBookings?.length || 0} hotel bookings for date ${normalizedDate}`);
+    console.log(`Found ${groomingBookings?.length || 0} grooming bookings and ${hotelBookings?.length || 0} hotel bookings for date ${adjustedDateStr}`);
     
     // Log actual booking dates to help debug
     if (groomingBookings && groomingBookings.length > 0) {
@@ -827,11 +836,21 @@ app.post('/api/reservations', async (req, res) => {
     
     console.log(`Using cleaned date string for reservation check: ${cleanDateStr}`);
     
+    // Since the database uses DATE type, we need to adjust for timezone handling by PostgreSQL
+    // Parse the date and add 1 day to compensate for PostgreSQL's timezone conversion
+    const [year, month, day] = cleanDateStr.split('-').map(Number);
+    const dateForDb = new Date(year, month - 1, day);
+    dateForDb.setDate(dateForDb.getDate() + 1); // Add 1 day to compensate for timezone conversion
+    
+    // Format the adjusted date back to YYYY-MM-DD
+    const adjustedDateStr = `${dateForDb.getFullYear()}-${String(dateForDb.getMonth() + 1).padStart(2, '0')}-${String(dateForDb.getDate()).padStart(2, '0')}`;
+    console.log(`Adjusted date for database query: ${adjustedDateStr} (added 1 day to compensate for timezone conversion)`);
+    
     // Check if slot is available with a more robust query
     const { data: bookings, error } = await supabase
       .from('grooming_appointments')
       .select('*')
-      .eq('appointment_date', cleanDateStr)
+      .eq('appointment_date', adjustedDateStr) // Use adjusted date for DB query
       .eq('appointment_time', appointmentTime)
       .eq('groomer', groomer)
       .in('status', ['confirmed', 'pending']);
@@ -937,6 +956,17 @@ app.post('/api/bookings', async (req, res) => {
     
     console.log(`Using cleaned date string for booking: ${cleanDateStr}`);
     
+    // IMPORTANT: Since the database column is now a DATE type (not TEXT), we need to
+    // adjust for timezone handling by PostgreSQL
+    // Parse the date and add 1 day to compensate for PostgreSQL's timezone conversion
+    const [year, month, day] = cleanDateStr.split('-').map(Number);
+    const dateForDb = new Date(year, month - 1, day);
+    dateForDb.setDate(dateForDb.getDate() + 1); // Add 1 day to compensate for timezone conversion
+    
+    // Format the adjusted date back to YYYY-MM-DD
+    const adjustedDateStr = `${dateForDb.getFullYear()}-${String(dateForDb.getMonth() + 1).padStart(2, '0')}-${String(dateForDb.getDate()).padStart(2, '0')}`;
+    console.log(`Adjusted date for database storage: ${adjustedDateStr} (added 1 day to compensate for timezone conversion)`);
+    
     // Generate a reference number with prefix based on service type
     const prefix = serviceType === 'hotel' ? 'NVP-H-' : 'NVP-G-';
     const referenceNumber = `${prefix}${Math.floor(Math.random() * 900000) + 100000}`;
@@ -945,16 +975,15 @@ app.post('/api/bookings', async (req, res) => {
     // Hotel bookings
     if (serviceType === 'hotel') {
       // For hotel stays, use check_in_date and check_out_date fields
-      const checkInDate = cleanDateStr;  // Use the exact date string from input
+      const checkInDate = adjustedDateStr;  // Use the adjusted date string for DB
       
       // Calculate check-out date based on duration without timezone issues
-      // Parse the date parts directly to avoid timezone conversions
-      const [year, month, day] = cleanDateStr.split('-').map(Number);
-      // Create a new date using local timezone (month is 0-indexed in JavaScript)
-      const checkOutDate = new Date(year, month - 1, day + (durationDays || 1));
+      // Use the adjusted date as base
+      const checkOutDateObj = new Date(dateForDb);
+      checkOutDateObj.setDate(checkOutDateObj.getDate() + (durationDays || 1) - 1); // -1 because we already added 1 day
       
       // Format check-out date as YYYY-MM-DD string
-      const formattedCheckOutDate = `${checkOutDate.getFullYear()}-${String(checkOutDate.getMonth() + 1).padStart(2, '0')}-${String(checkOutDate.getDate()).padStart(2, '0')}`;
+      const formattedCheckOutDate = `${checkOutDateObj.getFullYear()}-${String(checkOutDateObj.getMonth() + 1).padStart(2, '0')}-${String(checkOutDateObj.getDate()).padStart(2, '0')}`;
       
       console.log(`Calculated check-out date: ${formattedCheckOutDate} (for ${durationDays || 1} days stay)`);
       
@@ -995,7 +1024,7 @@ app.post('/api/bookings', async (req, res) => {
       }
       
       // Clear availability cache for this date
-      clearAvailabilityCache(checkInDate);
+      clearAvailabilityCache(cleanDateStr); // Use original cleaned date for availability cache
       
       console.log('Hotel booking created successfully:', data);
       
@@ -1008,7 +1037,7 @@ app.post('/api/bookings', async (req, res) => {
     else {
       // Create grooming booking data object with the timezone-corrected date
       const groomingBookingData = {
-        appointment_date: cleanDateStr,  // Use the cleaned date string
+        appointment_date: adjustedDateStr,  // Use the adjusted date for the database
         appointment_time: appointmentTime,
         pet_name: petName,
         pet_breed: petBreed,
@@ -1042,7 +1071,7 @@ app.post('/api/bookings', async (req, res) => {
       }
       
       // Clear availability cache for this date
-      clearAvailabilityCache(cleanDateStr);
+      clearAvailabilityCache(cleanDateStr); // Use original cleaned date for availability cache
       
       console.log('Grooming booking created successfully:', data);
       

@@ -30,6 +30,17 @@ When working with dates on the client side:
 - Dates will be stored in the database exactly as provided by the client
 - For all endpoints that accept dates, we implement a cleaning procedure to strip any time components and ensure YYYY-MM-DD format
 
+## Database Column Type Considerations
+- **When using DATE column type (current configuration):**
+  - PostgreSQL DATE columns apply server timezone when storing dates
+  - Our API compensates by adding 1 day to dates before storing/querying
+  - This ensures the date displayed to users matches the date they selected
+  
+- **When using TEXT column type (alternative approach):**
+  - Store dates exactly as strings without server timezone conversions
+  - No need to apply the +1 day compensation
+  - More predictable but loses some database date validation
+
 ## Common Pitfalls to Avoid
 - Using Date.toISOString() which includes time and applies UTC conversion
 - Using libraries like moment.js or date-fns to format dates for API requests
