@@ -116,7 +116,7 @@ export default function Footer() {
                 Novo Pets, White Plains, Katipunan Avenue, Quezon City, Philippines
               </ContactItem>
               <ContactItem icon={<Phone className="h-5 w-5" />}>
-                09177151609 / 09052510937
+                (0917) 791 7671
               </ContactItem>
               <ContactItem icon={<Mail className="h-5 w-5" />}>
                 novopetsph@gmail.com
