@@ -145,11 +145,19 @@ function ServiceCard({
     return (
       <div>
         <div className="h-full backdrop-blur-sm bg-white/80 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-[0_15px_35px_rgba(0,0,0,0.05)] border border-white/20 relative group">
-          <div className="h-56 overflow-hidden relative">
+          <div
+            className={`overflow-hidden relative ${
+              title === "Luxury Grooming & Spa" ? "h-48" : "h-56"
+            }`}
+          >
             <img
               src={image}
               alt={title}
-              className="w-full h-full object-contain"
+              className={`w-full h-full ${
+                title === "Luxury Grooming & Spa"
+                  ? "object-cover object-center"
+                  : "object-contain"
+              }`}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
           </div>
@@ -201,11 +209,19 @@ function ServiceCard({
             "0 10px 30px rgba(0,0,0,0.02), inset 0 -1px 0 0 rgba(255,255,255,0.1)",
         }}
       >
-        <div className="h-56 overflow-hidden relative">
+        <div
+          className={`overflow-hidden relative ${
+            title === "Luxury Grooming & Spa" ? "h-48" : "h-56"
+          }`}
+        >
           <motion.img
             src={image}
             alt={title}
-            className="w-full h-full object-contain transition-transform duration-700 group-hover:scale-110"
+            className={`w-full h-full transition-transform duration-700 group-hover:scale-110 ${
+              title === "Luxury Grooming & Spa"
+                ? "object-cover object-center"
+                : "object-contain"
+            }`}
             whileHover={{ scale: 1.1 }}
             transition={{ duration: 0.7 }}
           />
