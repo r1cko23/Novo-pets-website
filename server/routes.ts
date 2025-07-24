@@ -358,22 +358,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       try {
+        console.log('📝 [Booking] Creating booking in database...');
         const booking = await storage.createBooking(bookingData);
+        console.log('✅ [Booking] Booking created successfully in database');
         
         // Send confirmation email to customer
+        console.log('📧 [Booking] Attempting to send customer confirmation email...');
         const emailResult = await sendBookingConfirmationEmail(bookingData);
         if (emailResult.success) {
-          console.log('✅ Booking confirmation email sent successfully');
+          console.log('✅ [Booking] Customer confirmation email sent successfully');
         } else {
-          console.warn('⚠️ Failed to send booking confirmation email:', emailResult.message);
+          console.warn('⚠️ [Booking] Failed to send customer confirmation email:', emailResult.message);
         }
         
         // Send notification email to admin
+        console.log('📧 [Booking] Attempting to send admin notification email...');
         const adminEmailResult = await sendAdminNotificationEmail(bookingData);
         if (adminEmailResult.success) {
-          console.log('✅ Admin notification email sent successfully');
+          console.log('✅ [Booking] Admin notification email sent successfully');
         } else {
-          console.warn('⚠️ Failed to send admin notification email:', adminEmailResult.message);
+          console.warn('⚠️ [Booking] Failed to send admin notification email:', adminEmailResult.message);
         }
         
         return res.status(201).json({ 

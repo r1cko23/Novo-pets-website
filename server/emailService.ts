@@ -285,13 +285,19 @@ const createBookingConfirmationEmail = (bookingData: any) => {
 // Send booking confirmation email
 export const sendBookingConfirmationEmail = async (bookingData: any) => {
   try {
+    console.log('📧 [Email] Starting to send booking confirmation email...');
+    console.log('📧 [Email] Customer email:', bookingData.customerEmail);
+    console.log('📧 [Email] Customer name:', bookingData.customerName);
+    
     // Check if email password is configured
     if (!process.env.EMAIL_PASSWORD) {
-      console.warn('EMAIL_PASSWORD not configured. Skipping email sending.');
+      console.warn('⚠️ EMAIL_PASSWORD not configured. Skipping email sending.');
       return { success: false, message: 'Email not configured' };
     }
 
+    console.log('📧 [Email] Creating email template...');
     const { subject, html } = createBookingConfirmationEmail(bookingData);
+    console.log('📧 [Email] Email subject:', subject);
 
     const mailOptions = {
       from: '"Novo Pets" <novopetsph@gmail.com>',
@@ -300,13 +306,15 @@ export const sendBookingConfirmationEmail = async (bookingData: any) => {
       html: html,
     };
 
+    console.log('📧 [Email] Creating transporter...');
     const transporter = createTransporter();
+    console.log('📧 [Email] Sending email...');
     const info = await transporter.sendMail(mailOptions);
-    console.log('Booking confirmation email sent:', info.messageId);
+    console.log('✅ [Email] Booking confirmation email sent successfully:', info.messageId);
     
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('Error sending booking confirmation email:', error);
+    console.error('❌ [Email] Error sending booking confirmation email:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 };
@@ -314,9 +322,13 @@ export const sendBookingConfirmationEmail = async (bookingData: any) => {
 // Send admin notification email
 export const sendAdminNotificationEmail = async (bookingData: any) => {
   try {
+    console.log('📧 [Email] Starting to send admin notification email...');
+    console.log('📧 [Email] Pet name:', bookingData.petName);
+    console.log('📧 [Email] Service type:', bookingData.serviceType);
+    
     // Check if email password is configured
     if (!process.env.EMAIL_PASSWORD) {
-      console.warn('EMAIL_PASSWORD not configured. Skipping admin email.');
+      console.warn('⚠️ EMAIL_PASSWORD not configured. Skipping admin email.');
       return { success: false, message: 'Email not configured' };
     }
 
@@ -370,13 +382,15 @@ export const sendAdminNotificationEmail = async (bookingData: any) => {
       html: adminEmailContent,
     };
 
+    console.log('📧 [Email] Creating admin email template...');
     const transporter = createTransporter();
+    console.log('📧 [Email] Sending admin email...');
     const info = await transporter.sendMail(mailOptions);
-    console.log('Admin notification email sent:', info.messageId);
+    console.log('✅ [Email] Admin notification email sent successfully:', info.messageId);
     
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('Error sending admin notification email:', error);
+    console.error('❌ [Email] Error sending admin notification email:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 };

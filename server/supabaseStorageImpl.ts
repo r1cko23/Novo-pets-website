@@ -754,6 +754,12 @@ export class SupabaseStorage implements IStorage {
         throw error;
       }
       
+      // Invalidate the availability cache for this date to ensure fresh data
+      // This prevents the issue where cached data shows slots as available after booking
+      const normalizedDate = normalizeDate(booking.appointmentDate);
+      availabilityCache.delete(normalizedDate);
+      console.log(`[Booking] Invalidated availability cache for date: ${normalizedDate}`);
+      
       // Return the booking with the exact same date as stored in the database
       // No need to adjust the date anymore
       return {
@@ -893,6 +899,12 @@ export class SupabaseStorage implements IStorage {
       displayCheckInDate.setDate(displayCheckInDate.getDate() - 1);
       const correctedCheckInDate = normalizeDate(displayCheckInDate.toISOString());
       
+      // Invalidate the availability cache for this date to ensure fresh data
+      // This prevents the issue where cached data shows slots as available after booking
+      const normalizedDate = normalizeDate(booking.appointmentDate);
+      availabilityCache.delete(normalizedDate);
+      console.log(`[Booking] Invalidated availability cache for date: ${normalizedDate}`);
+      
       // Convert to Booking type
       return {
         id: data.id,
@@ -948,6 +960,12 @@ export class SupabaseStorage implements IStorage {
           .single();
         
         if (error) throw error;
+        
+        // Invalidate the availability cache for this date to ensure fresh data
+        // This ensures that if a booking is cancelled, the slot becomes available again
+        const normalizedDate = normalizeDate(updatedGrooming.appointment_date);
+        availabilityCache.delete(normalizedDate);
+        console.log(`[Booking] Invalidated availability cache for date: ${normalizedDate} after status update`);
         
         // Convert to Booking type
         return {
