@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Container } from "@/components/ui/container";
 import { cn } from "@/lib/utils";
 import { serviceImages } from "@shared/schema";
 import { motion, AnimatePresence } from "framer-motion";
@@ -20,7 +19,7 @@ export default function Navbar() {
 
   return (
     <header className="fixed top-0 left-0 right-0 bg-transparent w-full z-[100]">
-      <Container className="py-4">
+      <div className="container mx-auto px-6 py-4">
         <div className="flex justify-center">
           <div className="glass px-6 py-2 rounded-full flex items-center w-full max-w-4xl justify-between">
             <Link href="/">
@@ -55,7 +54,7 @@ export default function Navbar() {
             
             <div className="md:flex items-center hidden">
               <Link href="/booking">
-                <Button variant="brand" size="sm" className="rounded-full">
+                <Button size="sm" className="rounded-full bg-[#9a7d62] hover:bg-[#9a7d62]/90 text-white">
                   Book an Appointment
                 </Button>
               </Link>
@@ -64,7 +63,7 @@ export default function Navbar() {
             <div className="block md:hidden">
               <Button 
                 variant="ghost" 
-                size="icon-sm"
+                size="icon"
                 onClick={toggleMobileMenu}
                 aria-label="Toggle menu"
                 className="text-brand-primary"
@@ -108,7 +107,7 @@ export default function Navbar() {
                 
                 <div className="pt-4">
                   <Link href="/booking">
-                    <Button variant="brand" size="sm" className="w-full rounded-full" onClick={closeMobileMenu}>
+                    <Button size="sm" className="w-full rounded-full bg-[#9a7d62] hover:bg-[#9a7d62]/90 text-white" onClick={closeMobileMenu}>
                       Book an Appointment
                     </Button>
                   </Link>
