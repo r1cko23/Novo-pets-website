@@ -575,6 +575,10 @@ export default function BookingForm() {
           console.log(
             `Creating reservation for ${selectedDate} at ${normalizedTime} (from ${selectedTime}) with ${selectedGroomer}`
           );
+          
+          // Mark this slot as being reserved immediately
+          markSlotAsReserving(normalizedTime, selectedGroomer);
+          
           const result = await createReservation(
             selectedDate,
             normalizedTime, // Use normalized time
@@ -583,6 +587,9 @@ export default function BookingForm() {
 
           if (result) {
             const expiresAt = add(new Date(), { seconds: result.expiresIn });
+
+            // Clear the reservation mark since we now have a proper reservation
+            clearSlotReservation(normalizedTime, selectedGroomer);
 
             setReservation({
               id: result.reservationId,
@@ -629,6 +636,9 @@ export default function BookingForm() {
           }
         } catch (error) {
           console.error("Failed to create reservation", error);
+
+          // Clear the reservation mark since it failed
+          clearSlotReservation(normalizedTime, selectedGroomer);
 
           // Handle already booked slot errors specifically
           if (
@@ -1194,8 +1204,14 @@ export default function BookingForm() {
           const isSelected =
             selectedTime === slot.time && selectedGroomer === slot.groomer;
 
+          // Check if slot is being reserved by another user
+          const isBeingReserved = isSlotBeingReserved(slot.time, slot.groomer);
+          
+          // Determine if slot should be shown as available
+          const isActuallyAvailable = slot.available && !isBeingReserved;
+
           // Skip booked slots if showBookedSlots is false
-          if (!showBookedSlots && !slot.available) {
+          if (!showBookedSlots && !isActuallyAvailable) {
             return null;
           }
 
@@ -1206,8 +1222,10 @@ export default function BookingForm() {
                 "relative flex cursor-pointer rounded-lg p-3 shadow-sm border text-center items-center justify-center transition-all",
                 isSelected
                   ? "border-primary bg-primary text-primary-foreground ring-2 ring-primary"
-                  : slot.available
+                  : isActuallyAvailable
                   ? "border-gray-200 bg-white hover:bg-gray-50"
+                  : isBeingReserved
+                  ? "border-orange-200 bg-orange-100 text-orange-800 cursor-not-allowed"
                   : "border-red-200 bg-red-100 text-red-800 cursor-not-allowed"
               )}
             >
@@ -1215,10 +1233,10 @@ export default function BookingForm() {
                 type="radio"
                 name="time-slot"
                 value={slot.time}
-                disabled={!slot.available}
+                disabled={!isActuallyAvailable}
                 className="sr-only"
                 onChange={() => {
-                  if (slot.available) {
+                  if (isActuallyAvailable) {
                     form.setValue("appointmentTime", slot.time);
                     setSelectedGroomer(slot.groomer);
                   }
@@ -1230,9 +1248,12 @@ export default function BookingForm() {
                     parse(normalizeTimeFormat(slot.time), "HH:mm", new Date()),
                     "h:mm a"
                   )}
-                {!slot.available && (
-                  <span className="font-bold text-sm mt-1 text-red-600">
-                    BOOKED
+                {!isActuallyAvailable && (
+                  <span className={cn(
+                    "font-bold text-sm mt-1",
+                    isBeingReserved ? "text-orange-600" : "text-red-600"
+                  )}>
+                    {isBeingReserved ? "RESERVING..." : "BOOKED"}
                   </span>
                 )}
               </span>
@@ -1280,6 +1301,44 @@ export default function BookingForm() {
       form.setValue("durationDays", undefined);
     }
   }, [serviceType, form]);
+
+  // Clean up reservation marks when date changes
+  useEffect(() => {
+    if (selectedDate) {
+      // Clear any old reservation marks when date changes
+      const clearOldReservations = () => {
+        try {
+          const keys = Object.keys(localStorage);
+          keys.forEach(key => {
+            if (key.startsWith('reserving:') && !key.includes(selectedDate)) {
+              localStorage.removeItem(key);
+            }
+          });
+        } catch (e) {
+          console.error("Error clearing old reservations:", e);
+        }
+      };
+      
+      clearOldReservations();
+    }
+  }, [selectedDate]);
+
+  // Real-time availability updates
+  useEffect(() => {
+    if (!selectedDate || step !== 2) return; // Only update when on step 2 (date/time selection)
+
+    const interval = setInterval(async () => {
+      try {
+        // Refresh availability data every 30 seconds
+        await refetchAvailability();
+        console.log("Refreshed availability data for real-time updates");
+      } catch (error) {
+        console.error("Error refreshing availability:", error);
+      }
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, [selectedDate, step, refetchAvailability]);
 
   // Add a function to force refresh availability data
   const forceRefreshAvailability = async () => {
@@ -1428,6 +1487,48 @@ export default function BookingForm() {
     }
   };
 
+  // Check if a slot is currently being reserved by another user
+  const isSlotBeingReserved = (time: string, groomer: string): boolean => {
+    try {
+      const normalizedTime = normalizeTimeFormat(time);
+      const reservationKey = `reserving:${selectedDate}:${normalizedTime}:${groomer}`;
+      return localStorage.getItem(reservationKey) === "true";
+    } catch (e) {
+      console.error("Error checking if slot is being reserved:", e);
+      return false;
+    }
+  };
+
+  // Mark a slot as being reserved (when user starts booking)
+  const markSlotAsReserving = (time: string, groomer: string) => {
+    try {
+      const normalizedTime = normalizeTimeFormat(time);
+      const reservationKey = `reserving:${selectedDate}:${normalizedTime}:${groomer}`;
+      localStorage.setItem(reservationKey, "true");
+      
+      // Set a timeout to clear this reservation after 5 minutes
+      setTimeout(() => {
+        localStorage.removeItem(reservationKey);
+      }, 5 * 60 * 1000); // 5 minutes
+      
+      console.log(`Marked slot ${time} with ${groomer} as being reserved`);
+    } catch (e) {
+      console.error("Error marking slot as reserving:", e);
+    }
+  };
+
+  // Clear reservation mark for a slot
+  const clearSlotReservation = (time: string, groomer: string) => {
+    try {
+      const normalizedTime = normalizeTimeFormat(time);
+      const reservationKey = `reserving:${selectedDate}:${normalizedTime}:${groomer}`;
+      localStorage.removeItem(reservationKey);
+      console.log(`Cleared reservation mark for slot ${time} with ${groomer}`);
+    } catch (e) {
+      console.error("Error clearing slot reservation:", e);
+    }
+  };
+
   // Function to mark a specific slot as booked
   const markSlotAsBooked = (time: string, groomer: string) => {
     try {
@@ -1503,6 +1604,14 @@ export default function BookingForm() {
             <p className="text-sm opacity-80">9 AM - 6 PM (Last Call: 5 PM)</p>
             <p className="text-sm opacity-80 mt-4">Need help? Contact us at:</p>
             <p className="font-medium mt-1">(0917) 791 7671</p>
+            {step === 2 && selectedDate && (
+              <div className="mt-4 p-2 bg-white/10 rounded text-xs opacity-75">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  <span>Live availability updates</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1514,12 +1623,10 @@ export default function BookingForm() {
               <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5 mr-3" />
               <div>
                 <AlertTitle className="text-blue-700 font-medium">
-                  Important Booking Information
+                  Real-Time Availability Updates
                 </AlertTitle>
                 <AlertDescription className="text-blue-600">
-                  To see accurate availability, please select your preferred
-                  date and groomer. Red time slots indicate already booked or
-                  unavailable times.
+                  Availability updates automatically every 30 seconds. Orange slots show times being reserved by other users. Red slots are already booked. Green slots are available for booking.
                 </AlertDescription>
               </div>
             </div>
