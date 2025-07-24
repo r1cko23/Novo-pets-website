@@ -17,7 +17,7 @@
     "admin:set-role": "node scripts/set-admin-role.js",
     "add-password-column": "tsx server/addPasswordToUsersTable.ts",
     "test:db": "tsx server/testDatabaseConnection.ts",
-    "test:email": "node scripts/test-email.js",
+    "test:email": "tsx scripts/test-email.js",
     "check:email": "node scripts/check-email-config.js"
   },
   "dependencies": {

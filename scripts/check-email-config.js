@@ -37,7 +37,7 @@ async function checkEmailConfig() {
   // Check 3: Test connection
   console.log('\n3. Testing SMTP connection...');
   try {
-    const transporter = nodemailer.createTransporter(EMAIL_CONFIG);
+    const transporter = nodemailer.createTransport(EMAIL_CONFIG);
     await transporter.verify();
     console.log('✅ SMTP connection successful!');
     return true;
