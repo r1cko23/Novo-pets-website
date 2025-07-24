@@ -2,7 +2,7 @@ import nodemailer from 'nodemailer';
 import { format } from 'date-fns';
 
 // Email configuration
-const EMAIL_CONFIG = {
+const getEmailConfig = () => ({
   host: 'smtp.gmail.com',
   port: 587,
   secure: false, // true for 465, false for other ports
@@ -10,10 +10,12 @@ const EMAIL_CONFIG = {
     user: 'novopetsph@gmail.com',
     pass: process.env.EMAIL_PASSWORD || '', // Set this in your .env file
   },
-};
+});
 
-// Create transporter
-const transporter = nodemailer.createTransport(EMAIL_CONFIG);
+// Create transporter function
+const createTransporter = () => {
+  return nodemailer.createTransport(getEmailConfig());
+};
 
 // Email templates
 const createBookingConfirmationEmail = (bookingData: any) => {
@@ -298,6 +300,7 @@ export const sendBookingConfirmationEmail = async (bookingData: any) => {
       html: html,
     };
 
+    const transporter = createTransporter();
     const info = await transporter.sendMail(mailOptions);
     console.log('Booking confirmation email sent:', info.messageId);
     
@@ -367,6 +370,7 @@ export const sendAdminNotificationEmail = async (bookingData: any) => {
       html: adminEmailContent,
     };
 
+    const transporter = createTransporter();
     const info = await transporter.sendMail(mailOptions);
     console.log('Admin notification email sent:', info.messageId);
     
@@ -385,6 +389,7 @@ export const testEmailConfiguration = async () => {
       return false;
     }
 
+    const transporter = createTransporter();
     await transporter.verify();
     console.log('✅ Email configuration is valid');
     return true;
