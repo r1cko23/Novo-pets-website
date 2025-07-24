@@ -46,7 +46,17 @@ const supabaseAdmin = supabaseServiceKey
 
 // Log all incoming requests for debugging
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] ${req.method} ${req.url}`);
+  
+  // Special logging for booking and email-related requests
+  if (req.url.includes('/api/bookings') && req.method === 'POST') {
+    console.log(`[${timestamp}] 📝 BOOKING REQUEST - Starting booking creation...`);
+  }
+  if (req.url.includes('/api/availability')) {
+    console.log(`[${timestamp}] 📊 AVAILABILITY REQUEST - Checking availability...`);
+  }
+  
   next();
 });
 
@@ -666,7 +676,13 @@ app.get('/api/availability', async (req, res) => {
       .eq('appointment_date', dateForDb);
     
     if (!allBookingsError && allBookings) {
-      console.log(`All bookings for ${dateForDb}:`, allBookings);
+      console.log(`[${new Date().toISOString()}] 📊 All bookings for ${dateForDb}:`, allBookings);
+      console.log(`[${new Date().toISOString()}] 📊 Total bookings found: ${allBookings.length}`);
+      
+      // Log each booking with details
+      allBookings.forEach((booking, index) => {
+        console.log(`[${new Date().toISOString()}] 📊 Booking ${index + 1}: ${booking.appointment_date} ${booking.appointment_time} with ${booking.groomer} (status: ${booking.status})`);
+      });
     }
     
     // Log actual booking dates to help debug
@@ -897,7 +913,9 @@ app.post('/api/reservations', async (req, res) => {
 // Post endpoint for bookings
 app.post('/api/bookings', async (req, res) => {
   try {
-    console.log('Creating new booking with data:', JSON.stringify(req.body));
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] 📝 BOOKING CREATION STARTED`);
+    console.log(`[${timestamp}] 📝 Booking data:`, JSON.stringify(req.body, null, 2));
     
     const {
       appointmentDate,
@@ -1099,10 +1117,11 @@ app.post('/api/bookings', async (req, res) => {
       // Clear availability cache for this date
       clearAvailabilityCache(cleanDateStr); // Use original cleaned date for availability cache
       
-      console.log('Grooming booking created successfully:', data);
+      const timestamp = new Date().toISOString();
+      console.log(`[${timestamp}] ✅ GROOMING BOOKING CREATED SUCCESSFULLY:`, data);
       
       // Send confirmation email to customer
-      console.log('📧 [Booking] Attempting to send customer confirmation email...');
+      console.log(`[${timestamp}] 📧 [Booking] Attempting to send customer confirmation email...`);
       const emailData = {
         ...groomingBookingData,
         serviceType: 'grooming',
@@ -1117,16 +1136,16 @@ app.post('/api/bookings', async (req, res) => {
         groomingService: groomingBookingData.grooming_service,
         specialRequests: groomingBookingData.special_requests
       };
-      console.log('📧 [Booking] Email data:', JSON.stringify(emailData, null, 2));
+      console.log(`[${timestamp}] 📧 [Booking] Email data:`, JSON.stringify(emailData, null, 2));
       const emailResult = await sendBookingConfirmationEmail(emailData);
       if (emailResult.success) {
-        console.log('✅ [Booking] Customer confirmation email sent successfully');
+        console.log(`[${timestamp}] ✅ [Booking] Customer confirmation email sent successfully`);
       } else {
-        console.warn('⚠️ [Booking] Failed to send customer confirmation email:', emailResult.message);
+        console.warn(`[${timestamp}] ⚠️ [Booking] Failed to send customer confirmation email:`, emailResult.message);
       }
       
       // Send notification email to admin
-      console.log('📧 [Booking] Attempting to send admin notification email...');
+      console.log(`[${timestamp}] 📧 [Booking] Attempting to send admin notification email...`);
       const adminEmailResult = await sendAdminNotificationEmail(emailData);
       if (adminEmailResult.success) {
         console.log('✅ [Booking] Admin notification email sent successfully');

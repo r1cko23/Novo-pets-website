@@ -387,6 +387,34 @@ export default function BookingForm() {
               method: "GET",
               headers: {
                 Accept: "application/json",
+      if (!selectedDate) return { availableTimeSlots: [] };
+
+      try {
+        // Add timestamp to prevent caching and force refresh flag
+        const timestamp = new Date().getTime();
+
+        // IMPORTANT: Format the date as YYYY-MM-DD without timezone conversion
+        // Extract year, month, day directly from the date object to avoid timezone issues
+        // Ensure we have a proper Date object
+        const dateObject = new Date(selectedDate);
+        const year = dateObject.getFullYear();
+        const month = String(dateObject.getMonth() + 1).padStart(2, "0");
+        const day = String(dateObject.getDate()).padStart(2, "0");
+        const formattedDate = `${year}-${month}-${day}`;
+
+        console.log(
+          `Fetching availability for date: ${formattedDate} (raw date: ${dateObject.toISOString()}, timestamp: ${timestamp})`
+        );
+
+        // First try the direct API call with proper error handling
+        try {
+          // Use fetch directly to have more control over the request
+          const response = await fetch(
+            `/api/availability?date=${formattedDate}&refresh=true&_=${timestamp}`,
+            {
+              method: "GET",
+              headers: {
+                Accept: "application/json",
                 "Cache-Control": "no-cache, no-store, must-revalidate",
                 Pragma: "no-cache",
               },
@@ -1322,6 +1350,14 @@ export default function BookingForm() {
       clearOldReservations();
     }
   }, [selectedDate]);
+
+  // Immediate availability check when date is selected
+  useEffect(() => {
+    if (selectedDate && step === 2) {
+      console.log("Date selected, immediately checking availability...");
+      refetchAvailability();
+    }
+  }, [selectedDate, step, refetchAvailability]);
 
   // Real-time availability updates
   useEffect(() => {
