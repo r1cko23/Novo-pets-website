@@ -621,22 +621,16 @@ app.get('/api/availability', async (req, res) => {
     const normalizedDate = date;
     console.log(`Using exact date string for availability tracking: ${normalizedDate}`);
     
-    // Since the database uses DATE type, we need to adjust for timezone handling by PostgreSQL
-    // Parse the date and add 1 day to compensate for PostgreSQL's timezone conversion
-    const [year, month, day] = normalizedDate.split('-').map(Number);
-    const dateForDb = new Date(year, month - 1, day);
-    dateForDb.setDate(dateForDb.getDate() + 1); // Add 1 day to compensate for timezone conversion
-    
-    // Format the adjusted date back to YYYY-MM-DD
-    const adjustedDateStr = `${dateForDb.getFullYear()}-${String(dateForDb.getMonth() + 1).padStart(2, '0')}-${String(dateForDb.getDate()).padStart(2, '0')}`;
-    console.log(`Adjusted date for database query: ${adjustedDateStr} (added 1 day to compensate for timezone conversion)`);
+    // Use the exact date string for database query (no timezone adjustment needed)
+    const dateForDb = normalizedDate;
+    console.log(`Using date for database query: ${dateForDb}`);
     
     // Get all bookings for this date to determine availability with the most recent data
     // Include both confirmed and pending statuses as booked
     let groomingQuery = supabase
       .from('grooming_appointments')
       .select('appointment_date, appointment_time, groomer, status')
-      .eq('appointment_date', adjustedDateStr) // Use adjusted date for DB query
+      .eq('appointment_date', dateForDb) // Use exact date for DB query
       .in('status', ['confirmed', 'pending']);
     
     // Instead of using options, let's ensure we get the most recent data
@@ -655,7 +649,7 @@ app.get('/api/availability', async (req, res) => {
     const { data: hotelBookings, error: hotelError } = await supabase
       .from('hotel_bookings')
       .select('check_in_date, check_out_date, accommodation_type, status')
-      .or(`check_in_date.eq.${adjustedDateStr},and(check_in_date.lt.${adjustedDateStr},check_out_date.gte.${adjustedDateStr})`) // Use adjusted date
+      .or(`check_in_date.eq.${dateForDb},and(check_in_date.lt.${dateForDb},check_out_date.gte.${dateForDb})`) // Use exact date
       .in('status', ['confirmed', 'pending']);
       
     if (hotelError) {
@@ -663,7 +657,17 @@ app.get('/api/availability', async (req, res) => {
       throw hotelError;
     }
     
-    console.log(`Found ${groomingBookings?.length || 0} grooming bookings and ${hotelBookings?.length || 0} hotel bookings for date ${adjustedDateStr}`);
+    console.log(`Found ${groomingBookings?.length || 0} grooming bookings and ${hotelBookings?.length || 0} hotel bookings for date ${dateForDb}`);
+    
+    // Debug: Check all bookings for this date regardless of status
+    const { data: allBookings, error: allBookingsError } = await supabase
+      .from('grooming_appointments')
+      .select('appointment_date, appointment_time, groomer, status')
+      .eq('appointment_date', dateForDb);
+    
+    if (!allBookingsError && allBookings) {
+      console.log(`All bookings for ${dateForDb}:`, allBookings);
+    }
     
     // Log actual booking dates to help debug
     if (groomingBookings && groomingBookings.length > 0) {
@@ -958,16 +962,8 @@ app.post('/api/bookings', async (req, res) => {
     
     console.log(`Using cleaned date string for booking: ${cleanDateStr}`);
     
-    // IMPORTANT: Since the database column is now a DATE type (not TEXT), we need to
-    // adjust for timezone handling by PostgreSQL
-    // Parse the date and add 1 day to compensate for PostgreSQL's timezone conversion
-    const [year, month, day] = cleanDateStr.split('-').map(Number);
-    const dateForDb = new Date(year, month - 1, day);
-    dateForDb.setDate(dateForDb.getDate() + 1); // Add 1 day to compensate for timezone conversion
-    
-    // Format the adjusted date back to YYYY-MM-DD
-    const adjustedDateStr = `${dateForDb.getFullYear()}-${String(dateForDb.getMonth() + 1).padStart(2, '0')}-${String(dateForDb.getDate()).padStart(2, '0')}`;
-    console.log(`Adjusted date for database storage: ${adjustedDateStr} (added 1 day to compensate for timezone conversion)`);
+    // Use the exact date for database storage (no timezone adjustment needed)
+    console.log(`Using exact date for database storage: ${cleanDateStr}`);
     
     // Generate a reference number with prefix based on service type
     const prefix = serviceType === 'hotel' ? 'NVP-H-' : 'NVP-G-';
@@ -977,12 +973,11 @@ app.post('/api/bookings', async (req, res) => {
     // Hotel bookings
     if (serviceType === 'hotel') {
       // For hotel stays, use check_in_date and check_out_date fields
-      const checkInDate = adjustedDateStr;  // Use the adjusted date string for DB
+      const checkInDate = cleanDateStr;  // Use the exact date string for DB
       
-      // Calculate check-out date based on duration without timezone issues
-      // Use the adjusted date as base
-      const checkOutDateObj = new Date(dateForDb);
-      checkOutDateObj.setDate(checkOutDateObj.getDate() + (durationDays || 1) - 1); // -1 because we already added 1 day
+      // Calculate check-out date based on duration
+      const checkOutDateObj = new Date(cleanDateStr);
+      checkOutDateObj.setDate(checkOutDateObj.getDate() + (durationDays || 1));
       
       // Format check-out date as YYYY-MM-DD string
       const formattedCheckOutDate = `${checkOutDateObj.getFullYear()}-${String(checkOutDateObj.getMonth() + 1).padStart(2, '0')}-${String(checkOutDateObj.getDate()).padStart(2, '0')}`;
@@ -1066,9 +1061,9 @@ app.post('/api/bookings', async (req, res) => {
     }
     // Grooming bookings
     else {
-      // Create grooming booking data object with the timezone-corrected date
+      // Create grooming booking data object with the exact date
       const groomingBookingData = {
-        appointment_date: adjustedDateStr,  // Use the adjusted date for the database
+        appointment_date: cleanDateStr,  // Use the exact date for the database
         appointment_time: appointmentTime,
         pet_name: petName,
         pet_breed: petBreed,
