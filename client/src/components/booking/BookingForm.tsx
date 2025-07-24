@@ -161,14 +161,19 @@ function AvailabilitySummary({ date, isLoading }: AvailabilitySummaryProps) {
 
     const fetchData = async () => {
       try {
+        const timestamp = new Date().getTime();
         const dateObj = new Date(date);
         const year = dateObj.getFullYear();
         const month = String(dateObj.getMonth() + 1).padStart(2, "0");
         const day = String(dateObj.getDate()).padStart(2, "0");
         const formattedDate = `${year}-${month}-${day}`;
 
-        const response = await fetch(`/api/availability?date=${formattedDate}`);
+        console.log(`[${new Date().toISOString()}] 📊 AvailabilitySummary: Fetching data for ${formattedDate} (timestamp: ${timestamp})`);
+
+        const response = await fetch(`/api/availability?date=${formattedDate}&refresh=true&_=${timestamp}`);
         const data = await response.json();
+
+        console.log(`[${new Date().toISOString()}] 📊 AvailabilitySummary: Received data:`, data);
 
         if (data.availableTimeSlots) {
           const total = data.availableTimeSlots.length;
@@ -177,14 +182,30 @@ function AvailabilitySummary({ date, isLoading }: AvailabilitySummaryProps) {
           ).length;
           const booked = total - available;
 
+          console.log(`[${new Date().toISOString()}] 📊 AvailabilitySummary: ${available}/${total} available, ${booked} booked`);
+
           setSummary({ total, available, booked });
         }
       } catch (error) {
-        console.error("Error fetching availability summary:", error);
+        console.error(`[${new Date().toISOString()}] ❌ Error fetching availability summary:`, error);
       }
     };
 
     fetchData();
+
+    // Listen for manual refresh events
+    const handleRefresh = (event: CustomEvent) => {
+      if (event.detail.date === date) {
+        console.log(`[${new Date().toISOString()}] 📊 AvailabilitySummary: Manual refresh triggered for ${date}`);
+        fetchData();
+      }
+    };
+
+    window.addEventListener('refreshAvailabilitySummary', handleRefresh as EventListener);
+
+    return () => {
+      window.removeEventListener('refreshAvailabilitySummary', handleRefresh as EventListener);
+    };
   }, [date]);
 
   if (isLoading) {
@@ -375,46 +396,16 @@ export default function BookingForm() {
         const formattedDate = `${year}-${month}-${day}`;
 
         console.log(
-          `Fetching availability for date: ${formattedDate} (raw date: ${dateObject.toISOString()}, timestamp: ${timestamp})`
+          `[${new Date().toISOString()}] 📊 Fetching availability for date: ${formattedDate} (raw date: ${dateObject.toISOString()}, timestamp: ${timestamp})`
         );
 
-        // First try the direct API call with proper error handling
-        try {
-          // Use fetch directly to have more control over the request
-          const response = await fetch(
-            `/api/availability?date=${formattedDate}&refresh=true&_=${timestamp}`,
-            {
-              method: "GET",
-              headers: {
-                Accept: "application/json",
-      if (!selectedDate) return { availableTimeSlots: [] };
-
-      try {
-        // Add timestamp to prevent caching and force refresh flag
-        const timestamp = new Date().getTime();
-
-        // IMPORTANT: Format the date as YYYY-MM-DD without timezone conversion
-        // Extract year, month, day directly from the date object to avoid timezone issues
-        // Ensure we have a proper Date object
-        const dateObject = new Date(selectedDate);
-        const year = dateObject.getFullYear();
-        const month = String(dateObject.getMonth() + 1).padStart(2, "0");
-        const day = String(dateObject.getDate()).padStart(2, "0");
-        const formattedDate = `${year}-${month}-${day}`;
-
-        console.log(
-          `Fetching availability for date: ${formattedDate} (raw date: ${dateObject.toISOString()}, timestamp: ${timestamp})`
-        );
-
-        // First try the direct API call with proper error handling
-        try {
-          // Use fetch directly to have more control over the request
-          const response = await fetch(
-            `/api/availability?date=${formattedDate}&refresh=true&_=${timestamp}`,
-            {
-              method: "GET",
-              headers: {
-                Accept: "application/json",
+        // Use fetch directly to have more control over the request
+        const response = await fetch(
+          `/api/availability?date=${formattedDate}&refresh=true&_=${timestamp}`,
+          {
+            method: "GET",
+            headers: {
+              Accept: "application/json",
                 "Cache-Control": "no-cache, no-store, must-revalidate",
                 Pragma: "no-cache",
               },
@@ -1354,8 +1345,18 @@ export default function BookingForm() {
   // Immediate availability check when date is selected
   useEffect(() => {
     if (selectedDate && step === 2) {
-      console.log("Date selected, immediately checking availability...");
+      console.log(`[${new Date().toISOString()}] 📊 Date selected (${selectedDate}), immediately checking availability...`);
+      
+      // Force refresh availability data
       refetchAvailability();
+      
+      // Also trigger a manual refresh of the availability summary
+      setTimeout(() => {
+        const event = new CustomEvent('refreshAvailabilitySummary', { 
+          detail: { date: selectedDate } 
+        });
+        window.dispatchEvent(event);
+      }, 100);
     }
   }, [selectedDate, step, refetchAvailability]);
 
