@@ -1108,10 +1108,22 @@ app.post('/api/bookings', async (req, res) => {
       
       // Send confirmation email to customer
       console.log('📧 [Booking] Attempting to send customer confirmation email...');
-      const emailResult = await sendBookingConfirmationEmail({
+      const emailData = {
         ...groomingBookingData,
-        serviceType: 'grooming'
-      });
+        serviceType: 'grooming',
+        // Map database fields to email template fields
+        appointmentDate: groomingBookingData.appointment_date,
+        appointmentTime: groomingBookingData.appointment_time,
+        customerName: groomingBookingData.customer_name,
+        customerEmail: groomingBookingData.customer_email,
+        customerPhone: groomingBookingData.customer_phone,
+        petName: groomingBookingData.pet_name,
+        petBreed: groomingBookingData.pet_breed,
+        groomingService: groomingBookingData.grooming_service,
+        specialRequests: groomingBookingData.special_requests
+      };
+      console.log('📧 [Booking] Email data:', JSON.stringify(emailData, null, 2));
+      const emailResult = await sendBookingConfirmationEmail(emailData);
       if (emailResult.success) {
         console.log('✅ [Booking] Customer confirmation email sent successfully');
       } else {
@@ -1120,10 +1132,7 @@ app.post('/api/bookings', async (req, res) => {
       
       // Send notification email to admin
       console.log('📧 [Booking] Attempting to send admin notification email...');
-      const adminEmailResult = await sendAdminNotificationEmail({
-        ...groomingBookingData,
-        serviceType: 'grooming'
-      });
+      const adminEmailResult = await sendAdminNotificationEmail(emailData);
       if (adminEmailResult.success) {
         console.log('✅ [Booking] Admin notification email sent successfully');
       } else {
@@ -1462,8 +1471,20 @@ const createBookingConfirmationEmail = (bookingData) => {
     groomer,
   } = bookingData;
 
-  // Format the appointment date
-  const formattedDate = format(new Date(appointmentDate), 'EEEE, MMMM do, yyyy');
+  // Format the appointment date with proper validation
+  let formattedDate = 'To be determined';
+  try {
+    if (appointmentDate) {
+      const dateObj = new Date(appointmentDate);
+      if (!isNaN(dateObj.getTime())) {
+        formattedDate = format(dateObj, 'EEEE, MMMM do, yyyy');
+      } else {
+        console.warn('Invalid appointment date:', appointmentDate);
+      }
+    }
+  } catch (error) {
+    console.error('Error formatting appointment date:', error, 'Date value:', appointmentDate);
+  }
   
   // Format the appointment time
   const formattedTime = appointmentTime || 'To be determined';
@@ -1733,6 +1754,11 @@ const sendBookingConfirmationEmail = async (bookingData) => {
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error('❌ [Email] Error sending booking confirmation email:', error);
+    console.error('❌ [Email] Error details:', {
+      message: error.message,
+      stack: error.stack,
+      bookingData: JSON.stringify(bookingData, null, 2)
+    });
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 };
@@ -1782,7 +1808,20 @@ const sendAdminNotificationEmail = async (bookingData) => {
         <div class="booking-info">
             <h3>Booking Details:</h3>
             <p><strong>Service:</strong> ${bookingData.serviceType}</p>
-            <p><strong>Date:</strong> ${format(new Date(bookingData.appointmentDate), 'EEEE, MMMM do, yyyy')}</p>
+            <p><strong>Date:</strong> ${(() => {
+              try {
+                if (bookingData.appointmentDate) {
+                  const dateObj = new Date(bookingData.appointmentDate);
+                  if (!isNaN(dateObj.getTime())) {
+                    return format(dateObj, 'EEEE, MMMM do, yyyy');
+                  }
+                }
+                return 'To be determined';
+              } catch (error) {
+                console.error('Error formatting admin email date:', error);
+                return 'To be determined';
+              }
+            })()}</p>
             <p><strong>Time:</strong> ${bookingData.appointmentTime || 'To be determined'}</p>
             ${bookingData.groomer ? `<p><strong>Groomer:</strong> ${bookingData.groomer}</p>` : ''}
         </div>
@@ -1809,6 +1848,11 @@ const sendAdminNotificationEmail = async (bookingData) => {
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error('❌ [Email] Error sending admin notification email:', error);
+    console.error('❌ [Email] Admin error details:', {
+      message: error.message,
+      stack: error.stack,
+      bookingData: JSON.stringify(bookingData, null, 2)
+    });
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 };
