@@ -939,7 +939,9 @@ export default function BookingForm() {
       setStep(5); // Move to confirmation step
       toast({
         title: "Booking Confirmed!",
-        description: "Your appointment has been successfully scheduled.",
+        description: data.emailSent 
+          ? "Your appointment has been successfully scheduled. A confirmation email has been sent to your email address."
+          : "Your appointment has been successfully scheduled.",
       });
     },
     onError: (error) => {

@@ -5,6 +5,7 @@ import { bookingFormSchema, contactFormSchema } from "../shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { supabase } from "./supabase";
+import { sendBookingConfirmationEmail, sendAdminNotificationEmail } from "./emailService";
 
 // Import the normalizeTimeFormat function from supabaseStorageImpl
 // Note: Since we can't directly import from supabaseStorageImpl, let's re-implement it here
@@ -358,10 +359,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       try {
         const booking = await storage.createBooking(bookingData);
+        
+        // Send confirmation email to customer
+        const emailResult = await sendBookingConfirmationEmail(bookingData);
+        if (emailResult.success) {
+          console.log('✅ Booking confirmation email sent successfully');
+        } else {
+          console.warn('⚠️ Failed to send booking confirmation email:', emailResult.message);
+        }
+        
+        // Send notification email to admin
+        const adminEmailResult = await sendAdminNotificationEmail(bookingData);
+        if (adminEmailResult.success) {
+          console.log('✅ Admin notification email sent successfully');
+        } else {
+          console.warn('⚠️ Failed to send admin notification email:', adminEmailResult.message);
+        }
+        
         return res.status(201).json({ 
           success: true, 
           message: "Booking created successfully",
-          data: booking 
+          data: booking,
+          emailSent: emailResult.success
         });
       } catch (storageError) {
         console.error("Storage error creating booking:", storageError);

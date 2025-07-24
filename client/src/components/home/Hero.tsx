@@ -1,5 +1,7 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
+import { Container } from "@/components/ui/container";
+import { Section } from "@/components/ui/section";
 import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { serviceImages } from "@shared/schema";
@@ -82,10 +84,14 @@ export default function Hero() {
   };
   
   return (
-    <section className="relative overflow-hidden">
+    <Section 
+      spacing="none" 
+      background="default"
+      className="relative overflow-hidden min-h-screen flex items-center"
+    >
       <div 
         ref={parallaxRef}
-        className="relative bg-cover bg-center min-h-screen" 
+        className="absolute inset-0 bg-cover bg-center z-0" 
         style={{
           height: '100vh',
         }}
@@ -101,235 +107,88 @@ export default function Hero() {
             }}
           />
         ) : (
-          <motion.div 
-            className="absolute inset-0 bg-cover bg-center z-0"
+          <div 
+            className="absolute inset-0 bg-cover bg-center z-0 transition-transform duration-300 ease-out"
             style={{
               backgroundImage: `url('${backgroundImagePath}')`,
               backgroundPosition: 'center',
               backgroundSize: 'cover',
-              x: parallaxEffect.x,
-              y: parallaxEffect.y,
-            }}
-            animate={{
-              scale: [1, 1.02, 1],
-            }}
-            transition={{
-              duration: 20,
-              ease: "easeInOut",
-              repeat: Infinity,
+              transform: `translate(${parallaxEffect.x}px, ${parallaxEffect.y}px)`,
             }}
           />
         )}
         
-        {/* Gradient Overlay with animation */}
-        {isMobile ? (
-          <div 
-            className="absolute inset-0 z-10 bg-gradient-to-r from-[rgba(38,34,32,0.7)] to-[rgba(38,34,32,0.4)]"
-          />
-        ) : (
-          <motion.div 
-            className="absolute inset-0 z-10"
-            initial={{ opacity: 0.7 }}
-            animate={{ 
-              opacity: [0.7, 0.5, 0.7],
-              background: [
-                'linear-gradient(to right, rgba(38, 34, 32, 0.7), rgba(38, 34, 32, 0.4))',
-                'linear-gradient(to right, rgba(38, 34, 32, 0.6), rgba(38, 34, 32, 0.3))',
-                'linear-gradient(to right, rgba(38, 34, 32, 0.7), rgba(38, 34, 32, 0.4))'
-              ]
-            }}
-            transition={{
-              duration: 8,
-              ease: "easeInOut",
-              repeat: Infinity,
-            }}
-          />
-        )}
-        
-        {/* Floating 3D elements - Only on desktop */}
-        {!isMobile && (
-          <div className="absolute inset-0 z-20 overflow-hidden">
-            <motion.div 
-              className="absolute w-72 h-72 rounded-full bg-gradient-to-r from-pink-300/20 to-purple-300/20 blur-3xl"
-              style={{ top: '30%', left: '15%' }}
-              animate={{
-                y: [0, -50, 0],
-                x: [0, 10, 0],
-                scale: [1, 1.1, 1],
-                rotate: [0, 5, 0]
-              }}
-              transition={{
-                duration: 15,
-                ease: "easeInOut",
-                repeat: Infinity
-              }}
-            />
-            <motion.div 
-              className="absolute w-96 h-96 rounded-full bg-gradient-to-r from-amber-300/10 to-yellow-300/10 blur-3xl"
-              style={{ top: '50%', right: '20%' }}
-              animate={{
-                y: [0, 40, 0],
-                x: [0, -20, 0],
-                scale: [1, 1.2, 1],
-                rotate: [0, -8, 0]
-              }}
-              transition={{
-                duration: 18,
-                ease: "easeInOut",
-                repeat: Infinity,
-                delay: 2
-              }}
-            />
-          </div>
-        )}
-        
-        <div className="absolute inset-0 flex items-center z-30">
-          <div className="container mx-auto px-6 md:px-12">
-            {isMobile ? (
-              <div className="w-full lg:w-2/3">
-                <div className="relative inline-block">
-                  <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-white/80 drop-shadow-lg">
-                    Novo Pets Premium
-                  </h1>
-                </div>
-                
-                <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mt-2 bg-clip-text text-transparent bg-gradient-to-r from-amber-200 to-amber-100">
-                  Pet Spa & Wellness
-                </h2>
-                
-                <p className="mt-8 text-white text-xl md:text-2xl font-light opacity-90 max-w-xl">
-                  Where Pets Feel at Home
-                </p>
-                
-                <div className="mt-10 flex flex-col sm:flex-row gap-6">
-                  <Link href="/booking">
-                    <Button
-                      size="lg"
-                      className="bg-gradient-to-r from-[#9a7d62] to-[#8C636A] hover:from-[#9a7d62]/90 hover:to-[#8C636A]/90 text-white px-8 py-6 h-auto font-semibold text-lg rounded-full shadow-[0_0_20px_rgba(154,125,98,0.5)] backdrop-blur-sm"
-                    >
-                      Book an Appointment
-                    </Button>
-                  </Link>
-                  <Link href="/services">
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      className="backdrop-blur-md bg-white/10 hover:bg-white/20 text-white border border-white/30 px-8 py-6 h-auto font-semibold text-lg rounded-full"
-                    >
-                      Explore Services
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            ) : (
-              <motion.div
-                initial="hidden"
-                animate="visible"
-                className="w-full lg:w-2/3"
-              >
-                <motion.div 
-                  className="relative inline-block"
-                  custom={0}
-                  variants={heroTextAnimation}
-                >
-                  <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-white/80 drop-shadow-lg">
-                    Novo Pets Premium
-                  </h1>
-                  <motion.div 
-                    className="absolute -inset-1 bg-gradient-to-r from-pink-400 to-amber-400 opacity-30 blur-xl -z-10"
-                    animate={{
-                      opacity: [0.3, 0.5, 0.3],
-                    }}
-                    transition={{
-                      duration: 3,
-                      ease: "easeInOut",
-                      repeat: Infinity
-                    }}
-                  />
-                </motion.div>
-                
-                <motion.h2 
-                  className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mt-2 bg-clip-text text-transparent bg-gradient-to-r from-amber-200 to-amber-100"
-                  custom={1}
-                  variants={heroTextAnimation}
-                >
-                  Pet Spa & Wellness
-                </motion.h2>
-                
-                <motion.p 
-                  className="mt-8 text-white text-xl md:text-2xl font-light opacity-90 max-w-xl"
-                  custom={2}
-                  variants={heroTextAnimation}
-                >
-                  Where Pets Feel at Home
-                </motion.p>
-                
-                <motion.div 
-                  className="mt-10 flex flex-col sm:flex-row gap-6"
-                  custom={3}
-                  variants={heroTextAnimation}
-                >
-                  <Link href="/booking">
-                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                      <Button
-                        size="lg"
-                        className="bg-gradient-to-r from-[#9a7d62] to-[#8C636A] hover:from-[#9a7d62]/90 hover:to-[#8C636A]/90 text-white px-8 py-6 h-auto font-semibold text-lg rounded-full shadow-[0_0_20px_rgba(154,125,98,0.5)] backdrop-blur-sm"
-                      >
-                        Book an Appointment
-                      </Button>
-                    </motion.div>
-                  </Link>
-                  <Link href="/services">
-                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                      <Button
-                        variant="outline"
-                        size="lg"
-                        className="backdrop-blur-md bg-white/10 hover:bg-white/20 text-white border border-white/30 px-8 py-6 h-auto font-semibold text-lg rounded-full"
-                      >
-                        Explore Services
-                      </Button>
-                    </motion.div>
-                  </Link>
-                </motion.div>
-              </motion.div>
-            )}
-          </div>
-        </div>
-        
-        {/* Scroll indicator - only on desktop */}
-        {!isMobile && (
-          <motion.div 
-            className="absolute bottom-10 left-1/2 transform -translate-x-1/2 z-30"
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ 
-              opacity: [0.4, 0.8, 0.4],
-              y: [0, 10, 0]
-            }}
-            transition={{ 
-              duration: 2, 
-              repeat: Infinity,
-              delay: 1
-            }}
+        {/* Overlay */}
+        <div className="absolute inset-0 bg-black/20 z-10" />
+      </div>
+      
+      {/* Content */}
+      <Container className="relative z-20 text-center">
+        <motion.div
+          initial="hidden"
+          animate="visible"
+          className="space-y-8"
+        >
+          {/* Main Heading */}
+          <motion.h1 
+            custom={0}
+            variants={heroTextAnimation}
+            className="text-responsive-xl font-serif font-bold text-white leading-tight"
           >
-            <div className="flex flex-col items-center">
-              <span className="text-white/80 text-sm mb-2">Scroll</span>
-              <div className="w-6 h-10 border-2 border-white/50 rounded-full flex justify-center p-1">
-                <motion.div 
-                  className="w-1.5 h-1.5 bg-white rounded-full"
-                  animate={{ 
-                    y: [0, 15, 0]
-                  }}
-                  transition={{ 
-                    duration: 1.5, 
-                    repeat: Infinity,
-                    repeatType: "loop"
-                  }}
-                />
-              </div>
+            Professional Pet Grooming
+            <br />
+            <span className="gradient-text">That Your Pets Deserve</span>
+          </motion.h1>
+          
+          {/* Subtitle */}
+          <motion.p 
+            custom={1}
+            variants={heroTextAnimation}
+            className="text-xl md:text-2xl text-white/90 max-w-3xl mx-auto leading-relaxed"
+          >
+            Experience luxury pet care with our expert groomers. 
+            From basic grooming to spa treatments, we treat every pet like family.
+          </motion.p>
+          
+          {/* CTA Buttons */}
+          <motion.div 
+            custom={2}
+            variants={heroTextAnimation}
+            className="flex flex-col sm:flex-row gap-4 justify-center items-center"
+          >
+            <Link href="/booking">
+              <Button variant="brand" size="xl" className="rounded-full">
+                Book Appointment
+              </Button>
+            </Link>
+            <Link href="/services">
+              <Button variant="glass" size="xl" className="rounded-full">
+                View Services
+              </Button>
+            </Link>
+          </motion.div>
+          
+          {/* Trust Indicators */}
+          <motion.div 
+            custom={3}
+            variants={heroTextAnimation}
+            className="flex flex-wrap justify-center items-center gap-8 pt-8 text-white/80"
+          >
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+              <span className="text-sm font-medium">Expert Groomers</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+              <span className="text-sm font-medium">Safe & Clean</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+              <span className="text-sm font-medium">Luxury Experience</span>
             </div>
           </motion.div>
-        )}
-      </div>
-    </section>
+        </motion.div>
+      </Container>
+    </Section>
   );
 }

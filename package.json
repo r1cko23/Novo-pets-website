@@ -16,7 +16,9 @@
     "admin:create-default": "node scripts/create-admin.js admin@novopets.com Admin@123456",
     "admin:set-role": "node scripts/set-admin-role.js",
     "add-password-column": "tsx server/addPasswordToUsersTable.ts",
-    "test:db": "tsx server/testDatabaseConnection.ts"
+    "test:db": "tsx server/testDatabaseConnection.ts",
+    "test:email": "node scripts/test-email.js",
+    "check:email": "node scripts/check-email-config.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -54,6 +56,7 @@
     "@tanstack/react-query": "^5.60.5",
     "@types/cors": "^2.8.17",
     "@types/jsonwebtoken": "^9.0.9",
+    "@types/nodemailer": "^6.4.17",
     "@vercel/analytics": "^1.5.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -76,6 +79,7 @@
     "memorystore": "^1.6.7",
     "next-themes": "^0.4.6",
     "node-fetch": "^3.3.2",
+    "nodemailer": "^7.0.5",
     "passport": "^0.7.0",
     "passport-local": "^1.0.0",
     "react": "^18.3.1",
