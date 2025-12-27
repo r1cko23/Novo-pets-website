@@ -700,10 +700,20 @@ app.get('/api/availability', async (req, res) => {
     // Mark grooming slots as booked
     if (groomingBookings && groomingBookings.length > 0) {
       groomingBookings.forEach(booking => {
-        // Normalize time format (ensure "09:00" format instead of just "9:00")
-        const time = booking.appointment_time.includes(':') 
-            ? booking.appointment_time 
-            : `${booking.appointment_time.padStart(2, '0')}:00`;
+        // Normalize time format from database (which stores "HH:MM:00")
+        // Extract just "HH:MM" for comparison with time slots
+        let time = booking.appointment_time;
+        if (time && time.includes(':')) {
+          // Extract HH:MM from HH:MM:SS format
+          const parts = time.split(':');
+          time = `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
+        } else if (time) {
+          // Fallback for unexpected formats
+          time = `${time.padStart(2, '0')}:00`;
+        } else {
+          console.warn(`Invalid appointment_time format: ${booking.appointment_time}`);
+          return; // Skip this booking
+        }
             
         const groomer = booking.groomer;
         
@@ -712,7 +722,7 @@ app.get('/api/availability', async (req, res) => {
         
         // Mark as booked and log it for debugging
         bookedSlotsMap[key] = true;
-        console.log(`Marking grooming slot as booked: ${key} (status: ${booking.status})`);
+        console.log(`Marking grooming slot as booked: ${key} (DB time: ${booking.appointment_time}, status: ${booking.status})`);
       });
     }
     
@@ -858,22 +868,28 @@ app.post('/api/reservations', async (req, res) => {
     
     console.log(`Using cleaned date string for reservation check: ${cleanDateStr}`);
     
-    // Since the database uses DATE type, we need to adjust for timezone handling by PostgreSQL
-    // Parse the date and add 1 day to compensate for PostgreSQL's timezone conversion
-    const [year, month, day] = cleanDateStr.split('-').map(Number);
-    const dateForDb = new Date(year, month - 1, day);
-    dateForDb.setDate(dateForDb.getDate() + 1); // Add 1 day to compensate for timezone conversion
+    // Use the exact date string for database query (consistent with availability endpoint)
+    // The database DATE column should handle this correctly without adjustment
+    const dateForDb = cleanDateStr;
+    console.log(`Using exact date for database query: ${dateForDb}`);
     
-    // Format the adjusted date back to YYYY-MM-DD
-    const adjustedDateStr = `${dateForDb.getFullYear()}-${String(dateForDb.getMonth() + 1).padStart(2, '0')}-${String(dateForDb.getDate()).padStart(2, '0')}`;
-    console.log(`Adjusted date for database query: ${adjustedDateStr} (added 1 day to compensate for timezone conversion)`);
+    // Normalize time format for database query
+    // Database stores time as "HH:MM:00" but client sends "HH:MM"
+    // Need to add ":00" suffix for proper matching
+    const normalizedTime = appointmentTime.includes(':') 
+      ? (appointmentTime.includes(':') && appointmentTime.split(':').length === 2 
+          ? `${appointmentTime}:00` 
+          : appointmentTime)
+      : `${appointmentTime.padStart(2, '0')}:00:00`;
+    
+    console.log(`Checking reservation for time: ${appointmentTime} (normalized to DB format: ${normalizedTime})`);
     
     // Check if slot is available with a more robust query
     const { data: bookings, error } = await supabase
       .from('grooming_appointments')
       .select('*')
-      .eq('appointment_date', adjustedDateStr) // Use adjusted date for DB query
-      .eq('appointment_time', appointmentTime)
+      .eq('appointment_date', dateForDb) // Use exact date for DB query
+      .eq('appointment_time', normalizedTime) // Use normalized time format
       .eq('groomer', groomer)
       .in('status', ['confirmed', 'pending']);
       
@@ -1079,10 +1095,20 @@ app.post('/api/bookings', async (req, res) => {
     }
     // Grooming bookings
     else {
+      // Format time for database (add ":00" suffix if not present)
+      // Database stores time as "HH:MM:00" format
+      const formattedTime = appointmentTime.includes(':') 
+        ? (appointmentTime.split(':').length === 2 
+            ? `${appointmentTime}:00` 
+            : appointmentTime)
+        : `${appointmentTime.padStart(2, '0')}:00:00`;
+      
+      console.log(`Formatting appointment time: ${appointmentTime} -> ${formattedTime}`);
+      
       // Create grooming booking data object with the exact date
       const groomingBookingData = {
         appointment_date: cleanDateStr,  // Use the exact date for the database
-        appointment_time: appointmentTime,
+        appointment_time: formattedTime, // Use formatted time for database
         pet_name: petName,
         pet_breed: petBreed,
         pet_size: petSize,
@@ -1103,6 +1129,26 @@ app.post('/api/bookings', async (req, res) => {
         groomingBookingData.pet_age = petAge;
       }
       
+      // Final race condition check - query the database directly before inserting
+      const formattedTimeForQuery = formattedTime;
+      const { data: existingBookings, error: checkError } = await supabase
+        .from('grooming_appointments')
+        .select('id, appointment_time, groomer')
+        .eq('appointment_date', cleanDateStr)
+        .eq('appointment_time', formattedTimeForQuery)
+        .eq('groomer', groomer || 'Groomer 1')
+        .not('status', 'eq', 'cancelled');
+        
+      if (checkError) {
+        console.error("Error in final availability check:", checkError);
+      } else if (existingBookings && existingBookings.length > 0) {
+        console.log(`Race condition detected: Slot was booked while user was filling form. Found ${existingBookings.length} existing bookings.`);
+        return res.status(409).json({
+          success: false,
+          message: "This time slot has just been booked by someone else. Please select another time."
+        });
+      }
+      
       // Create booking in Supabase
       const { data, error } = await supabase
         .from('grooming_appointments')
@@ -1111,6 +1157,15 @@ app.post('/api/bookings', async (req, res) => {
       
       if (error) {
         console.error(`Error creating grooming booking:`, error);
+        
+        // Handle unique constraint violation (double booking)
+        if (error.code === '23505') {
+          return res.status(409).json({
+            success: false,
+            message: "This time slot is already booked. Please select another time."
+          });
+        }
+        
         throw error;
       }
       

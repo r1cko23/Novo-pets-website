@@ -1107,15 +1107,22 @@ export default function BookingForm() {
           return false;
         }
 
-        if (
-          serviceType !== ServiceType.HOTEL &&
-          !form.getValues("appointmentTime")
-        ) {
-          form.setError("appointmentTime", {
-            type: "required",
-            message: "Please select a time",
-          });
-          return false;
+        if (serviceType !== ServiceType.HOTEL) {
+          if (!selectedGroomer) {
+            form.setError("groomer", {
+              type: "required",
+              message: "Please select a groomer",
+            });
+            return false;
+          }
+
+          if (!form.getValues("appointmentTime")) {
+            form.setError("appointmentTime", {
+              type: "required",
+              message: "Please select a time",
+            });
+            return false;
+          }
         }
 
         return true;
@@ -1347,6 +1354,9 @@ export default function BookingForm() {
     if (selectedDate && step === 2) {
       console.log(`[${new Date().toISOString()}] 📊 Date selected (${selectedDate}), immediately checking availability...`);
       
+      // Ensure booked slots are visible by default
+      setShowBookedSlots(true);
+      
       // Force refresh availability data
       refetchAvailability();
       
@@ -1360,22 +1370,29 @@ export default function BookingForm() {
     }
   }, [selectedDate, step, refetchAvailability]);
 
-  // Real-time availability updates
+  // Immediate availability check when groomer is selected
   useEffect(() => {
-    if (!selectedDate || step !== 2) return; // Only update when on step 2 (date/time selection)
+    if (selectedDate && selectedGroomer && step === 2) {
+      console.log(`[${new Date().toISOString()}] 📊 Groomer selected (${selectedGroomer}), ensuring availability is loaded...`);
+      
+      // Ensure booked slots are visible by default
+      setShowBookedSlots(true);
+      
+      // Force refresh availability data to ensure all slots (including unavailable) are loaded
+      refetchAvailability();
+      
+      // Also trigger a manual refresh of the availability summary
+      setTimeout(() => {
+        const event = new CustomEvent('refreshAvailabilitySummary', { 
+          detail: { date: selectedDate } 
+        });
+        window.dispatchEvent(event);
+      }, 100);
+    }
+  }, [selectedDate, selectedGroomer, step, refetchAvailability]);
 
-    const interval = setInterval(async () => {
-      try {
-        // Refresh availability data every 30 seconds
-        await refetchAvailability();
-        console.log("Refreshed availability data for real-time updates");
-      } catch (error) {
-        console.error("Error refreshing availability:", error);
-      }
-    }, 30000); // 30 seconds
-
-    return () => clearInterval(interval);
-  }, [selectedDate, step, refetchAvailability]);
+  // Note: Real-time availability updates are handled by React Query's refetchInterval
+  // No need for a separate useEffect interval - React Query already polls every 5s (visible) or 30s (hidden)
 
   // Add a function to force refresh availability data
   const forceRefreshAvailability = async () => {
@@ -1447,27 +1464,11 @@ export default function BookingForm() {
     }
   };
 
-  // Add this code at the beginning of the component where other useEffect hooks are defined:
-
-  // Force refresh availability data whenever the date or groomer changes
-  useEffect(() => {
-    if (selectedDate) {
-      console.log(
-        `Date changed, refreshing availability data for ${selectedDate}`
-      );
-      refetchAvailability();
-    }
-  }, [selectedDate, refetchAvailability]);
-
-  // Force refresh availability data whenever the groomer selection changes
-  useEffect(() => {
-    if (selectedGroomer && selectedDate) {
-      console.log(
-        `Groomer changed to ${selectedGroomer}, refreshing availability data`
-      );
-      refetchAvailability();
-    }
-  }, [selectedGroomer, selectedDate, refetchAvailability]);
+  // Note: Availability refresh is already handled by:
+  // 1. React Query's refetchInterval (5s visible, 30s hidden) - line 563
+  // 2. Immediate refresh when date selected (lines 1353-1371) - only on step 2
+  // 3. Immediate refresh when groomer selected (lines 1373-1392) - only on step 2
+  // Removed duplicate hooks to prevent redundant API calls
 
   // Utility function to get availability summary for a date
   const getAvailabilitySummary = async (
@@ -1663,7 +1664,7 @@ export default function BookingForm() {
                   Real-Time Availability Updates
                 </AlertTitle>
                 <AlertDescription className="text-blue-600">
-                  Availability updates automatically every 30 seconds. Orange slots show times being reserved by other users. Red slots are already booked. Green slots are available for booking.
+                  Availability updates automatically every 5 seconds. Orange slots show times being reserved by other users. Red slots are already booked. Green slots are available for booking.
                 </AlertDescription>
               </div>
             </div>
@@ -1855,7 +1856,12 @@ export default function BookingForm() {
                                 }
                                 onSelect={async (date) => {
                                   if (date) {
-                                    const dateString = date.toISOString();
+                                    // Extract year, month, day directly from Date object to avoid timezone issues
+                                    // This prevents date shifting when crossing midnight or timezone boundaries
+                                    const year = date.getFullYear();
+                                    const month = String(date.getMonth() + 1).padStart(2, "0");
+                                    const day = String(date.getDate()).padStart(2, "0");
+                                    const dateString = `${year}-${month}-${day}`;
                                     field.onChange(dateString);
 
                                     // Force refetch the availability data for this date
@@ -1878,6 +1884,16 @@ export default function BookingForm() {
                                       form.setValue("appointmentTime", "");
                                       form.setValue("groomer", "");
                                       setSelectedGroomer(null);
+                                      
+                                      // Clear reservation when date changes
+                                      if (reservation) {
+                                        setReservation(null);
+                                        setReservationTimeLeft(null);
+                                        if (reservationTimerRef.current) {
+                                          clearInterval(reservationTimerRef.current);
+                                          reservationTimerRef.current = null;
+                                        }
+                                      }
                                     } else {
                                       // For hotel stays, set default check-in time
                                       form.setValue("appointmentTime", "12:00");
@@ -1956,12 +1972,16 @@ export default function BookingForm() {
                         <FormLabel>Expected Check-out Date</FormLabel>
                         <div className="p-3 border rounded-md text-gray-700 mt-2">
                           {selectedDate && form.watch("durationDays")
-                            ? format(
-                                add(new Date(selectedDate), {
+                            ? (() => {
+                                // Parse YYYY-MM-DD string to Date object for calculation
+                                // Extract components to avoid timezone issues
+                                const [year, month, day] = selectedDate.split('-').map(Number);
+                                const checkInDate = new Date(year, month - 1, day);
+                                const checkOutDate = add(checkInDate, {
                                   days: form.watch("durationDays"),
-                                }),
-                                "PPP"
-                              )
+                                });
+                                return format(checkOutDate, "PPP");
+                              })()
                             : "Select check-in date and duration first"}
                         </div>
                         <p className="text-xs text-gray-500 mt-1">
@@ -1984,6 +2004,16 @@ export default function BookingForm() {
                                   setSelectedGroomer(value);
                                   // Reset time when groomer changes
                                   form.setValue("appointmentTime", "");
+                                  
+                                  // Clear reservation when groomer changes
+                                  if (reservation) {
+                                    setReservation(null);
+                                    setReservationTimeLeft(null);
+                                    if (reservationTimerRef.current) {
+                                      clearInterval(reservationTimerRef.current);
+                                      reservationTimerRef.current = null;
+                                    }
+                                  }
                                 }}
                                 value={field.value}
                                 disabled={
@@ -2426,10 +2456,16 @@ export default function BookingForm() {
                       ← Back
                     </Button>
                     <div className="flex-1" />
-                    {(!selectedDate || !form.getValues("appointmentTime")) && (
+                    {(!selectedDate || (serviceType !== ServiceType.HOTEL && (!selectedGroomer || !form.getValues("appointmentTime")))) && (
                       <div className="text-xs text-amber-600 flex items-center gap-1 sm:order-2">
                         <AlertCircle className="h-3 w-3" />
-                        <span>Please select a date and time slot to continue</span>
+                        <span>
+                          {!selectedDate 
+                            ? "Please select a date to continue"
+                            : serviceType !== ServiceType.HOTEL && !selectedGroomer
+                            ? "Please select a groomer and time slot to continue"
+                            : "Please select a time slot to continue"}
+                        </span>
                       </div>
                     )}
                     <Button
@@ -2437,7 +2473,9 @@ export default function BookingForm() {
                       className="bg-[#9a7d62] hover:bg-[#9a7d62]/90 text-white w-full sm:w-auto sm:order-3"
                       onClick={nextStep}
                       disabled={
-                        !selectedDate || !form.getValues("appointmentTime") || isLoadingAvailability
+                        !selectedDate || 
+                        (serviceType !== ServiceType.HOTEL && (!selectedGroomer || !form.getValues("appointmentTime"))) ||
+                        isLoadingAvailability
                       }
                     >
                       {isLoadingAvailability ? (
