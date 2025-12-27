@@ -93,12 +93,7 @@
     -moz-osx-font-smoothing: grayscale;
   }
   
-  /* Custom cursor only on desktop and when not on mobile */
-  @media (min-width: 769px) and (pointer: fine) {
-    body:has(.custom-cursor-active) {
-      cursor: none;
-    }
-  }
+  /* Custom cursor disabled - using default browser cursor */
   
   /* Ensure custom cursor doesn't interfere with text selection */
   * {

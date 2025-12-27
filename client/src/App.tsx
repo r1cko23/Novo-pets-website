@@ -7,7 +7,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
-import CustomCursor from "@/components/ui/CustomCursor";
 import Home from "@/pages/Home";
 import About from "@/pages/About";
 import Services from "@/pages/Services";
@@ -79,7 +78,6 @@ function App() {
       <TooltipProvider>
         <Toaster />
         <div className="antialiased min-h-screen bg-background text-foreground">
-          <CustomCursor />
           <Router />
         </div>
         <Analytics />

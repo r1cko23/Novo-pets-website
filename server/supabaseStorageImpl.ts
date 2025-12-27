@@ -152,6 +152,40 @@ function normalizeDate(dateStr: string): string {
   }
 }
 
+/**
+ * Parse a YYYY-MM-DD date string without timezone conversion
+ * This ensures dates from PostgreSQL are interpreted correctly regardless of server timezone
+ */
+function parseDateWithoutTimezone(dateStr: string): string {
+  // If already in YYYY-MM-DD format, return as-is
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    return dateStr;
+  }
+  
+  // If it's an ISO string with time, extract just the date part
+  if (dateStr.includes('T')) {
+    return dateStr.split('T')[0];
+  }
+  
+  // If it has a space, extract the date part
+  if (dateStr.includes(' ')) {
+    return dateStr.split(' ')[0];
+  }
+  
+  // Try to parse and format
+  try {
+    // Parse date parts directly to avoid timezone issues
+    const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) {
+      return `${match[1]}-${match[2]}-${match[3]}`;
+    }
+  } catch (error) {
+    console.error(`Error parsing date ${dateStr}:`, error);
+  }
+  
+  return dateStr;
+}
+
 // Define TimeSlot interface
 interface TimeSlot {
   time: string;
@@ -199,10 +233,9 @@ export class SupabaseStorage implements IStorage {
       
       // Map grooming appointments to Booking type
       const groomingBookings = groomingData.map(appointment => {
-        // Adjust the date for display (subtract one day to compensate for PostgreSQL date column)
-        const displayDate = new Date(appointment.appointment_date);
-        displayDate.setDate(displayDate.getDate() - 1);
-        const correctedDate = normalizeDate(displayDate.toISOString());
+        // Parse date directly from PostgreSQL without timezone conversion
+        // PostgreSQL date columns return YYYY-MM-DD strings, use them directly
+        const appointmentDate = parseDateWithoutTimezone(appointment.appointment_date);
         
         return {
           id: appointment.id,
@@ -211,7 +244,7 @@ export class SupabaseStorage implements IStorage {
           accommodationType: null,
           durationHours: null,
           durationDays: null,
-          appointmentDate: correctedDate, // Use corrected date
+          appointmentDate: appointmentDate, // Use date directly from DB
           appointmentTime: formatTimeFromDB(appointment.appointment_time),
           petName: appointment.pet_name,
           petBreed: appointment.pet_breed,
@@ -237,18 +270,13 @@ export class SupabaseStorage implements IStorage {
       
       // Map hotel bookings to Booking type
       const hotelBookings = hotelData.map(booking => {
-        // Adjust dates for display
-        const checkInDate = new Date(booking.check_in_date);
-        checkInDate.setDate(checkInDate.getDate() - 1);
-        const correctedCheckInDate = normalizeDate(checkInDate.toISOString());
+        // Parse dates directly from PostgreSQL without timezone conversion
+        const correctedCheckInDate = parseDateWithoutTimezone(booking.check_in_date);
+        const correctedCheckOutDate = parseDateWithoutTimezone(booking.check_out_date);
         
-        const checkOutDate = new Date(booking.check_out_date);
-        checkOutDate.setDate(checkOutDate.getDate() - 1);
-        const correctedCheckOutDate = normalizeDate(checkOutDate.toISOString());
-        
-        // Calculate duration in days using corrected dates
-        const checkInObj = new Date(correctedCheckInDate);
-        const checkOutObj = new Date(correctedCheckOutDate);
+        // Calculate duration in days using parsed dates
+        const checkInObj = new Date(correctedCheckInDate + 'T00:00:00');
+        const checkOutObj = new Date(correctedCheckOutDate + 'T00:00:00');
         const durationDays = Math.ceil((checkOutObj.getTime() - checkInObj.getTime()) / (1000 * 60 * 60 * 24));
         
         return {
@@ -300,10 +328,8 @@ export class SupabaseStorage implements IStorage {
         .maybeSingle();
       
       if (groomingData) {
-        // Adjust the date for display (subtract one day to compensate for PostgreSQL date column)
-        const displayDate = new Date(groomingData.appointment_date);
-        displayDate.setDate(displayDate.getDate() - 1);
-        const correctedDate = normalizeDate(displayDate.toISOString());
+        // Parse date directly from PostgreSQL without timezone conversion
+        const appointmentDate = parseDateWithoutTimezone(groomingData.appointment_date);
         
         return {
           id: groomingData.id,
@@ -312,7 +338,7 @@ export class SupabaseStorage implements IStorage {
           accommodationType: null,
           durationHours: null,
           durationDays: null,
-          appointmentDate: correctedDate, // Use corrected date
+          appointmentDate: appointmentDate, // Use date directly from DB
           appointmentTime: formatTimeFromDB(groomingData.appointment_time),
           petName: groomingData.pet_name,
           petBreed: groomingData.pet_breed,
@@ -344,18 +370,13 @@ export class SupabaseStorage implements IStorage {
         .maybeSingle();
       
       if (hotelData) {
-        // Adjust dates for display
-        const checkInDate = new Date(hotelData.check_in_date);
-        checkInDate.setDate(checkInDate.getDate() - 1);
-        const correctedCheckInDate = normalizeDate(checkInDate.toISOString());
+        // Parse dates directly from PostgreSQL without timezone conversion
+        const correctedCheckInDate = parseDateWithoutTimezone(hotelData.check_in_date);
+        const correctedCheckOutDate = parseDateWithoutTimezone(hotelData.check_out_date);
         
-        const checkOutDate = new Date(hotelData.check_out_date);
-        checkOutDate.setDate(checkOutDate.getDate() - 1);
-        const correctedCheckOutDate = normalizeDate(checkOutDate.toISOString());
-        
-        // Calculate duration in days using corrected dates
-        const checkInObj = new Date(correctedCheckInDate);
-        const checkOutObj = new Date(correctedCheckOutDate);
+        // Calculate duration in days using parsed dates
+        const checkInObj = new Date(correctedCheckInDate + 'T00:00:00');
+        const checkOutObj = new Date(correctedCheckOutDate + 'T00:00:00');
         const durationDays = Math.ceil((checkOutObj.getTime() - checkInObj.getTime()) / (1000 * 60 * 60 * 24));
         
         return {
@@ -365,7 +386,7 @@ export class SupabaseStorage implements IStorage {
           accommodationType: hotelData.accommodation_type,
           durationHours: null,
           durationDays: durationDays,
-          appointmentDate: correctedCheckInDate, // Use corrected date
+          appointmentDate: correctedCheckInDate, // Use date directly from DB
           appointmentTime: "12:00", // Default check-in time
           petName: hotelData.pet_name,
           petBreed: hotelData.pet_breed,
@@ -853,10 +874,8 @@ export class SupabaseStorage implements IStorage {
       
       console.log("Hotel booking created successfully:", data.id);
       
-      // When returning the booking, adjust the dates back to display correctly
-      const displayCheckInDate = new Date(data.check_in_date);
-      displayCheckInDate.setDate(displayCheckInDate.getDate() - 1);
-      const correctedCheckInDate = normalizeDate(displayCheckInDate.toISOString());
+      // Parse date directly from PostgreSQL without timezone conversion
+      const correctedCheckInDate = parseDateWithoutTimezone(data.check_in_date);
       
       // Invalidate the availability cache for this date to ensure fresh data
       // This prevents the issue where cached data shows slots as available after booking
@@ -872,7 +891,7 @@ export class SupabaseStorage implements IStorage {
         accommodationType: data.accommodation_type,
         durationHours: null,
         durationDays: duration,
-        appointmentDate: correctedCheckInDate, // Use corrected date for display
+        appointmentDate: correctedCheckInDate, // Use date directly from DB
         appointmentTime: "12:00", // Default check-in time
         petName: data.pet_name,
         petBreed: data.pet_breed,
