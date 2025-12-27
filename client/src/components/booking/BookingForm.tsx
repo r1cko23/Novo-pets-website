@@ -406,117 +406,116 @@ export default function BookingForm() {
             method: "GET",
             headers: {
               Accept: "application/json",
-                "Cache-Control": "no-cache, no-store, must-revalidate",
-                Pragma: "no-cache",
-              },
-            }
-          );
+              "Cache-Control": "no-cache, no-store, must-revalidate",
+              Pragma: "no-cache",
+            },
+          }
+        );
 
-          // Get response text first for debugging
-          const responseText = await response.text();
-          console.log(
-            `Raw availability response (${
-              response.status
-            }): ${responseText.substring(0, 200)}${
-              responseText.length > 200 ? "..." : ""
-            }`
-          );
+        // Get response text first for debugging
+        const responseText = await response.text();
+        console.log(
+          `Raw availability response (${
+            response.status
+          }): ${responseText.substring(0, 200)}${
+            responseText.length > 200 ? "..." : ""
+          }`
+        );
 
-          // If response isn't OK, log the error but don't throw yet - we'll generate fallback data
-          if (!response.ok) {
-            console.error(
-              `Error fetching availability: ${response.status} ${response.statusText}`
+        // If response isn't OK, log the error but don't throw yet - we'll generate fallback data
+        if (!response.ok) {
+          console.error(
+            `Error fetching availability: ${response.status} ${response.statusText}`
+          );
+          console.error(`Error response body: ${responseText}`);
+        } else {
+          // Parse the JSON if we have a valid response
+          try {
+            const result = JSON.parse(responseText);
+            console.log(
+              "Successfully parsed availability data:",
+              result.success,
+              `(${result.availableTimeSlots?.length || 0} slots)`
             );
-            console.error(`Error response body: ${responseText}`);
-          } else {
-            // Parse the JSON if we have a valid response
-            try {
-              const result = JSON.parse(responseText);
+
+            // Log the breakdown of available vs. booked slots
+            if (
+              result.availableTimeSlots &&
+              Array.isArray(result.availableTimeSlots)
+            ) {
+              const availableCount = result.availableTimeSlots.filter(
+                (slot: any) => !!slot.available
+              ).length;
+              const bookedCount =
+                result.availableTimeSlots.length - availableCount;
               console.log(
-                "Successfully parsed availability data:",
-                result.success,
-                `(${result.availableTimeSlots?.length || 0} slots)`
+                `Slot stats: ${availableCount} available, ${bookedCount} booked`
               );
 
-              // Log the breakdown of available vs. booked slots
-              if (
-                result.availableTimeSlots &&
-                Array.isArray(result.availableTimeSlots)
-              ) {
-                const availableCount = result.availableTimeSlots.filter(
-                  (slot: any) => !!slot.available
-                ).length;
-                const bookedCount =
-                  result.availableTimeSlots.length - availableCount;
+              // Check for the specific 9:00 AM slot
+              const nineAmSlots = result.availableTimeSlots.filter(
+                (slot: any) => slot.time === "09:00"
+              );
+              if (nineAmSlots.length > 0) {
                 console.log(
-                  `Slot stats: ${availableCount} available, ${bookedCount} booked`
+                  "9:00 AM slots status:",
+                  nineAmSlots
+                    .map(
+                      (slot: any) =>
+                        `${slot.groomer}: ${
+                          slot.available ? "available" : "booked"
+                        }`
+                    )
+                    .join(", ")
                 );
-
-                // Check for the specific 9:00 AM slot
-                const nineAmSlots = result.availableTimeSlots.filter(
-                  (slot: any) => slot.time === "09:00"
-                );
-                if (nineAmSlots.length > 0) {
-                  console.log(
-                    "9:00 AM slots status:",
-                    nineAmSlots
-                      .map(
-                        (slot: any) =>
-                          `${slot.groomer}: ${
-                            slot.available ? "available" : "booked"
-                          }`
-                      )
-                      .join(", ")
-                  );
-                }
               }
-
-              // Make sure the result has the expected format
-              if (
-                result.success &&
-                result.availableTimeSlots &&
-                Array.isArray(result.availableTimeSlots)
-              ) {
-                // Format the time slots for display
-                const formattedTimeSlots = result.availableTimeSlots.map(
-                  (slot: {
-                    time: string;
-                    groomer: string;
-                    available: boolean;
-                  }) => ({
-                    ...slot,
-                    // Ensure time is in HH:00 format
-                    time: slot.time.includes(":")
-                      ? slot.time
-                      : `${slot.time}:00`,
-                    // Format for display
-                    formattedTime: format(
-                      parse(
-                        slot.time.includes(":") ? slot.time : `${slot.time}:00`,
-                        "HH:mm",
-                        new Date()
-                      ),
-                      "h:mm a"
-                    ),
-                    // Ensure available is boolean type
-                    available: !!slot.available,
-                  })
-                );
-
-                return {
-                  success: true,
-                  availableTimeSlots: formattedTimeSlots,
-                  source: "api",
-                };
-              }
-            } catch (parseError) {
-              console.error("Failed to parse availability JSON:", parseError);
             }
-          }
-        } catch (fetchError) {
-          console.error("Network error fetching availability:", fetchError);
-        }
 
+            // Make sure the result has the expected format
+            if (
+              result.success &&
+              result.availableTimeSlots &&
+              Array.isArray(result.availableTimeSlots)
+            ) {
+              // Format the time slots for display
+              const formattedTimeSlots = result.availableTimeSlots.map(
+                (slot: {
+                  time: string;
+                  groomer: string;
+                  available: boolean;
+                }) => ({
+                  ...slot,
+                  // Ensure time is in HH:00 format
+                  time: slot.time.includes(":")
+                    ? slot.time
+                    : `${slot.time}:00`,
+                  // Format for display
+                  formattedTime: format(
+                    parse(
+                      slot.time.includes(":") ? slot.time : `${slot.time}:00`,
+                      "HH:mm",
+                      new Date()
+                    ),
+                    "h:mm a"
+                  ),
+                  // Ensure available is boolean type
+                  available: !!slot.available,
+                })
+              );
+
+              return {
+                success: true,
+                availableTimeSlots: formattedTimeSlots,
+                source: "api",
+              };
+            }
+          } catch (parseError) {
+            console.error("Failed to parse availability JSON:", parseError);
+          }
+        }
+      } catch (fetchError) {
+        console.error("Network error fetching availability:", fetchError);
+        
         // If we reach here, something went wrong with the API call or parsing
         // Generate fallback data with all slots available
         console.warn("Using fallback availability data");
@@ -535,25 +534,26 @@ export default function BookingForm() {
           availableTimeSlots: fallbackTimeSlots,
           source: "fallback",
         };
-      } catch (error) {
-        // This is a catch-all for any other unexpected errors
-        console.error("Unexpected error in availability query:", error);
-
-        // Always show an error toast to the user
-        toast({
-          title: "Availability Error",
-          description:
-            "Unable to fetch time slots. Please try again or select another date.",
-          variant: "destructive",
-        });
-
-        // Return empty data rather than throwing
-        return {
-          success: false,
-          availableTimeSlots: [],
-          source: "error",
-        };
       }
+
+      // If we reach here, response was not OK but no exception was thrown
+      // Generate fallback data with all slots available
+      console.warn("Using fallback availability data");
+
+      const fallbackTimeSlots = TIME_SLOTS.flatMap((time) =>
+        GROOMERS.map((groomer) => ({
+          time,
+          groomer,
+          available: true,
+          formattedTime: format(parse(time, "HH:mm", new Date()), "h:mm a"),
+        }))
+      );
+
+      return {
+        success: true,
+        availableTimeSlots: fallbackTimeSlots,
+        source: "fallback",
+      };
     },
     enabled: !!selectedDate, // Only run query when a date is selected
     staleTime: 0, // Consider data always stale, force refetch every time
@@ -1770,10 +1770,10 @@ export default function BookingForm() {
                   <div className="mt-8 flex justify-end">
                     <Button
                       type="button"
-                      className="bg-[#9a7d62] hover:bg-[#9a7d62]/90 text-white"
+                      className="bg-[#9a7d62] hover:bg-[#9a7d62]/90 text-white w-full sm:w-auto"
                       onClick={nextStep}
                     >
-                      Continue
+                      Continue →
                     </Button>
                   </div>
                 </div>
@@ -2112,31 +2112,37 @@ export default function BookingForm() {
                       name="appointmentTime"
                       render={({ field }) => (
                         <FormItem className="w-full mt-6">
-                          <div className="flex justify-between items-center mb-2">
-                            <FormLabel>Available Times</FormLabel>
-                            <div className="flex items-center space-x-2">
-                              <div className="flex items-center space-x-1">
+                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
+                            <div>
+                              <FormLabel className="text-base font-semibold">
+                                Available Times
+                              </FormLabel>
+                              <p className="text-xs text-gray-500 mt-1">
+                                Click on an available time slot to select it
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center space-x-2">
                                 <Checkbox
                                   id="show-booked"
                                   checked={showBookedSlots}
                                   onCheckedChange={(checked) =>
                                     setShowBookedSlots(!!checked)
                                   }
-                                  className="h-3 w-3"
+                                  className="h-4 w-4"
                                 />
                                 <Label
                                   htmlFor="show-booked"
-                                  className="text-xs text-gray-500"
+                                  className="text-sm text-gray-600 cursor-pointer"
                                 >
-                                  {showBookedSlots ? "Hiding" : "Show"} booked
-                                  slots
+                                  Show booked slots
                                 </Label>
                               </div>
                               {selectedDate && selectedGroomer && (
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  className="h-8 text-xs border-[#9a7d62] text-[#9a7d62] hover:bg-[#9a7d62]/10"
+                                  className="h-9 text-sm border-[#9a7d62] text-[#9a7d62] hover:bg-[#9a7d62]/10"
                                   onClick={(e) => {
                                     e.preventDefault();
                                     forceRefreshAvailability();
@@ -2144,71 +2150,46 @@ export default function BookingForm() {
                                   disabled={isLoadingAvailability}
                                 >
                                   {isLoadingAvailability ? (
-                                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                                   ) : (
                                     <svg
                                       xmlns="http://www.w3.org/2000/svg"
-                                      width="14"
-                                      height="14"
+                                      width="16"
+                                      height="16"
                                       viewBox="0 0 24 24"
                                       fill="none"
                                       stroke="currentColor"
                                       strokeWidth="2"
                                       strokeLinecap="round"
                                       strokeLinejoin="round"
-                                      className="mr-1"
+                                      className="mr-2"
                                     >
                                       <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
                                       <path d="M3 3v5h5" />
                                     </svg>
                                   )}
-                                  Refresh Availability
+                                  Refresh
                                 </Button>
                               )}
                             </div>
                           </div>
 
-                          <Select
-                            onValueChange={field.onChange}
-                            value={field.value}
-                            disabled={
-                              !selectedDate ||
-                              !selectedGroomer ||
-                              isLoadingAvailability
-                            }
-                            onOpenChange={(open) => {
-                              // Refetch availability data when the dropdown is opened
-                              if (open && selectedDate) {
-                                // Force a fresh refetch to ensure we have the latest availability
-                                refetchAvailability();
-                              }
-                            }}
-                          >
-                            <FormControl>
-                              <SelectTrigger className="w-full">
-                                {isLoadingAvailability ? (
-                                  <div className="flex items-center justify-center space-x-2">
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                    <span>Loading...</span>
-                                  </div>
-                                ) : (
-                                  <SelectValue
-                                    placeholder={
-                                      selectedGroomer
-                                        ? "Select a time slot"
-                                        : "First select a groomer"
-                                    }
-                                  />
-                                )}
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {selectedGroomer ? (
-                                // Check if there are any slots at all
-                                timeSlotsByGroomer[selectedGroomer]?.length >
-                                0 ? (
-                                  // Map through and display the slots, filtering based on showBookedSlots
-                                  timeSlotsByGroomer[selectedGroomer]
+                          {/* Improved Time Slot Selection with Visual Cards */}
+                          {isLoadingAvailability ? (
+                            <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed border-gray-200 rounded-lg">
+                              <Loader2 className="h-8 w-8 animate-spin text-[#9a7d62] mb-3" />
+                              <p className="text-sm font-medium text-gray-600">
+                                Loading available time slots...
+                              </p>
+                              <p className="text-xs text-gray-500 mt-1">
+                                Please wait while we check availability
+                              </p>
+                            </div>
+                          ) : selectedGroomer ? (
+                            timeSlotsByGroomer[selectedGroomer]?.length > 0 ? (
+                              <div className="space-y-3">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                  {timeSlotsByGroomer[selectedGroomer]
                                     .filter(
                                       (slot) =>
                                         showBookedSlots ||
@@ -2218,38 +2199,54 @@ export default function BookingForm() {
                                             slot.groomer
                                           ))
                                     )
-                                    .map((slot) => (
-                                      <SelectItem
-                                        key={`${slot.time}-${slot.groomer}`}
-                                        value={slot.time}
-                                        disabled={
-                                          !slot.available ||
-                                          isSlotKnownBooked(
-                                            slot.time,
-                                            slot.groomer
-                                          )
-                                        }
-                                        className={cn(
-                                          "flex items-center py-2 px-2 relative",
-                                          (!slot.available ||
-                                            isSlotKnownBooked(
-                                              slot.time,
-                                              slot.groomer
-                                            )) &&
-                                            "opacity-90 bg-red-50 border-l-4 border-red-400"
-                                        )}
-                                      >
-                                        <div className="flex justify-between w-full items-center">
-                                          <div className="flex items-center">
+                                    .map((slot) => {
+                                      const isAvailable =
+                                        slot.available === true &&
+                                        !isSlotKnownBooked(
+                                          slot.time,
+                                          slot.groomer
+                                        );
+                                      const isSelected =
+                                        field.value === slot.time;
+                                      const isReserved = isSlotBeingReserved(
+                                        slot.time,
+                                        slot.groomer
+                                      );
+
+                                      return (
+                                        <button
+                                          key={`${slot.time}-${slot.groomer}`}
+                                          type="button"
+                                          onClick={() => {
+                                            if (isAvailable) {
+                                              field.onChange(slot.time);
+                                              markSlotAsReserving(
+                                                slot.time,
+                                                slot.groomer
+                                              );
+                                            }
+                                          }}
+                                          disabled={!isAvailable}
+                                          className={cn(
+                                            "relative p-4 rounded-lg border-2 transition-all duration-200 text-left",
+                                            "hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#9a7d62] focus:ring-offset-2",
+                                            isSelected &&
+                                              isAvailable &&
+                                              "border-[#9a7d62] bg-[#9a7d62]/10 shadow-md",
+                                            !isSelected &&
+                                              isAvailable &&
+                                              "border-gray-200 bg-white hover:border-[#9a7d62]/50",
+                                            !isAvailable &&
+                                              "border-gray-100 bg-gray-50 cursor-not-allowed opacity-60"
+                                          )}
+                                        >
+                                          <div className="flex flex-col items-start">
                                             <span
                                               className={cn(
-                                                "text-base",
-                                                (slot.available !== true ||
-                                                  isSlotKnownBooked(
-                                                    slot.time,
-                                                    slot.groomer
-                                                  )) &&
-                                                  "line-through text-gray-400"
+                                                "text-lg font-semibold mb-1",
+                                                isAvailable
+                                                  ? "text-gray-900"
+                                                  : "text-gray-400 line-through"
                                               )}
                                             >
                                               {slot.formattedTime ||
@@ -2264,67 +2261,114 @@ export default function BookingForm() {
                                                   "h:mm a"
                                                 )}
                                             </span>
-                                          </div>
-                                          {/* Check for booked slots both via slot.available and our manual check */}
-                                          {(slot.available !== true ||
-                                            isSlotKnownBooked(
-                                              slot.time,
-                                              slot.groomer
-                                            )) && (
-                                            <span className="text-white text-xs font-bold px-2 py-1 bg-red-500 rounded-full ml-2 flex items-center">
-                                              <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                width="12"
-                                                height="12"
-                                                viewBox="0 0 24 24"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                strokeWidth="2"
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                className="mr-1"
-                                              >
-                                                <path d="M18 6 6 18"></path>
-                                                <path d="m6 6 12 12"></path>
-                                              </svg>
-                                              BOOKED
-                                            </span>
-                                          )}
-                                          {slot.available === true &&
-                                            !isSlotKnownBooked(
-                                              slot.time,
-                                              slot.groomer
-                                            ) && (
-                                              <span className="text-green-600 text-xs font-semibold px-2 py-1 bg-green-50 rounded-full ml-2 flex items-center">
-                                                <Check className="h-3 w-3 mr-1" />
-                                                Available
-                                              </span>
+                                            <div className="flex items-center gap-2 mt-1">
+                                              {isAvailable ? (
+                                                <>
+                                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                                                    <Check className="h-3 w-3 mr-1" />
+                                                    Available
+                                                  </span>
+                                                  {isReserved && (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 animate-pulse">
+                                                      Reserving...
+                                                    </span>
+                                                  )}
+                                                </>
+                                              ) : (
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                                                  <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    width="12"
+                                                    height="12"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    strokeWidth="2"
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    className="mr-1"
+                                                  >
+                                                    <path d="M18 6 6 18"></path>
+                                                    <path d="m6 6 12 12"></path>
+                                                  </svg>
+                                                  Booked
+                                                </span>
+                                              )}
+                                            </div>
+                                            {isSelected && (
+                                              <div className="absolute top-2 right-2">
+                                                <div className="h-5 w-5 rounded-full bg-[#9a7d62] flex items-center justify-center">
+                                                  <CheckIcon className="h-3 w-3 text-white" />
+                                                </div>
+                                              </div>
                                             )}
-                                        </div>
-                                      </SelectItem>
-                                    ))
-                                ) : (
-                                  <div className="px-4 py-6 text-center">
-                                    <div className="flex flex-col items-center">
-                                      <AlertCircle className="h-6 w-6 text-red-500 mb-2" />
-                                      <p className="text-sm text-red-500 font-semibold">
-                                        No available slots
-                                      </p>
-                                      <p className="text-xs text-gray-500 mt-1">
-                                        Please select another date or groomer
-                                      </p>
-                                    </div>
-                                  </div>
-                                )
-                              ) : (
-                                <div className="px-4 py-6 text-center">
-                                  <p className="text-sm text-gray-500">
-                                    Please select a groomer first
-                                  </p>
+                                          </div>
+                                        </button>
+                                      );
+                                    })}
                                 </div>
-                              )}
-                            </SelectContent>
-                          </Select>
+                                {timeSlotsByGroomer[selectedGroomer].filter(
+                                  (slot) => slot.available === true
+                                ).length === 0 && (
+                                  <Alert className="border-amber-200 bg-amber-50">
+                                    <AlertCircle className="h-4 w-4 text-amber-600" />
+                                    <AlertTitle className="text-amber-800">
+                                      All slots booked
+                                    </AlertTitle>
+                                    <AlertDescription className="text-amber-700">
+                                      All time slots for {selectedGroomer} on{" "}
+                                      {selectedDate &&
+                                        format(
+                                          new Date(selectedDate),
+                                          "MMMM d, yyyy"
+                                        )}{" "}
+                                      are currently booked. Please try another
+                                      date or groomer.
+                                    </AlertDescription>
+                                  </Alert>
+                                )}
+                              </div>
+                            ) : (
+                              <Alert className="border-red-200 bg-red-50">
+                                <AlertCircle className="h-4 w-4 text-red-600" />
+                                <AlertTitle className="text-red-800">
+                                  No time slots available
+                                </AlertTitle>
+                                <AlertDescription className="text-red-700">
+                                  Unable to load time slots for this groomer.
+                                  Please try refreshing or select another date.
+                                </AlertDescription>
+                              </Alert>
+                            )
+                          ) : (
+                            <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed border-gray-200 rounded-lg bg-gray-50">
+                              <CalendarIcon className="h-8 w-8 text-gray-400 mb-3" />
+                              <p className="text-sm font-medium text-gray-600">
+                                Select a groomer first
+                              </p>
+                              <p className="text-xs text-gray-500 mt-1">
+                                Choose a groomer to see available time slots
+                              </p>
+                            </div>
+                          )}
+                          
+                          {field.value && (
+                            <div className="mt-3 p-3 bg-[#9a7d62]/10 border border-[#9a7d62]/20 rounded-lg">
+                              <div className="flex items-center gap-2">
+                                <CheckIcon className="h-4 w-4 text-[#9a7d62]" />
+                                <span className="text-sm font-medium text-[#9a7d62]">
+                                  Selected: {format(
+                                    parse(
+                                      normalizeTimeFormat(field.value),
+                                      "HH:mm",
+                                      new Date()
+                                    ),
+                                    "h:mm a"
+                                  )} with {selectedGroomer}
+                                </span>
+                              </div>
+                            </div>
+                          )}
 
                           {/* Time slots legend */}
                           <div className="mt-2 flex flex-wrap gap-2 text-xs">
@@ -2372,19 +2416,38 @@ export default function BookingForm() {
                     </div>
                   )}
 
-                  <div className="mt-8 flex justify-between">
-                    <Button type="button" variant="outline" onClick={prevStep}>
-                      Back
+                  <div className="mt-8 flex flex-col sm:flex-row justify-between gap-3">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={prevStep}
+                      className="w-full sm:w-auto"
+                    >
+                      ← Back
                     </Button>
+                    <div className="flex-1" />
+                    {(!selectedDate || !form.getValues("appointmentTime")) && (
+                      <div className="text-xs text-amber-600 flex items-center gap-1 sm:order-2">
+                        <AlertCircle className="h-3 w-3" />
+                        <span>Please select a date and time slot to continue</span>
+                      </div>
+                    )}
                     <Button
                       type="button"
-                      className="bg-[#9a7d62] hover:bg-[#9a7d62]/90 text-white"
+                      className="bg-[#9a7d62] hover:bg-[#9a7d62]/90 text-white w-full sm:w-auto sm:order-3"
                       onClick={nextStep}
                       disabled={
-                        !selectedDate || !form.getValues("appointmentTime")
+                        !selectedDate || !form.getValues("appointmentTime") || isLoadingAvailability
                       }
                     >
-                      Continue
+                      {isLoadingAvailability ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Loading...
+                        </>
+                      ) : (
+                        "Continue →"
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -2613,16 +2676,21 @@ export default function BookingForm() {
                     )}
                   </div>
 
-                  <div className="flex justify-between mt-8">
-                    <Button type="button" variant="outline" onClick={prevStep}>
-                      Back
+                  <div className="flex flex-col sm:flex-row justify-between gap-3 mt-8">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={prevStep}
+                      className="w-full sm:w-auto"
+                    >
+                      ← Back
                     </Button>
                     <Button
                       type="button"
-                      className="bg-[#9a7d62] hover:bg-[#9a7d62]/90 text-white"
+                      className="bg-[#9a7d62] hover:bg-[#9a7d62]/90 text-white w-full sm:w-auto"
                       onClick={nextStep}
                     >
-                      Continue
+                      Continue →
                     </Button>
                   </div>
                 </div>
@@ -2705,16 +2773,28 @@ export default function BookingForm() {
                     </div>
                   </div>
 
-                  <div className="mt-8 flex justify-between">
-                    <Button type="button" variant="outline" onClick={prevStep}>
-                      Back
+                  <div className="mt-8 flex flex-col sm:flex-row justify-between gap-3">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={prevStep}
+                      className="w-full sm:w-auto"
+                    >
+                      ← Back
                     </Button>
                     <Button
                       type="submit"
-                      className="bg-[#9a7d62] hover:bg-[#9a7d62]/90 text-white"
+                      className="bg-[#9a7d62] hover:bg-[#9a7d62]/90 text-white w-full sm:w-auto"
                       disabled={mutation.isPending}
                     >
-                      {mutation.isPending ? "Processing..." : "Confirm Booking"}
+                      {mutation.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        "Confirm Booking ✓"
+                      )}
                     </Button>
                   </div>
                 </div>

@@ -49,7 +49,7 @@ async function testAuthentication() {
       })
     });
     
-    const loginData = await loginResponse.json();
+    const loginData = await loginResponse.json() as { message?: string; user?: any };
     
     if (!loginResponse.ok) {
       console.error('❌ Login failed:', loginData.message);
@@ -80,13 +80,13 @@ async function testProtectedEndpoint(adminEmail: string) {
     });
     
     if (!bookingsResponse.ok) {
-      const errorData = await bookingsResponse.json().catch(() => ({ message: 'Failed to parse error response' }));
+      const errorData = await bookingsResponse.json().catch(() => ({ message: 'Failed to parse error response' })) as { message: string };
       console.error('❌ Failed to access protected endpoint:', errorData.message);
       console.error('Status:', bookingsResponse.status);
       return;
     }
     
-    const bookings = await bookingsResponse.json();
+    const bookings = await bookingsResponse.json() as any[];
     console.log(`✅ Successfully accessed bookings API with ${bookings.length} bookings returned`);
     
     // Test updating a booking status if there are any bookings
@@ -104,12 +104,12 @@ async function testProtectedEndpoint(adminEmail: string) {
       });
       
       if (!updateResponse.ok) {
-        const errorData = await updateResponse.json().catch(() => ({ message: 'Failed to parse error response' }));
+        const errorData = await updateResponse.json().catch(() => ({ message: 'Failed to parse error response' })) as { message: string };
         console.error('❌ Failed to update booking status:', errorData.message);
         return;
       }
       
-      const updateData = await updateResponse.json();
+      const updateData = await updateResponse.json() as { message: string };
       console.log('✅ Successfully updated booking status:', updateData.message);
     }
     

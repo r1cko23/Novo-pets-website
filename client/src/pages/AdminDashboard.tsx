@@ -19,7 +19,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
-import { Loader2, Calendar as CalendarIcon, List } from "lucide-react";
+import { Loader2, Calendar as CalendarIcon, List, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import BookingCalendar from "@/components/admin/BookingCalendar";
 
 // Add styles directly in the component file as CSS
@@ -216,15 +217,43 @@ export default function AdminDashboard() {
     setNewBookingsCount(0);
   }, [activeTab, filter]);
 
-  // Filter bookings based on active tab
+  // Add search state
+  const [searchQuery, setSearchQuery] = useState("");
+  
+  // Filter bookings based on active tab, status filter, and search query
   const filteredBookings = bookings ? bookings.filter((booking: any) => {
-    if (activeTab === "all") return true;
-    if (activeTab === "grooming") return booking.serviceType === "grooming";
-    if (activeTab === "hotel") return booking.serviceType === "hotel";
+    // Filter by service type tab
+    if (activeTab === "all") {
+      // Show all except daycare if it doesn't exist
+      if (booking.serviceType === "daycare") return false;
+    } else if (activeTab === "grooming") {
+      if (booking.serviceType !== "grooming") return false;
+    } else if (activeTab === "hotel") {
+      if (booking.serviceType !== "hotel") return false;
+    } else {
+      return false;
+    }
+    
+    // Filter by status
+    if (filter !== "all" && booking.status !== filter) {
+      return false;
+    }
+    
+    // Filter by search query (searches in pet name, customer name, email, phone)
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      const matchesPetName = booking.petName?.toLowerCase().includes(query);
+      const matchesCustomerName = booking.customerName?.toLowerCase().includes(query);
+      const matchesEmail = booking.customerEmail?.toLowerCase().includes(query);
+      const matchesPhone = booking.customerPhone?.includes(query);
+      const matchesBreed = booking.petBreed?.toLowerCase().includes(query);
+      
+      if (!matchesPetName && !matchesCustomerName && !matchesEmail && !matchesPhone && !matchesBreed) {
+        return false;
+      }
+    }
+    
     return true;
-  }).filter((booking: any) => {
-    if (filter === "all") return true;
-    return booking.status === filter;
   }) : [];
 
   const handleLogout = () => {
@@ -512,17 +541,28 @@ export default function AdminDashboard() {
           /* List View */
           <div>
             <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-              <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="mb-6 space-y-4">
                 <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
                   <TabsList className="mb-4">
                     <TabsTrigger value="all">All Bookings</TabsTrigger>
                     <TabsTrigger value="grooming">Grooming</TabsTrigger>
                     <TabsTrigger value="hotel">Hotel</TabsTrigger>
-                    <TabsTrigger value="daycare">Daycare</TabsTrigger>
                   </TabsList>
                 </Tabs>
                 
-                <div className="flex space-x-4">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  {/* Search Input */}
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Input
+                      type="text"
+                      placeholder="Search by pet name, customer name, email, phone, or breed..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  
                   <Select value={filter} onValueChange={setFilter}>
                     <SelectTrigger className="w-[180px]">
                       <SelectValue placeholder="Filter by status" />
@@ -535,7 +575,27 @@ export default function AdminDashboard() {
                       <SelectItem value="cancelled">Cancelled</SelectItem>
                     </SelectContent>
                   </Select>
+                  
+                  {/* Clear filters button */}
+                  {(searchQuery || filter !== "all") && (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setSearchQuery("");
+                        setFilter("all");
+                      }}
+                    >
+                      Clear Filters
+                    </Button>
+                  )}
                 </div>
+                
+                {/* Results count */}
+                {filteredBookings.length > 0 && (
+                  <div className="text-sm text-gray-600">
+                    Showing {filteredBookings.length} of {bookings?.length || 0} bookings
+                  </div>
+                )}
               </div>
               
               <BookingsList 

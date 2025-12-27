@@ -1,14 +1,23 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "module": "CommonJS",
-    "moduleResolution": "Node",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "outDir": "dist",
     "noEmit": true,
     "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
     "esModuleInterop": true
   },
-  "include": ["server/**/*.ts", "api/**/*.ts"],
-  "exclude": ["node_modules", "client", "dist"]
+  "include": [
+    "server/**/*.ts",
+    "api/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "client",
+    "dist",
+    "server/vite.ts",
+    "vite.config.ts"
+  ]
 } 

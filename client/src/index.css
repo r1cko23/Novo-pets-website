@@ -67,11 +67,76 @@
     @apply border-border;
   }
 
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 100px; /* Account for fixed navbar */
+  }
+  
+  /* Respect user's motion preferences */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
   body {
-    @apply font-sans antialiased bg-[#faf7ee] text-[#8C636A] selection:bg-brand-secondary/20 selection:text-brand-secondary;
+    @apply font-sans antialiased bg-[#faf7ee] text-[#8C636A];
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+  
+  /* Custom cursor only on desktop and when not on mobile */
+  @media (min-width: 769px) and (pointer: fine) {
+    body:has(.custom-cursor-active) {
+      cursor: none;
+    }
+  }
+  
+  /* Ensure custom cursor doesn't interfere with text selection */
+  * {
+    user-select: text;
+  }
+  
+  input,
+  textarea {
+    cursor: text;
+  }
+  
+  /* Disable text selection on buttons and links for better UX */
+  button,
+  a {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  
+  /* Improved text selection styling for better visibility */
+  ::selection {
+    background-color: rgba(154, 125, 98, 0.3); /* brand-primary with 30% opacity */
+    color: #362f2d; /* brand-dark for better contrast */
+  }
+  
+  ::-moz-selection {
+    background-color: rgba(154, 125, 98, 0.3); /* Firefox support */
+    color: #362f2d;
+  }
+  
+  /* Ensure selection works well on different backgrounds */
+  *::selection {
+    background-color: rgba(154, 125, 98, 0.3);
+    color: #362f2d;
+  }
+  
+  *::-moz-selection {
+    background-color: rgba(154, 125, 98, 0.3);
+    color: #362f2d;
   }
   
   h1, h2, h3 {
@@ -112,6 +177,169 @@
   
   .floating {
     animation: float 6s ease-in-out infinite;
+  }
+  
+  /* 2025 Design: Custom cursor for interactive elements */
+  .cursor-pointer,
+  button,
+  a,
+  [role="button"],
+  input[type="button"],
+  input[type="submit"] {
+    cursor: pointer;
+    transition: transform 0.2s ease, filter 0.2s ease;
+  }
+  
+  .cursor-pointer:active,
+  button:active,
+  a:active {
+    transform: scale(0.98);
+  }
+  
+  /* 2025 Design: Enhanced focus states for accessibility */
+  *:focus-visible {
+    outline: 2px solid rgba(154, 125, 98, 0.6);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  
+  /* 2025 Design: Smooth transitions for all interactive elements */
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  /* 2025 Design: Ripple effect utility class */
+  .ripple {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .ripple::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.5);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+  }
+  
+  .ripple:active::after {
+    width: 300px;
+    height: 300px;
+  }
+  
+  /* 2025 Design: Gradient mesh background */
+  .gradient-mesh {
+    background: 
+      radial-gradient(at 0% 0%, rgba(154, 125, 98, 0.1) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(140, 99, 106, 0.1) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(67, 110, 79, 0.1) 0px, transparent 50%),
+      radial-gradient(at 0% 100%, rgba(154, 125, 98, 0.1) 0px, transparent 50%);
+    background-size: 200% 200%;
+    animation: gradient-mesh 15s ease infinite;
+  }
+  
+  @keyframes gradient-mesh {
+    0%, 100% {
+      background-position: 0% 0%;
+    }
+    25% {
+      background-position: 100% 0%;
+    }
+    50% {
+      background-position: 100% 100%;
+    }
+    75% {
+      background-position: 0% 100%;
+    }
+  }
+  
+  /* 2025 Design: Glass morphism enhancement */
+  .glass-enhanced {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 
+      0 8px 32px 0 rgba(31, 38, 135, 0.1),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.5);
+  }
+  
+  /* 2025 Design: Magnetic button effect */
+  .magnetic {
+    transition: transform 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  
+  .magnetic:hover {
+    transform: translateY(-2px);
+  }
+  
+  /* 2025 Design: Shimmer loading effect */
+  .shimmer-loading {
+    background: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.3) 50%,
+      rgba(255, 255, 255, 0) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite;
+  }
+  
+  /* 2025 Design: 3D card effect */
+  .card-3d {
+    transform-style: preserve-3d;
+    transition: transform 0.3s ease;
+  }
+  
+  .card-3d:hover {
+    transform: translateY(-8px) rotateX(2deg);
+  }
+  
+  /* 2025 Design: Text reveal animation */
+  .text-reveal {
+    opacity: 0;
+    transform: translateY(20px);
+    animation: textReveal 0.6s ease forwards;
+  }
+  
+  @keyframes textReveal {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  /* 2025 Design: Pulse glow effect */
+  .pulse-glow {
+    animation: pulseGlow 2s ease-in-out infinite;
+  }
+  
+  @keyframes pulseGlow {
+    0%, 100% {
+      box-shadow: 0 0 20px rgba(154, 125, 98, 0.3);
+    }
+    50% {
+      box-shadow: 0 0 40px rgba(154, 125, 98, 0.6);
+    }
+  }
+  
+  /* 2025 Design: Improved touch targets for mobile */
+  @media (max-width: 768px) {
+    button,
+    a,
+    [role="button"] {
+      min-height: 44px;
+      min-width: 44px;
+    }
   }
 }
 

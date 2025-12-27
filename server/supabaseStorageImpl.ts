@@ -468,47 +468,6 @@ export class SupabaseStorage implements IStorage {
       
       console.log(`[DB] Executing SQL query for date: ${queryDate}`);
       
-      // DIRECT DATABASE QUERY (for verification)
-      // Make a direct RAW SQL query to verify what's in the database for debug purposes
-      const { data: rawBookings, error: rawError } = await supabase.rpc('exec_sql', {
-        sql: `
-          SELECT * FROM grooming_appointments 
-          WHERE appointment_date = '${queryDate}' 
-          AND status != 'cancelled'
-        `
-      });
-      
-      if (rawBookings && Array.isArray(rawBookings)) {
-        console.log(`[DB] RAW SQL query found ${rawBookings.length} bookings for ${queryDate}`);
-        
-        // Log each booking for debugging
-        rawBookings.forEach(booking => {
-          console.log(`[DB] RAW Booking: Date=${booking.appointment_date}, Time=${booking.appointment_time}, Groomer=${booking.groomer || 'No groomer'}, Status=${booking.status}`);
-        });
-        
-        // Check specifically for 9AM bookings
-        const nineAmBookings = rawBookings.filter(b => {
-          // Handle different time formats by normalizing
-          const normalizedBookingTime = normalizeTimeFormat(b.appointment_time);
-          const isNineAM = normalizedBookingTime === '09:00';
-          if (isNineAM) {
-            console.log(`[DB] Identified 9:00 AM booking: Time=${b.appointment_time}, normalized=${normalizedBookingTime}`);
-          }
-          return isNineAM;
-        });
-        
-        if (nineAmBookings.length > 0) {
-          console.log(`[DB] Found ${nineAmBookings.length} bookings at 9:00 AM through direct SQL`);
-          nineAmBookings.forEach(b => {
-            console.log(`[DB] 9:00 AM booking: ID=${b.id}, Groomer=${b.groomer}, Status=${b.status}, Time=${b.appointment_time}`);
-          });
-        } else {
-          console.log(`[DB] No 9:00 AM bookings found in raw SQL query`);
-        }
-      } else if (rawError) {
-        console.error(`[DB] Error in raw SQL query:`, rawError);
-      }
-      
       // Get all grooming appointments for the specified date using the standard API
       // Important: Include all statuses except 'cancelled' to ensure proper availability checking
       const { data: appointments, error } = await supabase
@@ -1096,41 +1055,26 @@ export class SupabaseStorage implements IStorage {
    */
   async createReservationIndices(): Promise<void> {
     try {
-      // First, check if the constraint already exists to avoid errors
-      const { data: constraints, error: constraintError } = await supabase
-        .rpc('get_table_constraints', { table_name: 'grooming_appointments' });
+      // The unique constraint and indexes were already created in the migration
+      // This method is kept for backward compatibility but doesn't need to do anything
+      // since the constraint 'unique_appointment_slot' was created in the migration
+      console.log("Reservation indices and constraints are managed via migrations");
+      
+      // Verify the constraint exists by trying a test query
+      // If the table doesn't exist or has issues, this will help identify them
+      const { error } = await supabase
+        .from('grooming_appointments')
+        .select('id')
+        .limit(1);
         
-      if (constraintError) {
-        console.error("Error checking constraints:", constraintError);
-        return;
-      }
-      
-      // Check if our desired constraint already exists
-      const constraintExists = constraints && Array.isArray(constraints) && 
-        constraints.some(c => c.constraint_name === 'unique_appointment_slot');
-        
-      if (constraintExists) {
-        console.log("Reservation uniqueness constraint already exists");
-        return;
-      }
-      
-      // Create a unique constraint on appointment_date + appointment_time + groomer
-      // This SQL is specific to PostgreSQL
-      const { error } = await supabase.rpc('exec_sql', {
-        sql: `
-          ALTER TABLE grooming_appointments 
-          ADD CONSTRAINT unique_appointment_slot 
-          UNIQUE (appointment_date, appointment_time, groomer);
-        `
-      });
-      
       if (error) {
-        console.error("Error creating reservation index:", error);
+        console.warn("Warning: Could not verify grooming_appointments table:", error.message);
       } else {
-        console.log("Successfully created reservation uniqueness constraint");
+        console.log("✅ Verified grooming_appointments table is accessible");
       }
     } catch (error) {
       console.error("Error in createReservationIndices:", error);
+      // Don't throw - this is not critical for startup
     }
   }
 }

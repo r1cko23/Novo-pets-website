@@ -77,16 +77,26 @@ export default function Home() {
           </div>
         </section>
         
-        {/* CTA Section */}
-        <section className="py-16 bg-white">
-          <div className="container mx-auto px-6 text-center">
-            <h2 className="text-3xl md:text-4xl font-serif font-bold text-[#9a7d62] mb-6">Ready to Pamper Your Pet?</h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto mb-8">
+        {/* CTA Section with 2025 Design Enhancements */}
+        <section className="py-16 bg-gradient-mesh relative overflow-hidden">
+          {/* Decorative gradient orbs */}
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-gradient-to-r from-[#9a7d62]/20 to-[#8C636A]/20 rounded-full blur-3xl -z-10 animate-pulse"></div>
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-gradient-to-r from-[#436e4f]/20 to-[#9a7d62]/20 rounded-full blur-3xl -z-10 animate-pulse" style={{ animationDelay: '1s' }}></div>
+          
+          <div className="container mx-auto px-6 text-center relative z-10">
+            <h2 className="text-3xl md:text-4xl font-serif font-bold text-[#9a7d62] mb-6 text-reveal">
+              Ready to Pamper Your Pet?
+            </h2>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto mb-8 text-reveal" style={{ animationDelay: '0.1s' }}>
               Book an appointment now and treat your furry friend to the premium pet care experience they deserve.
             </p>
             <Link href="/booking">
-              <Button size="lg" className="bg-[#9a7d62] hover:bg-[#9a7d62]/90 text-white">
+              <Button 
+                size="lg" 
+                className="bg-gradient-to-r from-[#9a7d62] to-[#8C636A] hover:from-[#9a7d62]/90 hover:to-[#8C636A]/90 text-white magnetic pulse-glow shadow-xl"
+              >
                 Book an Appointment
+                <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Button>
             </Link>
           </div>

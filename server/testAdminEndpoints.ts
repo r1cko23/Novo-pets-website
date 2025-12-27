@@ -33,7 +33,8 @@ async function testAdminEndpoints() {
     }
     
     console.log('✅ Admin login successful!');
-    const adminEmail = loginData.user?.email;
+    const userData = loginData as { user?: { email?: string } };
+    const adminEmail = userData.user?.email;
     
     if (!adminEmail) {
       console.error('❌ No admin email in response!');
@@ -53,7 +54,7 @@ async function testAdminEndpoints() {
     if (!bookingsWithAuthResponse.ok) {
       console.error('❌ Failed to fetch bookings with admin credentials');
     } else {
-      const bookingsWithAuth = await bookingsWithAuthResponse.json();
+      const bookingsWithAuth = await bookingsWithAuthResponse.json() as any[];
       console.log(`✅ Retrieved ${bookingsWithAuth.length} bookings with admin credentials`);
     }
     
@@ -66,7 +67,7 @@ async function testAdminEndpoints() {
     if (!bookingsWithoutAuthResponse.ok) {
       console.error('❌ Failed to fetch bookings without admin credentials');
     } else {
-      const bookingsWithoutAuth = await bookingsWithoutAuthResponse.json();
+      const bookingsWithoutAuth = await bookingsWithoutAuthResponse.json() as any[];
       console.log(`✅ Retrieved ${bookingsWithoutAuth.length} bookings without admin credentials`);
     }
     

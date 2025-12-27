@@ -2,15 +2,20 @@ import nodemailer from 'nodemailer';
 import { format } from 'date-fns';
 
 // Email configuration
-const getEmailConfig = () => ({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false, // true for 465, false for other ports
-  auth: {
-    user: 'novopetsph@gmail.com',
-    pass: process.env.EMAIL_PASSWORD || '', // Set this in your .env file
-  },
-});
+const getEmailConfig = () => {
+  // Remove spaces from EMAIL_PASSWORD (Gmail App Passwords are displayed with spaces but should be used without)
+  const emailPassword = process.env.EMAIL_PASSWORD?.replace(/\s+/g, '') || '';
+  
+  return {
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false, // true for 465, false for other ports
+    auth: {
+      user: 'novopetsph@gmail.com',
+      pass: emailPassword,
+    },
+  };
+};
 
 // Create transporter function
 const createTransporter = () => {
@@ -67,8 +72,8 @@ const createBookingConfirmationEmail = (bookingData: any) => {
   // Format add-on services
   const addOnsList = addOnServices 
     ? (Array.isArray(addOnServices) ? addOnServices : addOnServices.split(','))
-        .filter(service => service.trim())
-        .map(service => `• ${service.trim()}`)
+        .filter((service: string) => service.trim())
+        .map((service: string) => `• ${service.trim()}`)
         .join('\n')
     : '';
 
@@ -245,7 +250,7 @@ const createBookingConfirmationEmail = (bookingData: any) => {
         <div class="service-info">
             <h3>🛠️ Service Details</h3>
             <p><strong>${serviceDetails}</strong></p>
-            ${addOnsList ? `<h4>Add-on Services:</h4><ul class="addons-list">${addOnsList.split('\n').map(item => `<li>${item}</li>`).join('')}</ul>` : ''}
+            ${addOnsList ? `<h4>Add-on Services:</h4><ul class="addons-list">${addOnsList.split('\n').map((item: string) => `<li>${item}</li>`).join('')}</ul>` : ''}
             ${specialRequestsText}
             ${transportDetails}
             ${treatsDetails}
@@ -391,6 +396,47 @@ export const sendAdminNotificationEmail = async (bookingData: any) => {
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error('❌ [Email] Error sending admin notification email:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+};
+
+// Send booking status change notification (when admin confirms booking)
+export const sendBookingStatusChangeEmail = async (bookingData: any, newStatus: string) => {
+  try {
+    console.log('📧 [Email] Starting to send status change email...');
+    console.log('📧 [Email] Customer email:', bookingData.customerEmail);
+    console.log('📧 [Email] New status:', newStatus);
+    
+    // Check if email password is configured
+    if (!process.env.EMAIL_PASSWORD) {
+      console.warn('⚠️ EMAIL_PASSWORD not configured. Skipping email sending.');
+      return { success: false, message: 'Email not configured' };
+    }
+
+    // Only send email for "confirmed" status
+    if (newStatus !== 'confirmed') {
+      console.log('📧 [Email] Status is not "confirmed", skipping email');
+      return { success: false, message: 'Email only sent for confirmed status' };
+    }
+
+    const { subject, html } = createBookingConfirmationEmail(bookingData);
+
+    const mailOptions = {
+      from: '"Novo Pets" <novopetsph@gmail.com>',
+      to: bookingData.customerEmail,
+      subject: `Booking Confirmed - ${bookingData.petName} at Novo Pets`,
+      html: html,
+    };
+
+    console.log('📧 [Email] Creating transporter...');
+    const transporter = createTransporter();
+    console.log('📧 [Email] Sending confirmation email...');
+    const info = await transporter.sendMail(mailOptions);
+    console.log('✅ [Email] Status change confirmation email sent successfully:', info.messageId);
+    
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error('❌ [Email] Error sending status change email:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 };

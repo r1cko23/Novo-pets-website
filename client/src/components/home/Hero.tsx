@@ -17,54 +17,78 @@ function useIsMobile() {
     // Check on mount
     checkIsMobile();
     
+    // Throttle resize events to prevent performance issues
+    let timeoutId: NodeJS.Timeout | null = null;
+    const handleResize = () => {
+      if (timeoutId) return;
+      timeoutId = setTimeout(() => {
+        checkIsMobile();
+        timeoutId = null;
+      }, 150); // Throttle to 150ms
+    };
+    
     // Add event listener for resize
-    window.addEventListener('resize', checkIsMobile);
+    window.addEventListener('resize', handleResize, { passive: true });
     
     // Clean up
-    return () => window.removeEventListener('resize', checkIsMobile);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, []);
   
   return isMobile;
 }
 
 export default function Hero() {
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const mousePositionRef = useRef({ x: 0, y: 0 });
   const parallaxRef = useRef<HTMLDivElement>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const [parallaxEffect, setParallaxEffect] = useState({ x: 0, y: 0 });
   const backgroundImagePath = serviceImages.heroBackground;
   const isMobile = useIsMobile();
   
   // Handle mouse move for parallax effect - only on desktop
+  // Optimized with requestAnimationFrame to prevent lag
   useEffect(() => {
     if (isMobile) return;
     
-    const handleMouseMove = (e: MouseEvent) => {
-      setMousePosition({
-        x: e.clientX,
-        y: e.clientY
-      });
+    const updateParallax = () => {
+      if (!parallaxRef.current) return;
+      
+      const centerX = window.innerWidth / 2;
+      const centerY = window.innerHeight / 2;
+      const depth = 0.02;
+      
+      const offsetX = (mousePositionRef.current.x - centerX) * depth;
+      const offsetY = (mousePositionRef.current.y - centerY) * depth;
+      
+      setParallaxEffect({ x: offsetX, y: offsetY });
+      animationFrameRef.current = null;
     };
     
-    window.addEventListener('mousemove', handleMouseMove);
+    const handleMouseMove = (e: MouseEvent) => {
+      // Update ref immediately (no re-render)
+      mousePositionRef.current = {
+        x: e.clientX,
+        y: e.clientY
+      };
+      
+      // Only schedule one animation frame update
+      if (animationFrameRef.current === null) {
+        animationFrameRef.current = requestAnimationFrame(updateParallax);
+      }
+    };
+    
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
     
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
     };
   }, [isMobile]);
-  
-  // Calculate parallax effect
-  const calcParallax = (mouseX: number, mouseY: number, depth: number = 0.02) => {
-    if (!parallaxRef.current || isMobile) return { x: 0, y: 0 };
-    
-    const centerX = window.innerWidth / 2;
-    const centerY = window.innerHeight / 2;
-    
-    const offsetX = (mouseX - centerX) * depth;
-    const offsetY = (mouseY - centerY) * depth;
-    
-    return { x: offsetX, y: offsetY };
-  };
-  
-  const parallaxEffect = calcParallax(mousePosition.x, mousePosition.y);
   
   // Animation variants
   const heroTextAnimation = {

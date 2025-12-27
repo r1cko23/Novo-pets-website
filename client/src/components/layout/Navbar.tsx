@@ -54,7 +54,7 @@ export default function Navbar() {
             
             <div className="md:flex items-center hidden">
               <Link href="/booking">
-                <Button className="bg-gradient-to-r from-[#9a7d62] to-[#8C636A] hover:opacity-90 text-white text-sm font-medium px-4 py-1.5 rounded-full whitespace-nowrap shadow-sm">
+                <Button className="bg-gradient-to-r from-[#9a7d62] to-[#8C636A] hover:opacity-90 hover:shadow-lg hover:-translate-y-0.5 text-white text-sm font-medium px-4 py-1.5 rounded-full whitespace-nowrap shadow-sm transition-all duration-200">
                   Book an Appointment
                 </Button>
               </Link>

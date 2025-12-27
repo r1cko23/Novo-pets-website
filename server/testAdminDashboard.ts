@@ -48,14 +48,16 @@ async function testAdminDashboard() {
     console.log('Response:', JSON.stringify(loginData, null, 2));
     
     if (!loginResponse.ok) {
-      throw new Error(`Admin login failed: ${loginData.message || 'Unknown error'}`);
+      const errorData = loginData as { message?: string };
+      throw new Error(`Admin login failed: ${errorData.message || 'Unknown error'}`);
     }
     
-    if (!loginData.user || !loginData.user.email) {
+    const userData = loginData as { user?: { email?: string } };
+    if (!userData.user || !userData.user.email) {
       throw new Error('Admin login response missing user email');
     }
     
-    adminEmail = loginData.user.email;
+    adminEmail = userData.user.email;
     console.log(`✅ Admin login successful! Email: ${adminEmail}\n`);
     
     // Verify admin status in Supabase if possible
@@ -99,11 +101,11 @@ async function testAdminDashboard() {
     console.log(`Bookings API Status: ${bookingsResponse.status} ${bookingsResponse.statusText}`);
     
     if (!bookingsResponse.ok) {
-      const errorData = await bookingsResponse.json().catch(() => ({}));
+      const errorData = await bookingsResponse.json().catch(() => ({})) as { message?: string };
       throw new Error(`Bookings API failed: ${errorData.message || 'Unknown error'}`);
     }
     
-    const bookingsData = await bookingsResponse.json();
+    const bookingsData = await bookingsResponse.json() as any[];
     console.log(`✅ Successfully retrieved ${bookingsData.length} bookings\n`);
     
     // Test a single booking if available

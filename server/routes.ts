@@ -5,7 +5,7 @@ import { bookingFormSchema, contactFormSchema } from "../shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { supabase } from "./supabase";
-import { sendBookingConfirmationEmail, sendAdminNotificationEmail } from "./emailService";
+import { sendBookingConfirmationEmail, sendAdminNotificationEmail, sendBookingStatusChangeEmail } from "./emailService";
 
 // Import the normalizeTimeFormat function from supabaseStorageImpl
 // Note: Since we can't directly import from supabaseStorageImpl, let's re-implement it here
@@ -276,7 +276,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/bookings/:id/status", authenticate, async (req: Request, res: Response) => {
     try {
       const bookingId = parseInt(req.params.id);
-      const { status } = req.body;
+      const { status, bookingType } = req.body;
       
       if (isNaN(bookingId)) {
         return res.status(400).json({ 
@@ -300,7 +300,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Get the current booking to check previous status
+      const currentBooking = await storage.getBooking(bookingId);
+      const previousStatus = currentBooking?.status;
+      
+      // Update the booking status
       const updatedBooking = await storage.updateBookingStatus(bookingId, status);
+      
+      // Send email notification if status changed to "confirmed"
+      if (status === 'confirmed' && previousStatus !== 'confirmed') {
+        console.log('📧 [Status Update] Sending confirmation email for booking:', bookingId);
+        try {
+          const emailResult = await sendBookingStatusChangeEmail(updatedBooking, status);
+          
+          if (emailResult.success) {
+            console.log('✅ [Status Update] Confirmation email sent successfully to customer');
+          } else {
+            console.warn('⚠️ [Status Update] Failed to send confirmation email:', emailResult.message);
+          }
+          
+          // Also notify admin that booking was confirmed
+          try {
+            const adminEmailResult = await sendAdminNotificationEmail({
+              ...updatedBooking,
+              petName: updatedBooking.petName,
+              serviceType: updatedBooking.serviceType,
+              appointmentDate: updatedBooking.appointmentDate,
+              appointmentTime: updatedBooking.appointmentTime,
+              customerName: updatedBooking.customerName,
+              customerEmail: updatedBooking.customerEmail,
+              customerPhone: updatedBooking.customerPhone,
+            });
+            
+            if (adminEmailResult.success) {
+              console.log('✅ [Status Update] Admin notification email sent successfully');
+            }
+          } catch (adminEmailError) {
+            console.error('❌ [Status Update] Error sending admin notification:', adminEmailError);
+          }
+        } catch (emailError) {
+          console.error('❌ [Status Update] Error sending confirmation email:', emailError);
+          // Don't fail the status update if email fails
+        }
+      }
       
       return res.status(200).json({
         success: true,
