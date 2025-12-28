@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Booking - Novo Pets</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #9a7d62;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #9a7d62;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #8C636A;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            display: none;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test Booking</h1>
+        <p>This will create a test booking and send an email to <strong>jericko.rzl@gmail.com</strong></p>
+        
+        <div class="form-group">
+            <label for="apiUrl">API URL:</label>
+            <input type="text" id="apiUrl" placeholder="https://your-domain.vercel.app" value="">
+        </div>
+
+        <div class="form-group">
+            <label for="date">Appointment Date:</label>
+            <input type="date" id="date" required>
+        </div>
+
+        <div class="form-group">
+            <label for="time">Appointment Time:</label>
+            <select id="time" required>
+                <option value="09:00">9:00 AM</option>
+                <option value="10:00" selected>10:00 AM</option>
+                <option value="11:00">11:00 AM</option>
+                <option value="12:00">12:00 PM</option>
+                <option value="13:00">1:00 PM</option>
+                <option value="14:00">2:00 PM</option>
+                <option value="15:00">3:00 PM</option>
+                <option value="16:00">4:00 PM</option>
+                <option value="17:00">5:00 PM</option>
+            </select>
+        </div>
+
+        <button id="submitBtn" onclick="createBooking()">Create Test Booking</button>
+
+        <div id="result" class="result"></div>
+    </div>
+
+    <script>
+        // Set tomorrow's date as default
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        document.getElementById('date').value = tomorrow.toISOString().split('T')[0];
+
+        async function createBooking() {
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            const date = document.getElementById('date').value;
+            const time = document.getElementById('time').value;
+            const resultDiv = document.getElementById('result');
+            const submitBtn = document.getElementById('submitBtn');
+
+            if (!apiUrl) {
+                showResult('error', 'Please enter your API URL (e.g., https://your-domain.vercel.app)');
+                return;
+            }
+
+            if (!date) {
+                showResult('error', 'Please select an appointment date');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Creating Booking...';
+            resultDiv.style.display = 'none';
+
+            const bookingData = {
+                serviceType: 'grooming',
+                groomingService: 'Basic Groom',
+                appointmentDate: date,
+                appointmentTime: time,
+                petName: 'Test Pet',
+                petBreed: 'Golden Retriever',
+                petSize: 'large',
+                addOnServices: [],
+                specialRequests: 'This is a test booking to verify email functionality',
+                needsTransport: false,
+                includeTreats: false,
+                customerName: 'Jericko Test',
+                customerPhone: '+639123456789',
+                customerEmail: 'jericko.rzl@gmail.com',
+                paymentMethod: 'cash',
+                groomer: 'Groomer 1',
+                status: 'pending'
+            };
+
+            try {
+                const response = await fetch(`${apiUrl}/api/bookings`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(bookingData),
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    let message = '✅ Booking created successfully!\n\n';
+                    message += `📧 Email Status: ${result.emailSent ? '✅ Sent' : '❌ Failed'}\n\n`;
+                    message += `📋 Booking ID: ${result.data?.id || 'N/A'}\n`;
+                    message += `📅 Date: ${date}\n`;
+                    message += `⏰ Time: ${time}\n\n`;
+                    
+                    if (result.emailSent) {
+                        message += '✅ Check your email inbox at jericko.rzl@gmail.com\n';
+                        message += '(Also check spam/junk folder if not in inbox)';
+                    } else {
+                        message += '⚠️ Booking created but email failed to send.\n';
+                        message += 'Check Vercel logs for email error details.';
+                    }
+                    
+                    showResult('success', message);
+                } else {
+                    showResult('error', `❌ Booking failed!\n\nError: ${result.message || 'Unknown error'}\n\n${result.errors ? JSON.stringify(result.errors, null, 2) : ''}`);
+                }
+            } catch (error) {
+                showResult('error', `❌ Error: ${error.message}\n\nMake sure:\n1. The API URL is correct\n2. The server is running\n3. CORS is enabled`);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Create Test Booking';
+            }
+        }
+
+        function showResult(type, message) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = `result ${type}`;
+            resultDiv.style.display = 'block';
+            resultDiv.textContent = message;
+        }
+    </script>
+</body>
+</html>
+

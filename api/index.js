@@ -947,7 +947,6 @@ app.post('/api/bookings', async (req, res) => {
       customerName,
       customerEmail,
       customerPhone,
-      paymentMethod,
       groomer
     } = req.body;
     
@@ -1031,7 +1030,6 @@ app.post('/api/bookings', async (req, res) => {
         customer_name: customerName,
         customer_email: customerEmail,
         customer_phone: customerPhone,
-        payment_method: paymentMethod || 'cash',
         special_requests: req.body.specialRequests,
         status: 'confirmed',
         reference: referenceNumber,
@@ -1119,7 +1117,6 @@ app.post('/api/bookings', async (req, res) => {
         customer_name: customerName,
         customer_email: customerEmail,
         customer_phone: customerPhone,
-        payment_method: paymentMethod || 'cash',
         groomer: groomer || 'Groomer 1',
         special_requests: req.body.specialRequests,
         status: 'confirmed',
