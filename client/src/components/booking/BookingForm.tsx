@@ -452,14 +452,14 @@ export default function BookingForm() {
                 `Slot stats: ${availableCount} available, ${bookedCount} booked`
               );
 
-              // Check for the specific 9:00 AM slot
-              const nineAmSlots = result.availableTimeSlots.filter(
-                (slot: any) => slot.time === "09:00"
+              // Check for the specific 10:00 AM slot
+              const tenAmSlots = result.availableTimeSlots.filter(
+                (slot: any) => slot.time === "10:00"
               );
-              if (nineAmSlots.length > 0) {
+              if (tenAmSlots.length > 0) {
                 console.log(
-                  "9:00 AM slots status:",
-                  nineAmSlots
+                  "10:00 AM slots status:",
+                  tenAmSlots
                     .map(
                       (slot: any) =>
                         `${slot.groomer}: ${
@@ -741,14 +741,14 @@ export default function BookingForm() {
       setLastAvailabilityData(availabilityData);
       setDebugDataLoaded(true);
 
-      // Specifically check 9:00 AM slots with normalized format
-      const nineAmSlots = typedTimeSlots.filter(
-        (slot) => normalizeTimeFormat(slot.time) === "09:00"
+      // Specifically check 10:00 AM slots with normalized format
+      const tenAmSlots = typedTimeSlots.filter(
+        (slot) => normalizeTimeFormat(slot.time) === "10:00"
       );
-      if (nineAmSlots.length > 0) {
+      if (tenAmSlots.length > 0) {
         console.log(
-          "9:00 AM slot status with normalized format:",
-          nineAmSlots
+          "10:00 AM slot status with normalized format:",
+          tenAmSlots
             .map(
               (slot) =>
                 `${slot.groomer}: ${
@@ -1433,15 +1433,15 @@ export default function BookingForm() {
         const localStorageKey = `booked_slots_${formattedDate}`;
         localStorage.removeItem(localStorageKey);
 
-        // Log specific information about 9:00 AM slots for debugging
-        const nineAmSlots = data.availableTimeSlots.filter(
-          (slot: any) => normalizeTimeFormat(slot.time) === "09:00"
+        // Log specific information about 10:00 AM slots for debugging
+        const tenAmSlots = data.availableTimeSlots.filter(
+          (slot: any) => normalizeTimeFormat(slot.time) === "10:00"
         );
 
-        if (nineAmSlots.length > 0) {
+        if (tenAmSlots.length > 0) {
           console.log(
-            "9:00 AM slots after force refresh:",
-            nineAmSlots
+            "10:00 AM slots after force refresh:",
+            tenAmSlots
               .map(
                 (slot: any) =>
                   `${slot.groomer}: ${slot.available ? "AVAILABLE" : "BOOKED"}`
@@ -1648,7 +1648,7 @@ export default function BookingForm() {
             <h4 className="font-montserrat font-semibold mb-2">
               Operating Hours
             </h4>
-            <p className="text-sm opacity-80">9 AM - 6 PM (Last Call: 5 PM)</p>
+            <p className="text-sm opacity-80">10 AM - 7 PM (Last Call: 6 PM)</p>
             <p className="text-sm opacity-80 mt-4">Need help? Contact us at:</p>
             <p className="font-medium mt-1">(0917) 791 7671</p>
             {step === 2 && selectedDate && (

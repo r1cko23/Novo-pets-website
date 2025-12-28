@@ -85,7 +85,7 @@ export default function Contact() {
                         </div>
                         <div className="ml-4">
                           <h4 className="font-montserrat font-semibold text-gray-900">Operating Hours</h4>
-                          <p className="text-gray-600">9 AM - 6 PM (Last Call: 5 PM)</p>
+                          <p className="text-gray-600">10 AM - 7 PM (Last Call: 6 PM)</p>
                         </div>
                       </div>
                     </div>

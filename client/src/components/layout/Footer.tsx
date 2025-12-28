@@ -122,7 +122,7 @@ export default function Footer() {
                 novopetsph@gmail.com
               </ContactItem>
               <ContactItem icon={<Clock className="h-5 w-5" />}>
-                9 AM - 6 PM (Last Call: 5 PM)
+                10 AM - 7 PM (Last Call: 6 PM)
               </ContactItem>
             </ul>
           </motion.div>

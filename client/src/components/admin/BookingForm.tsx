@@ -34,9 +34,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { ServiceType, PetSize } from "shared/schema";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-// Define available time slots
+// Define available time slots (10am-7pm, last appointment at 6pm)
 const TIME_SLOTS = [
-  "09:00 AM",
   "10:00 AM",
   "11:00 AM",
   "12:00 PM",
@@ -45,6 +44,7 @@ const TIME_SLOTS = [
   "03:00 PM",
   "04:00 PM",
   "05:00 PM",
+  "06:00 PM",
 ];
 
 // Define the schema for booking form
