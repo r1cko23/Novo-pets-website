@@ -1767,21 +1767,21 @@ const createBookingConfirmationEmail = (bookingData) => {
                 </div>
             </div>
 
-            ${specialRequestsText ? `
+            ${specialRequests ? `
             <div class="section">
                 <div class="section-title">Special Requests</div>
-                <div class="section-content">${specialRequestsText.replace('Special Requests: ', '')}</div>
+                <div class="section-content">${specialRequests}</div>
             </div>
             ` : ''}
 
-            ${transportDetails && needsTransport ? `
+            ${needsTransport && transportType && pickupAddress ? `
             <div class="section">
                 <div class="section-title">Transport</div>
                 <div class="section-content">${transportType} - ${pickupAddress}</div>
             </div>
             ` : ''}
 
-            ${treatsDetails && includeTreats ? `
+            ${includeTreats && treatType ? `
             <div class="section">
                 <div class="section-title">Treats</div>
                 <div class="section-content">${treatType}</div>
