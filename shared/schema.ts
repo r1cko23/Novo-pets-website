@@ -520,28 +520,25 @@ export const serviceOverviewItems = [
     title: "Luxury Grooming & Spa",
     description:
       "Pamper your pet with our premium grooming services including aromatherapy and spa treatments.",
-    image: "/images/luxury-grooming-spa.jpg",
+    image: "/images/spa/spa-7.jpg",
   },
   {
     title: "Boutique Pet Hotel",
     description:
       "Comfortable accommodations with personalized care for your pet's staycation needs.",
-    image:
-      "https://images.unsplash.com/photo-1425082661705-1834bfd09dca?w=800&auto=format&fit=crop&q=80",
+    image: "/images/services/Hotel 1-fnl.jpg",
   },
   {
     title: "Pet DayCare",
     description:
       "Fun and safe supervised activities in a social setting for your pet while you're away.",
-    image:
-      "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=800&auto=format&fit=crop&q=80",
+    image: "/images/services/Playpen 3-fnl.jpg",
   },
   {
     title: "Paw Pickup & Drop-off",
     description:
       "Convenient transport service for your pet to and from our facility within a 3km radius.",
-    image:
-      "https://images.unsplash.com/photo-1581888227599-779811939961?w=800&auto=format&fit=crop&q=80",
+    image: "/images/services/Transpo 2-fnl.jpg",
   },
 ];
 
@@ -549,54 +546,43 @@ export const serviceOverviewItems = [
 export const testimonials = [
   {
     name: "Jericko and Jacob",
-    image:
-      "https://images.unsplash.com/photo-1552053831-71594a27632d?w=150&auto=format&fit=crop&q=80",
-    text: "Novo Pets is absolutely incredible! My dog Jacob comes back from grooming looking and smelling amazing. The staff truly care about pets and treat him like royalty.",
+    image: "/images/testimonials/jericko-and-jacob.jpg",
+    text: "Omg Novo Pets is actually so good?? Jacob came back looking so fresh and clean, like he just came from a spa day fr. The staff are so nice and they really treat your pets like family. 10/10 would recommend!",
     serviceUsed: "Pomeranian • Full Groom Service",
     rating: 5,
   },
   {
-    name: "Luna & Miguel",
-    image:
-      "https://images.unsplash.com/photo-1574158622682-e40e69881006?w=150&auto=format&fit=crop&q=80",
-    text: "I've tried many pet hotels, but none compare to Novo Pets. Luna always comes back happy and well-cared for. Their pick-up service is super convenient too!",
-    serviceUsed: "Siamese Cat • Pet Hotel Service",
+    name: "Migi & Oreo",
+    image: "/images/testimonials/migi_and_oreo.jpg",
+    text: "Okay so I've been to a few places but Novo Pets hits different. Oreo always comes back looking so good and he's literally so happy after. The staff really know what they're doing and Oreo loves going there!",
+    serviceUsed: "Shih Tzu • Full Groom Service",
     rating: 5,
   },
   {
-    name: "Rocky & Jamie",
-    image:
-      "https://images.unsplash.com/photo-1551712702-4b7335dd8706?w=150&auto=format&fit=crop&q=80",
-    text: "The Luxury Spa Package is worth every peso! Rocky's coat has never looked better, and he even seems more confident after his visits. The staff is knowledgeable and caring.",
-    serviceUsed: "French Bulldog • Luxury Spa Package",
+    name: "Sophie & Macchi",
+    image: "/images/testimonials/sophie_and_macchi.jpg",
+    text: "Thank you so much for handling my macchi baby with care ❤️",
+    serviceUsed: "Exotic Shorthair • Luxury Spa Package",
     rating: 4.5,
   },
   {
-    name: "Bella & Nina",
-    image:
-      "https://images.unsplash.com/photo-1591946614720-90a587da4a36?w=150&auto=format&fit=crop&q=80",
-    text: "Bella loves the daycare at Novo Pets! The staff sends photos throughout the day, and she comes home happily tired. Their frozen yogurt treats are her favorite!",
-    serviceUsed: "Pomeranian • Daycare & Treats",
+    name: "Tovi & Unli",
+    image: "/images/testimonials/tovi_and_unli.jpg",
+    text: "Unli looks so good after her groom! Like she's a whole different dog, so soft and shiny. The staff are super patient with her and she actually enjoys going now. Best decision ever!",
+    serviceUsed: "French Bulldog • Full Groom Service",
     rating: 5,
   },
 ];
 
 // Service images for use throughout the application
 export const serviceImages = {
-  petSpa:
-    "https://images.unsplash.com/photo-1527526029430-319f10814151?w=800&auto=format&fit=crop&q=80",
-  petHotel:
-    "https://images.unsplash.com/photo-1425082661705-1834bfd09dca?w=800&auto=format&fit=crop&q=80",
-  petDaycare:
-    "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=800&auto=format&fit=crop&q=80",
-  pawPickup:
-    "https://images.unsplash.com/photo-1581888227599-779811939961?w=800&auto=format&fit=crop&q=80",
-  groomingServices:
-    "https://images.unsplash.com/photo-1516734212186-a967f81ad0d7?w=800&auto=format&fit=crop&q=80",
-  spaSession:
-    "https://images.unsplash.com/photo-1583511655826-05700442976f?w=800&auto=format&fit=crop&q=80",
-  daycarePlay:
-    "https://images.unsplash.com/photo-1541364983171-a8ba01e95cfc?w=800&auto=format&fit=crop&q=80",
+  petSpa: "/images/spa/spa-7.jpg",
+  petHotel: "/images/services/Hotel 1-fnl.jpg",
+  petDaycare: "/images/services/Playpen 3-fnl.jpg",
+  pawPickup: "/images/services/Transpo 2-fnl.jpg",
+  groomingServices: "/images/services/Spa 2-fnl.jpg",
+  spaSession: "/images/spa/spa-6.jpg",
+  daycarePlay: "/images/services/Playpen 2-fnl.jpg",
   heroBackground: "/images/novopets_newbg.jpg",
   logo: null, // Set to null to use the original import in Navbar.tsx
 };

@@ -88,27 +88,27 @@ export default function ServiceTabs() {
           
           {/* Grooming Services */}
           <TabsContent value="grooming">
-            <div className="grid grid-cols-1 gap-6 mb-6">
-              <div className="bg-[#f8f5f2] p-6 rounded-lg shadow-md">
-                <div className="mb-4 overflow-hidden rounded-md h-64">
+            <div className="grid grid-cols-1 gap-4 mb-4">
+              <div className="bg-[#f8f5f2] p-4 rounded-lg shadow-md flex flex-col gap-3">
+                <div className="mb-3 overflow-hidden rounded-md h-64 bg-gray-50">
                   <img 
                     src={serviceImages.petSpa} 
                     alt="Luxury pet spa treatments" 
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                   />
                 </div>
-                <h3 className="text-xl font-playfair font-bold text-[#9a7d62] mb-4">Exclusive Spa & Grooming</h3>
-                <p className="text-gray-700 mb-4">
+                <h3 className="text-xl font-playfair font-bold text-[#9a7d62]">Exclusive Spa & Grooming</h3>
+                <p className="text-gray-700 text-sm">
                   Our premium grooming services combine expert care with luxurious treatments to ensure your pet not only looks their best but feels their best. From aromatherapy to specialized treatments, we provide a relaxing spa experience for your beloved companion.
                 </p>
               </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {groomingPrices.map((service, index) => (
-                <div key={index} className="bg-[#f8f5f2] p-6 rounded-lg shadow-md">
-                  <h3 className="text-xl font-playfair font-bold text-[#9a7d62] mb-2">{service.service}</h3>
-                  <p className="text-gray-700 mb-4">{service.description}</p>
+                <div key={index} className="bg-[#f8f5f2] p-4 rounded-lg shadow-md flex flex-col gap-3">
+                  <h3 className="text-xl font-playfair font-bold text-[#9a7d62]">{service.service}</h3>
+                  <p className="text-gray-700 text-sm">{service.description}</p>
                   <div className="mb-4">
                     <span className="inline-flex items-center rounded-full bg-[#9a7d62]/10 px-2 py-1 text-xs font-medium text-[#9a7d62]">
                       Available for all pet sizes
@@ -123,11 +123,11 @@ export default function ServiceTabs() {
               ))}
             </div>
             
-            <div className="mt-8">
-              <h3 className="text-xl font-playfair font-semibold text-[#9a7d62] mb-4">Exclusive Spa Add-Ons</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="mt-5">
+              <h3 className="text-xl font-playfair font-semibold text-[#9a7d62] mb-3">Exclusive Spa Add-Ons</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                 {spaAddOns.map((addon, index) => (
-                  <div key={index} className="bg-[#f8f5f2] p-4 rounded-lg shadow">
+                  <div key={index} className="bg-[#f8f5f2] p-3 rounded-lg shadow">
                     <div className="font-medium text-gray-900">{addon.service}</div>
                     <p className="text-sm text-gray-600 mt-1">Premium spa treatment</p>
                   </div>
@@ -138,27 +138,27 @@ export default function ServiceTabs() {
           
           {/* Hotel Services */}
           <TabsContent value="hotel">
-            <div className="grid grid-cols-1 gap-6 mb-6">
-              <div className="bg-[#f8f5f2] p-6 rounded-lg shadow-md">
-                <div className="mb-4 overflow-hidden rounded-md h-64">
+            <div className="grid grid-cols-1 gap-4 mb-4">
+              <div className="bg-[#f8f5f2] p-4 rounded-lg shadow-md flex flex-col gap-3">
+                <div className="mb-3 overflow-hidden rounded-md h-64 bg-gray-50">
                   <img 
                     src={serviceImages.petHotel} 
                     alt="Pet hotel accommodations" 
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                   />
                 </div>
-                <h3 className="text-xl font-playfair font-bold text-[#9a7d62] mb-4">Luxury Pet Accommodations</h3>
-                <p className="text-gray-700 mb-4">
+                <h3 className="text-xl font-playfair font-bold text-[#9a7d62]">Luxury Pet Accommodations</h3>
+                <p className="text-gray-700 text-sm">
                   Our pet hotel offers comfortable, spacious accommodations with personalized care for your furry family members. We provide a home-away-from-home experience where your pet will receive attention, exercise, and proper care during their stay.
                 </p>
               </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {hotelPrices.map((service, index) => (
-                <div key={index} className="bg-[#f8f5f2] p-6 rounded-lg shadow-md">
-                  <h3 className="text-xl font-playfair font-bold text-[#9a7d62] mb-2">{service.type}</h3>
-                  <p className="text-gray-700 mb-4">{service.description}</p>
+                <div key={index} className="bg-[#f8f5f2] p-4 rounded-lg shadow-md flex flex-col gap-3">
+                  <h3 className="text-xl font-playfair font-bold text-[#9a7d62]">{service.type}</h3>
+                  <p className="text-gray-700 text-sm">{service.description}</p>
                   <div className="mb-4">
                     <span className="inline-flex items-center rounded-full bg-[#9a7d62]/10 px-2 py-1 text-xs font-medium text-[#9a7d62]">
                       Daily rates available
@@ -173,9 +173,9 @@ export default function ServiceTabs() {
               ))}
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-md mt-8">
-              <h3 className="text-xl font-playfair font-bold text-[#9a7d62] mb-4">What to Bring for Your Pet's Stay</h3>
-              <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white p-4 rounded-lg shadow-md mt-5">
+              <h3 className="text-xl font-playfair font-bold text-[#9a7d62] mb-3">What to Bring for Your Pet's Stay</h3>
+              <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <li className="flex items-start">
                   <span className="text-[#9a7d62] mr-2 mt-1">✓</span>
                   <span>Your pet's regular food to maintain their routine</span>
@@ -198,21 +198,21 @@ export default function ServiceTabs() {
           
           {/* Daycare Services */}
           <TabsContent value="daycare">
-            <div className="grid grid-cols-1 gap-6">
-              <div className="bg-[#f8f5f2] p-6 rounded-lg shadow-md">
-                <div className="mb-4 overflow-hidden rounded-md h-64">
+            <div className="grid grid-cols-1 gap-4">
+              <div className="bg-[#f8f5f2] p-4 rounded-lg shadow-md flex flex-col gap-3">
+                <div className="mb-3 overflow-hidden rounded-md h-64 bg-gray-50">
                   <img 
                     src={serviceImages.petDaycare} 
                     alt="Pets in daycare" 
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                   />
                 </div>
-                <h3 className="text-xl font-playfair font-bold text-[#9a7d62] mb-2">Daily Daycare Service</h3>
-                <p className="text-gray-700 mb-4">
+                <h3 className="text-xl font-playfair font-bold text-[#9a7d62]">Daily Daycare Service</h3>
+                <p className="text-gray-700 text-sm">
                   Our daycare services provide a safe, supervised environment where your pet can socialize, play, and exercise while you're away. 
                   We ensure your pet stays happy, engaged, and well-cared for throughout the day.
                 </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                   <div>
                     <h4 className="font-semibold text-[#9a7d62] mb-2">Activities Include:</h4>
                     <ul className="space-y-2">
@@ -259,27 +259,27 @@ export default function ServiceTabs() {
           
           {/* Transport Services */}
           <TabsContent value="transport">
-            <div className="grid grid-cols-1 gap-6 mb-6">
-              <div className="bg-[#f8f5f2] p-6 rounded-lg shadow-md">
-                <div className="mb-4 overflow-hidden rounded-md h-64">
+            <div className="grid grid-cols-1 gap-4 mb-4">
+              <div className="bg-[#f8f5f2] p-4 rounded-lg shadow-md flex flex-col gap-3">
+                <div className="mb-3 overflow-hidden rounded-md h-64 bg-gray-50">
                   <img 
                     src={serviceImages.pawPickup} 
                     alt="Pet transport service" 
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                   />
                 </div>
-                <h3 className="text-xl font-playfair font-bold text-[#9a7d62] mb-4">Paw Pickup & Drop-off Service</h3>
-                <p className="text-gray-700 mb-4">
+                <h3 className="text-xl font-playfair font-bold text-[#9a7d62]">Paw Pickup & Drop-off Service</h3>
+                <p className="text-gray-700 text-sm">
                   Our convenient transport service makes pet care hassle-free. We'll pick up your pet from your home and return them after their appointment, saving you time and ensuring your pet arrives safely and comfortably.
                 </p>
               </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {transportPrices.map((service, index) => (
-                <div key={index} className="bg-[#f8f5f2] p-6 rounded-lg shadow-md">
-                  <h3 className="text-xl font-playfair font-bold text-[#9a7d62] mb-2">{service.service}</h3>
-                  <p className="text-gray-700 mb-4">{service.description}</p>
+                <div key={index} className="bg-[#f8f5f2] p-4 rounded-lg shadow-md flex flex-col gap-3">
+                  <h3 className="text-xl font-playfair font-bold text-[#9a7d62]">{service.service}</h3>
+                  <p className="text-gray-700 text-sm">{service.description}</p>
                   <div className="mb-4">
                     <span className="inline-flex items-center rounded-full bg-[#9a7d62]/10 px-2 py-1 text-xs font-medium text-[#9a7d62]">
                       {service.notes}

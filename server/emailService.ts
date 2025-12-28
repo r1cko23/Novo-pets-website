@@ -1,5 +1,7 @@
 import nodemailer from 'nodemailer';
 import { format } from 'date-fns';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // Email configuration
 const getEmailConfig = () => {
@@ -30,6 +32,22 @@ const createTransporter = () => {
   return nodemailer.createTransport(getEmailConfig());
 };
 
+// Get logo as base64 data URI
+const getLogoDataUri = (): string => {
+  try {
+    const logoPath = path.join(__dirname, '..', 'client', 'public', 'logo_final.png');
+    const logoBuffer = fs.readFileSync(logoPath);
+    const base64Logo = logoBuffer.toString('base64');
+    return `data:image/png;base64,${base64Logo}`;
+  } catch (error) {
+    console.error('Error loading logo:', error);
+    // Fallback to external URL if file not found
+    return 'https://novopets.com/logo_final.png';
+  }
+};
+
+const LOGO_DATA_URI = getLogoDataUri();
+
 // Email templates
 const createBookingConfirmationEmail = (bookingData: any) => {
   const {
@@ -37,6 +55,7 @@ const createBookingConfirmationEmail = (bookingData: any) => {
     customerEmail,
     petName,
     petBreed,
+    petSize,
     serviceType,
     appointmentDate,
     appointmentTime,
@@ -428,7 +447,7 @@ const createBookingConfirmationEmail = (bookingData: any) => {
     <div class="email-wrapper">
         <div class="email-container">
             <div class="header">
-                <img src="https://novopets.com/logo_final.png" alt="Novo Pets" class="logo">
+                <img src="${LOGO_DATA_URI}" alt="Novo Pets" class="logo">
                 <h1>✓ Booking Confirmed</h1>
                 <p>Your appointment has been scheduled</p>
             </div>
@@ -454,7 +473,7 @@ const createBookingConfirmationEmail = (bookingData: any) => {
                     </div>
                     <div class="info-item">
                         <div class="info-label">Pet Size</div>
-                        <div class="info-value">${petSize.charAt(0).toUpperCase() + petSize.slice(1)}</div>
+                        <div class="info-value">${petSize ? petSize.charAt(0).toUpperCase() + petSize.slice(1) : 'N/A'}</div>
                     </div>
                 </div>
 
@@ -938,7 +957,7 @@ export const sendAdminNotificationEmail = async (bookingData: any) => {
     <div class="email-wrapper">
         <div class="email-container">
             <div class="header">
-                <img src="https://novopets.com/logo_final.png" alt="Novo Pets" class="logo">
+                <img src="${LOGO_DATA_URI}" alt="Novo Pets" class="logo">
                 <h1>🔔 New Booking Received</h1>
                 <p>Novo Pets Booking System</p>
             </div>
@@ -964,7 +983,7 @@ export const sendAdminNotificationEmail = async (bookingData: any) => {
                     </div>
                     <div class="info-item">
                         <div class="info-label">Pet Size</div>
-                        <div class="info-value">${petSize ? petSize.charAt(0).toUpperCase() + petSize.slice(1) : 'N/A'}</div>
+                        <div class="info-value">${petSize ? (petSize.charAt(0).toUpperCase() + petSize.slice(1)) : 'N/A'}</div>
                     </div>
                 </div>
 

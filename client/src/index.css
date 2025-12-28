@@ -9,6 +9,16 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  img {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: auto;
+    -ms-interpolation-mode: bicubic;
+    max-width: 100%;
+    height: auto;
+  }
+}
+
 :root {
   /* Base colors */
   --background: 48 33% 97%; /* #faf7ee - Cream background */

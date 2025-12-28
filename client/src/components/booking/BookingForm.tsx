@@ -763,10 +763,11 @@ export default function BookingForm() {
       setAvailableTimeSlots(typedTimeSlots);
 
       // Reset the time selection if the previously selected time is no longer available
+      // BUT: Don't show toast if we're on the confirmation step (step 5) - booking was successful
       const currentTime = form.getValues("appointmentTime");
       const currentGroomer = selectedGroomer;
 
-      if (currentTime && currentGroomer) {
+      if (currentTime && currentGroomer && step !== 5) {
         const normalizedCurrentTime = normalizeTimeFormat(currentTime);
         const isStillAvailable = typedTimeSlots.some(
           (slot) =>
@@ -800,7 +801,7 @@ export default function BookingForm() {
       setAvailableTimeSlots([]);
       setDebugDataLoaded(false);
     }
-  }, [availabilityData, form, selectedGroomer, reservation, selectedDate]);
+  }, [availabilityData, form, selectedGroomer, reservation, selectedDate, step]);
 
   // Track availability statistics per time
   const [timeSlotAvailability, setTimeSlotAvailability] = useState<

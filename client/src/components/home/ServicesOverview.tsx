@@ -36,7 +36,7 @@ export default function ServicesOverview() {
   const isMobile = useIsMobile();
 
   return (
-    <section className="py-24 relative overflow-hidden">
+    <section className="py-12 relative overflow-hidden">
       {/* Subtle background pattern */}
       <div className="absolute inset-0 opacity-5 pointer-events-none">
         <div className="absolute top-0 left-0 w-full h-full bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMyMjIiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0djZoNnYtNmgtNnptNiA2djZoNnYtNmgtNnptLTEyIDBoNnY2aC02di02em0xMiAwaDZ2NmgtNnYtNnptLTI0IDZoNnY2aC02di02em0xMiAwaDZ2NmgtNnYtNnptMTIgMGg2djZoLTZ2LTZ6Ii8+PC9nPjwvZz48L3N2Zz4=')] bg-repeat opacity-50"></div>
@@ -70,7 +70,7 @@ export default function ServicesOverview() {
             initial={{ opacity: 0, y: 20 }}
             animate={titleInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
             transition={{ duration: 0.6, ease: "easeOut" }}
-            className="text-center mb-16"
+            className="text-center mb-8"
           >
             <div className="flex items-center justify-center gap-2 mb-4">
               <Sparkles className="h-5 w-5 text-amber-400" />
@@ -104,7 +104,7 @@ export default function ServicesOverview() {
           </motion.div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           {serviceOverviewItems.map((service, index) => (
             <ServiceCard
               key={index}
@@ -147,30 +147,26 @@ function ServiceCard({
         <div className="h-full backdrop-blur-sm bg-white/80 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-[0_15px_35px_rgba(0,0,0,0.05)] border border-white/20 relative group">
           <div
             className={`overflow-hidden relative ${
-              title === "Luxury Grooming & Spa" ? "h-48" : "h-56"
+              title === "Luxury Grooming & Spa" ? "h-56" : "h-60"
             }`}
           >
             <img
               src={image}
               alt={title}
-              className={`w-full h-full ${
-                title === "Luxury Grooming & Spa"
-                  ? "object-cover object-center"
-                  : "object-contain"
-              }`}
+              className="w-full h-full object-cover object-center"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
           </div>
 
-          <div className="p-8 relative">
+          <div className="p-5 relative">
             {/* Decorative elements */}
             <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-[#9a7d62]/10 to-transparent rounded-full blur-xl opacity-70 -mt-10 -mr-10"></div>
 
-            <h3 className="font-bold text-xl text-[#9a7d62] mb-3 tracking-tight relative z-10">
+            <h3 className="font-bold text-xl text-[#9a7d62] mb-2 tracking-tight relative z-10">
               {title}
             </h3>
 
-            <p className="text-gray-600 mb-6 relative z-10 line-clamp-3">
+            <p className="text-gray-600 mb-4 relative z-10 line-clamp-3 text-sm">
               {description}
             </p>
 
@@ -211,17 +207,13 @@ function ServiceCard({
       >
         <div
           className={`overflow-hidden relative ${
-            title === "Luxury Grooming & Spa" ? "h-48" : "h-56"
+            title === "Luxury Grooming & Spa" ? "h-40" : "h-44"
           }`}
         >
           <motion.img
             src={image}
             alt={title}
-            className={`w-full h-full transition-transform duration-700 group-hover:scale-110 ${
-              title === "Luxury Grooming & Spa"
-                ? "object-cover object-center"
-                : "object-contain"
-            }`}
+            className="w-full h-full transition-transform duration-700 group-hover:scale-110 object-cover object-center"
             whileHover={{ scale: 1.1 }}
             transition={{ duration: 0.7 }}
           />
