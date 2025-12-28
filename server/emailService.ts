@@ -392,8 +392,24 @@ const createBookingConfirmationEmail = (bookingData: any) => {
                         <div class="info-value">${serviceType === 'GROOMING' || serviceType === 'grooming' ? 'Grooming' : 'Hotel Stay'}</div>
                     </div>
                     <div class="info-item">
-                        <div class="info-label">Pet</div>
-                        <div class="info-value">${petName}</div>
+                        <div class="info-label">Pet Size</div>
+                        <div class="info-value">${petSize.charAt(0).toUpperCase() + petSize.slice(1)}</div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Pet Information</div>
+                    <div class="section-content">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                            <div>
+                                <div style="font-size: 11px; text-transform: uppercase; color: #6c757d; font-weight: 700; letter-spacing: 0.8px; margin-bottom: 4px;">Pet Name</div>
+                                <div style="font-size: 15px; color: #1a1a1a; font-weight: 600;">${petName}</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 11px; text-transform: uppercase; color: #6c757d; font-weight: 700; letter-spacing: 0.8px; margin-bottom: 4px;">Breed</div>
+                                <div style="font-size: 15px; color: #1a1a1a; font-weight: 600;">${petBreed}</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
