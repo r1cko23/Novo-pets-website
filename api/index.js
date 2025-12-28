@@ -2128,57 +2128,395 @@ const sendAdminNotificationEmail = async (bookingData) => {
       return { success: false, message: 'Email not configured' };
     }
 
+    // Extract fields, handling both camelCase and snake_case
+    const customerName = bookingData.customerName || bookingData.customer_name;
+    const customerEmail = bookingData.customerEmail || bookingData.customer_email;
+    const customerPhone = bookingData.customerPhone || bookingData.customer_phone;
+    const petName = bookingData.petName || bookingData.pet_name;
+    const petBreed = bookingData.petBreed || bookingData.pet_breed;
+    const petSize = bookingData.petSize || bookingData.pet_size;
+    const serviceType = bookingData.serviceType || bookingData.service_type;
+    const appointmentDate = bookingData.appointmentDate || bookingData.appointment_date;
+    const appointmentTime = bookingData.appointmentTime || bookingData.appointment_time;
+    const groomingService = bookingData.groomingService || bookingData.grooming_service;
+    const accommodationType = bookingData.accommodationType || bookingData.accommodation_type;
+    const durationDays = bookingData.durationDays || bookingData.duration_days;
+    const addOnServices = bookingData.addOnServices || bookingData.add_on_services;
+    const specialRequests = bookingData.specialRequests || bookingData.special_requests;
+    const needsTransport = bookingData.needsTransport || bookingData.needs_transport || false;
+    const transportType = bookingData.transportType || bookingData.transport_type;
+    const pickupAddress = bookingData.pickupAddress || bookingData.pickup_address;
+    const includeTreats = bookingData.includeTreats || bookingData.include_treats || false;
+    const treatType = bookingData.treatType || bookingData.treat_type;
+    const groomer = bookingData.groomer;
+    const reference = bookingData.reference || bookingData.reference_number;
+
+    // Format date (Philippine timezone)
+    let formattedDate = 'To be determined';
+    try {
+      if (appointmentDate) {
+        const dateStr = appointmentDate.includes('T') ? appointmentDate.split('T')[0] : appointmentDate;
+        const [year, month, day] = dateStr.split('-').map(Number);
+        const phDate = new Date(Date.UTC(year, month - 1, day, 8, 0, 0));
+        formattedDate = format(phDate, 'EEEE, MMMM do, yyyy');
+      }
+    } catch (error) {
+      formattedDate = appointmentDate || 'To be determined';
+    }
+
+    // Format time to 12-hour format
+    const formatTimeTo12Hour = (timeStr) => {
+      if (!timeStr) return 'To be determined';
+      const timeOnly = timeStr.split(':').slice(0, 2).join(':');
+      const [hours, minutes] = timeOnly.split(':').map(Number);
+      if (isNaN(hours) || isNaN(minutes)) return timeStr;
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+      const displayMinutes = minutes.toString().padStart(2, '0');
+      return `${displayHours}:${displayMinutes} ${period}`;
+    };
+    const formattedTime = formatTimeTo12Hour(appointmentTime);
+
+    // Determine service details
+    let serviceDetails = '';
+    if (serviceType === 'grooming' || serviceType === 'GROOMING') {
+      serviceDetails = groomingService || 'Standard Grooming';
+    } else if (serviceType === 'hotel' || serviceType === 'HOTEL') {
+      serviceDetails = `${accommodationType || 'Standard Room'}${durationDays ? ` (${durationDays} day${durationDays > 1 ? 's' : ''})` : ''}`;
+    }
+
+    // Format add-ons
+    let addOnsList = '';
+    if (addOnServices) {
+      if (Array.isArray(addOnServices)) {
+        addOnsList = addOnServices.join(', ');
+      } else if (typeof addOnServices === 'string') {
+        addOnsList = addOnServices;
+      }
+    }
+
     const adminEmailContent = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <title>New Booking - Novo Pets</title>
     <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .header { background: #9a7d62; color: white; padding: 20px; text-align: center; }
-        .content { padding: 20px; }
-        .booking-info { background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 10px 0; }
-        .highlight { background: #fff3cd; padding: 10px; border-radius: 5px; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #1a1a1a;
+            background-color: #f5f7fa;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        .email-wrapper {
+            background-color: #f5f7fa;
+            padding: 40px 20px;
+        }
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+        }
+        .header {
+            background: linear-gradient(135deg, #9a7d62 0%, #8C636A 100%);
+            padding: 32px 24px;
+            text-align: center;
+            color: white;
+            position: relative;
+        }
+        .header::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: rgba(255,255,255,0.2);
+        }
+        .logo {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 16px auto;
+            display: block;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.1);
+            padding: 8px;
+        }
+        .header h1 {
+            font-size: 26px;
+            font-weight: 700;
+            margin: 0 0 6px 0;
+            letter-spacing: -0.5px;
+        }
+        .header p {
+            font-size: 15px;
+            opacity: 0.95;
+            font-weight: 400;
+        }
+        .content {
+            padding: 32px 24px;
+        }
+        .alert-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: linear-gradient(135deg, #fff3cd 0%, #ffe69c 100%);
+            color: #856404;
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 24px;
+            border: 1px solid rgba(255, 193, 7, 0.3);
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .info-item {
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid #e9ecef;
+            position: relative;
+            overflow: hidden;
+        }
+        .info-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: linear-gradient(180deg, #9a7d62 0%, #8C636A 100%);
+        }
+        .info-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            color: #6c757d;
+            font-weight: 700;
+            letter-spacing: 0.8px;
+            margin-bottom: 6px;
+        }
+        .info-value {
+            font-size: 16px;
+            color: #1a1a1a;
+            font-weight: 600;
+            letter-spacing: -0.2px;
+        }
+        .section {
+            margin-bottom: 20px;
+        }
+        .section-title {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #6c757d;
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .section-title::before {
+            content: '';
+            width: 3px;
+            height: 16px;
+            background: linear-gradient(180deg, #9a7d62 0%, #8C636A 100%);
+            border-radius: 2px;
+        }
+        .section-content {
+            font-size: 15px;
+            color: #2d3748;
+            line-height: 1.7;
+            background: #f8f9fa;
+            padding: 16px;
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+        }
+        .section-content strong {
+            color: #1a1a1a;
+            font-weight: 600;
+        }
+        .divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent 0%, #e0e0e0 50%, transparent 100%);
+            margin: 28px 0;
+        }
+        .footer {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 24px;
+            text-align: center;
+            font-size: 13px;
+            color: #6c757d;
+            border-top: 1px solid #e9ecef;
+        }
+        .footer-brand {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin-bottom: 10px;
+            letter-spacing: -0.3px;
+        }
+        .addon-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 6px 0;
+            padding: 4px 0;
+        }
+        .addon-item::before {
+            content: '✓';
+            color: #2e7d32;
+            font-weight: 700;
+            font-size: 14px;
+        }
+        @media only screen and (max-width: 600px) {
+            .email-wrapper {
+                padding: 20px 12px;
+            }
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+            .content {
+                padding: 24px 16px;
+            }
+            .header {
+                padding: 24px 16px;
+            }
+        }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>New Booking Received</h1>
-        <p>Novo Pets Booking System</p>
-    </div>
-    
-    <div class="content">
-        <div class="highlight">
-            <h2>New booking for ${bookingData.petName}</h2>
-            <p><strong>Customer:</strong> ${bookingData.customerName}</p>
-            <p><strong>Email:</strong> ${bookingData.customerEmail}</p>
-            <p><strong>Phone:</strong> ${bookingData.customerPhone}</p>
+    <div class="email-wrapper">
+        <div class="email-container">
+            <div class="header">
+                <img src="https://novopets.com/logo_final.png" alt="Novo Pets" class="logo">
+                <h1>🔔 New Booking Received</h1>
+                <p>Novo Pets Booking System</p>
+            </div>
+            
+            <div class="content">
+                <div class="alert-badge">
+                    <span>⚠️</span>
+                    <span>Action Required: New booking needs attention</span>
+                </div>
+
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">Date</div>
+                        <div class="info-value">${formattedDate}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Time</div>
+                        <div class="info-value">${formattedTime}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Service</div>
+                        <div class="info-value">${serviceType === 'grooming' || serviceType === 'GROOMING' ? 'Grooming' : 'Hotel Stay'}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Pet Size</div>
+                        <div class="info-value">${petSize ? petSize.charAt(0).toUpperCase() + petSize.slice(1) : 'N/A'}</div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Customer Information</div>
+                    <div class="section-content">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                            <div>
+                                <div style="font-size: 11px; text-transform: uppercase; color: #6c757d; font-weight: 700; letter-spacing: 0.8px; margin-bottom: 4px;">Name</div>
+                                <div style="font-size: 15px; color: #1a1a1a; font-weight: 600;">${customerName || 'N/A'}</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 11px; text-transform: uppercase; color: #6c757d; font-weight: 700; letter-spacing: 0.8px; margin-bottom: 4px;">Phone</div>
+                                <div style="font-size: 15px; color: #1a1a1a; font-weight: 600;"><a href="tel:${customerPhone || ''}" style="color: #9a7d62; text-decoration: none;">${customerPhone || 'N/A'}</a></div>
+                            </div>
+                            <div style="grid-column: 1 / -1;">
+                                <div style="font-size: 11px; text-transform: uppercase; color: #6c757d; font-weight: 700; letter-spacing: 0.8px; margin-bottom: 4px;">Email</div>
+                                <div style="font-size: 15px; color: #1a1a1a; font-weight: 600;"><a href="mailto:${customerEmail || ''}" style="color: #9a7d62; text-decoration: none;">${customerEmail || 'N/A'}</a></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Pet Information</div>
+                    <div class="section-content">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                            <div>
+                                <div style="font-size: 11px; text-transform: uppercase; color: #6c757d; font-weight: 700; letter-spacing: 0.8px; margin-bottom: 4px;">Pet Name</div>
+                                <div style="font-size: 15px; color: #1a1a1a; font-weight: 600;">${petName || 'N/A'}</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 11px; text-transform: uppercase; color: #6c757d; font-weight: 700; letter-spacing: 0.8px; margin-bottom: 4px;">Breed</div>
+                                <div style="font-size: 15px; color: #1a1a1a; font-weight: 600;">${petBreed || 'N/A'}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Service Details</div>
+                    <div class="section-content">
+                        <strong>${serviceDetails}</strong>
+                        ${groomer ? `<div style="margin-top: 12px;"><strong>Assigned Groomer:</strong> ${groomer}</div>` : ''}
+                        ${addOnsList ? `<div style="margin-top: 12px;"><strong>Add-ons:</strong><br>${addOnsList.split(',').map(item => `<div class="addon-item">${item.trim()}</div>`).join('')}</div>` : ''}
+                    </div>
+                </div>
+
+                ${specialRequests ? `
+                <div class="section">
+                    <div class="section-title">Special Requests</div>
+                    <div class="section-content">${specialRequests}</div>
+                </div>
+                ` : ''}
+
+                ${needsTransport ? `
+                <div class="section">
+                    <div class="section-title">Transport</div>
+                    <div class="section-content">${transportType || 'Transport requested'}${pickupAddress ? `<br><strong>Pickup Address:</strong> ${pickupAddress}` : ''}</div>
+                </div>
+                ` : ''}
+
+                ${includeTreats ? `
+                <div class="section">
+                    <div class="section-title">Treats</div>
+                    <div class="section-content">${treatType || 'Treats requested'}</div>
+                </div>
+                ` : ''}
+
+                ${reference ? `
+                <div class="section">
+                    <div class="section-title">Reference Number</div>
+                    <div class="section-content"><strong style="font-size: 18px; color: #9a7d62;">${reference}</strong></div>
+                </div>
+                ` : ''}
+
+                <div class="divider"></div>
+
+                <div style="background: #e3f2fd; border-left: 4px solid #2196f3; padding: 16px; border-radius: 8px; margin-top: 24px;">
+                    <p style="margin: 0; font-size: 14px; color: #1565c0; font-weight: 600;">📋 Please review and prepare for this appointment.</p>
+                </div>
+            </div>
+
+            <div class="footer">
+                <div class="footer-brand">Novo Pets Premium Pet Spa & Wellness</div>
+                <div style="font-size: 12px; color: #868e96; margin-top: 8px;">Booking Management System</div>
+            </div>
         </div>
-        
-        <div class="booking-info">
-            <h3>Booking Details:</h3>
-            <p><strong>Service:</strong> ${bookingData.serviceType}</p>
-            <p><strong>Date:</strong> ${(() => {
-              try {
-                if (bookingData.appointmentDate) {
-                  const dateObj = new Date(bookingData.appointmentDate);
-                  if (!isNaN(dateObj.getTime())) {
-                    return format(dateObj, 'EEEE, MMMM do, yyyy');
-                  }
-                }
-                return 'To be determined';
-              } catch (error) {
-                console.error('Error formatting admin email date:', error);
-                return 'To be determined';
-              }
-            })()}</p>
-            <p><strong>Time:</strong> ${bookingData.appointmentTime || 'To be determined'}</p>
-            ${bookingData.groomer ? `<p><strong>Groomer:</strong> ${bookingData.groomer}</p>` : ''}
-        </div>
-        
-        <p>Please review and prepare for this appointment.</p>
     </div>
 </body>
 </html>
