@@ -564,33 +564,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         console.log(`[API] Database returned ${totalSlots} time slots (${availableCount} available, ${bookedCount} booked)`);
         
-        // Specifically check 9:00 AM slots
-        const nineAmSlots = availableTimeSlots.filter(slot => normalizeTimeFormat(slot.time) === '09:00');
-        if (nineAmSlots.length > 0) {
-          console.log(`[API] 9:00 AM slot status from database:`, 
-            nineAmSlots.map(slot => `${slot.groomer}: ${slot.available ? 'AVAILABLE' : 'BOOKED'} (original time: ${slot.time})`).join(', '));
+        // Specifically check 10:00 AM slots (first slot of the day)
+        const tenAmSlots = availableTimeSlots.filter(slot => normalizeTimeFormat(slot.time) === '10:00');
+        if (tenAmSlots.length > 0) {
+          console.log(`[API] 10:00 AM slot status from database:`, 
+            tenAmSlots.map(slot => `${slot.groomer}: ${slot.available ? 'AVAILABLE' : 'BOOKED'} (original time: ${slot.time})`).join(', '));
             
-          // Get all reservations for 9:00 AM
-          const nineAmReservations = Array.from(reservations.values())
-            .filter(r => r.date === date && normalizeTimeFormat(r.time) === '09:00');
+          // Get all reservations for 10:00 AM
+          const tenAmReservations = Array.from(reservations.values())
+            .filter(r => r.date === date && normalizeTimeFormat(r.time) === '10:00');
             
-          if (nineAmReservations.length > 0) {
-            console.log(`[API] Active reservations for 9:00 AM:`, 
-              nineAmReservations.map(r => `${r.groomer}: reserved until ${new Date(r.expiresAt).toISOString()}`).join(', '));
+          if (tenAmReservations.length > 0) {
+            console.log(`[API] Active reservations for 10:00 AM:`, 
+              tenAmReservations.map(r => `${r.groomer}: reserved until ${new Date(r.expiresAt).toISOString()}`).join(', '));
               
             // Update slots that have active reservations to show as unavailable
-            nineAmSlots.forEach(slot => {
-              const hasActiveReservation = nineAmReservations.some(r => r.groomer === slot.groomer);
+            tenAmSlots.forEach(slot => {
+              const hasActiveReservation = tenAmReservations.some(r => r.groomer === slot.groomer);
               if (hasActiveReservation && slot.available) {
-                console.log(`[API] Marking slot as unavailable due to active reservation: ${slot.groomer} at 9:00 AM`);
+                console.log(`[API] Marking slot as unavailable due to active reservation: ${slot.groomer} at 10:00 AM`);
                 slot.available = false;
               }
             });
           } else {
-            console.log(`[API] No active reservations for 9:00 AM slots`);
+            console.log(`[API] No active reservations for 10:00 AM slots`);
           }
         } else {
-          console.log(`[API] No 9:00 AM slots found in response`);
+          console.log(`[API] No 10:00 AM slots found in response`);
         }
         
         return res.status(200).json({ 
@@ -608,9 +608,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (availabilityError) {
         console.error("Error fetching availability from database:", availabilityError);
         
-        // Define fallback time slots (all available)
+        // Define fallback time slots (all available) - 10am-7pm, last appointment at 6pm
         const TIME_SLOTS = [
-          "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"
+          "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"
         ];
         const GROOMERS = ["Groomer 1", "Groomer 2"];
         

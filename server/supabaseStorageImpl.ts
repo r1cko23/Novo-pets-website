@@ -13,9 +13,9 @@ enum PaymentMethod {
   CARD = "card"
 }
 
-// Define array of time slots in 24-hour format
+// Define array of time slots in 24-hour format (10am-7pm, last appointment at 6pm)
 const TIME_SLOTS = [
-  "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"
+  "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"
 ];
 
 // Define groomers

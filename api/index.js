@@ -726,12 +726,12 @@ app.get('/api/availability', async (req, res) => {
       });
     }
     
-    // For hotel bookings, mark the 9:00 AM slot as booked since that's when they typically check in
+    // For hotel bookings, mark the 10:00 AM slot as booked since that's when they typically check in
     // This is a simplification - in a real system, you might have more sophisticated allocation
     if (hotelBookings && hotelBookings.length > 0) {
-      // Each hotel booking takes up a slot at 9:00 AM
-      // This will block both groomers' 9 AM slots if there are two or more hotel bookings
-      const hotelDefaultTime = "09:00";
+      // Each hotel booking takes up a slot at 10:00 AM
+      // This will block both groomers' 10 AM slots if there are two or more hotel bookings
+      const hotelDefaultTime = "10:00";
       
       hotelBookings.forEach((booking, index) => {
         // Determine which groomer slot to block based on the index
@@ -756,12 +756,12 @@ app.get('/api/availability', async (req, res) => {
       });
     }
     
-    // Generate time slots (9 AM to 5 PM)
+    // Generate time slots (10 AM to 6 PM, last appointment at 6pm)
     const timeSlots = [];
     const groomers = ["Groomer 1", "Groomer 2"];
     
-    // Format hours properly and include more detailed time slots
-    for (let hour = 9; hour <= 17; hour++) {
+    // Format hours properly and include more detailed time slots (10am-7pm, last appointment at 6pm)
+    for (let hour = 10; hour <= 18; hour++) {
       // Format hour properly (09:00 instead of 9:00)
       const time = `${hour.toString().padStart(2, '0')}:00`;
       
@@ -1065,7 +1065,7 @@ app.post('/api/bookings', async (req, res) => {
         ...hotelBookingData,
         serviceType: 'hotel',
         appointmentDate: checkInDate,
-        appointmentTime: '9:00 AM',
+        appointmentTime: '10:00 AM',
         // Map database fields to email template fields
         petName: hotelBookingData.pet_name,
         petBreed: hotelBookingData.pet_breed,

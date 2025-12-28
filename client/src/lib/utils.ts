@@ -25,7 +25,8 @@ export function formatDate(dateString: string): string {
 
 export function generateTimeSlots(): string[] {
   const timeSlots = [];
-  for (let hour = 9; hour <= 17; hour++) {
+  // Operating hours: 10am-7pm, last appointment at 6pm
+  for (let hour = 10; hour <= 18; hour++) {
     if (hour !== 12) { // Skip 12 PM (lunch)
       const startTime = hour < 12 
         ? `${hour}:00 AM` 

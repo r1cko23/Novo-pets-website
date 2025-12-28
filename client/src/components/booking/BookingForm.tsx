@@ -961,25 +961,34 @@ export default function BookingForm() {
         reservationTimerRef.current = null;
       }
 
-      // Also force a direct refetch
-      refetchAvailability();
-
       setBookingReference(getBookingReference());
       setStep(5); // Move to confirmation step
       toast({
         title: "Booking Confirmed!",
         description: "Your appointment has been successfully scheduled. A confirmation email has been sent to your email address.",
       });
+
+      // Silently refetch availability in the background (don't let errors affect success)
+      setTimeout(() => {
+        refetchAvailability().catch((err) => {
+          // Silently handle refetch errors - booking was already successful
+          console.log("Background availability refetch failed (non-critical):", err);
+        });
+      }, 500);
     },
     onError: (error) => {
-      // Check if the error message contains information about an unavailable time slot
+      // Only show error if booking actually failed (not from background refetch)
       const errorMessage =
         error instanceof Error ? error.message : "Please try again";
-      if (
-        errorMessage.includes("not available") ||
+      
+      // Check if this is a real booking error (not a refetch error)
+      const isBookingError = errorMessage.includes("not available") ||
         errorMessage.includes("already booked") ||
-        errorMessage.includes("reservation")
-      ) {
+        errorMessage.includes("reservation") ||
+        errorMessage.includes("time slot") ||
+        errorMessage.includes("booking");
+      
+      if (isBookingError) {
         // Reset the time selection since it's no longer available
         form.setValue("appointmentTime", "");
         setReservation(null);
