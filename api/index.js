@@ -947,6 +947,7 @@ app.post('/api/bookings', async (req, res) => {
       customerName,
       customerEmail,
       customerPhone,
+      paymentMethod,
       groomer
     } = req.body;
     
