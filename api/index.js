@@ -1513,7 +1513,7 @@ const getEmailConfig = () => ({
 
 // Create transporter function
 const createTransporter = () => {
-  return nodemailer.createTransporter(getEmailConfig());
+  return nodemailer.createTransport(getEmailConfig());
 };
 
 // Email templates
