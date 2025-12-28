@@ -104,215 +104,362 @@ const createBookingConfirmationEmail = (bookingData: any) => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <title>Booking Confirmation - Novo Pets</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.5;
+            line-height: 1.6;
             color: #1a1a1a;
-            background-color: #f5f5f5;
-            padding: 20px;
+            background-color: #f5f7fa;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        .email-wrapper {
+            background-color: #f5f7fa;
+            padding: 40px 20px;
         }
         .email-container {
             max-width: 600px;
             margin: 0 auto;
             background: #ffffff;
-            border-radius: 8px;
+            border-radius: 16px;
             overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
         }
         .header {
             background: linear-gradient(135deg, #9a7d62 0%, #8C636A 100%);
-            padding: 24px 20px;
+            padding: 32px 24px;
             text-align: center;
             color: white;
+            position: relative;
+        }
+        .header::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: rgba(255,255,255,0.2);
         }
         .logo {
-            width: 60px;
-            height: 60px;
-            margin: 0 auto 12px auto;
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 16px auto;
             display: block;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.1);
+            padding: 8px;
         }
         .header h1 {
-            font-size: 24px;
-            font-weight: 600;
-            margin: 0 0 4px 0;
+            font-size: 26px;
+            font-weight: 700;
+            margin: 0 0 6px 0;
+            letter-spacing: -0.5px;
         }
         .header p {
-            font-size: 14px;
+            font-size: 15px;
             opacity: 0.95;
+            font-weight: 400;
         }
         .content {
-            padding: 24px 20px;
+            padding: 32px 24px;
         }
         .success-badge {
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            background: #e8f5e9;
-            color: #2e7d32;
-            padding: 8px 12px;
-            border-radius: 6px;
+            gap: 10px;
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+            color: #1b5e20;
+            padding: 12px 16px;
+            border-radius: 10px;
             font-size: 14px;
-            font-weight: 500;
-            margin-bottom: 20px;
+            font-weight: 600;
+            margin-bottom: 24px;
+            border: 1px solid rgba(46, 125, 50, 0.1);
         }
         .info-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(2, 1fr);
             gap: 12px;
-            margin-bottom: 20px;
+            margin-bottom: 24px;
         }
         .info-item {
-            background: #f8f9fa;
-            padding: 12px;
-            border-radius: 6px;
-            border-left: 3px solid #9a7d62;
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid #e9ecef;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .info-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: linear-gradient(180deg, #9a7d62 0%, #8C636A 100%);
         }
         .info-label {
             font-size: 11px;
             text-transform: uppercase;
-            color: #666;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-            margin-bottom: 4px;
+            color: #6c757d;
+            font-weight: 700;
+            letter-spacing: 0.8px;
+            margin-bottom: 6px;
         }
         .info-value {
-            font-size: 15px;
+            font-size: 16px;
             color: #1a1a1a;
-            font-weight: 500;
+            font-weight: 600;
+            letter-spacing: -0.2px;
         }
         .section {
-            margin-bottom: 16px;
+            margin-bottom: 20px;
         }
         .section-title {
-            font-size: 13px;
+            font-size: 12px;
             text-transform: uppercase;
-            color: #666;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-            margin-bottom: 8px;
+            color: #6c757d;
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .section-title::before {
+            content: '';
+            width: 3px;
+            height: 16px;
+            background: linear-gradient(180deg, #9a7d62 0%, #8C636A 100%);
+            border-radius: 2px;
         }
         .section-content {
-            font-size: 14px;
-            color: #333;
-            line-height: 1.6;
+            font-size: 15px;
+            color: #2d3748;
+            line-height: 1.7;
+            background: #f8f9fa;
+            padding: 16px;
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+        }
+        .section-content strong {
+            color: #1a1a1a;
+            font-weight: 600;
         }
         .divider {
             height: 1px;
-            background: #e0e0e0;
-            margin: 20px 0;
+            background: linear-gradient(90deg, transparent 0%, #e0e0e0 50%, transparent 100%);
+            margin: 28px 0;
+        }
+        .reminders-section {
+            background: linear-gradient(135deg, #fff9e6 0%, #fff3cd 100%);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            margin-top: 24px;
+        }
+        .reminders-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #856404;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .reminder-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 10px 0;
+            font-size: 14px;
+            color: #856404;
+            line-height: 1.6;
+        }
+        .reminder-item:not(:last-child) {
+            border-bottom: 1px solid rgba(255, 193, 7, 0.2);
+        }
+        .reminder-icon {
+            font-size: 18px;
+            flex-shrink: 0;
+            margin-top: 2px;
         }
         .footer {
-            background: #f8f9fa;
-            padding: 16px 20px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 24px;
             text-align: center;
-            font-size: 12px;
-            color: #666;
+            font-size: 13px;
+            color: #6c757d;
+            border-top: 1px solid #e9ecef;
         }
-        .footer a {
+        .footer-brand {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin-bottom: 10px;
+            letter-spacing: -0.3px;
+        }
+        .footer-tagline {
+            font-size: 12px;
+            color: #868e96;
+            margin-bottom: 14px;
+            font-style: italic;
+        }
+        .footer-contact {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-top: 14px;
+        }
+        .footer-contact a {
             color: #9a7d62;
             text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s ease;
         }
-        .reminder {
-            background: #fff9e6;
-            border-left: 3px solid #ffc107;
-            padding: 12px;
-            border-radius: 6px;
-            margin-top: 16px;
-            font-size: 13px;
-            color: #856404;
+        .footer-contact a:hover {
+            color: #8C636A;
         }
-        .reminder-title {
-            font-weight: 600;
-            margin-bottom: 6px;
+        .addon-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 6px 0;
+            padding: 4px 0;
+        }
+        .addon-item::before {
+            content: '✓';
+            color: #2e7d32;
+            font-weight: 700;
+            font-size: 14px;
         }
         @media only screen and (max-width: 600px) {
+            .email-wrapper {
+                padding: 20px 12px;
+            }
             .info-grid {
                 grid-template-columns: 1fr;
             }
-            body {
-                padding: 10px;
+            .content {
+                padding: 24px 16px;
+            }
+            .header {
+                padding: 24px 16px;
+            }
+            .footer-contact {
+                flex-direction: column;
+                gap: 8px;
             }
         }
     </style>
 </head>
 <body>
-    <div class="email-container">
-        <div class="header">
-            <img src="https://novopets.com/logo_final.png" alt="Novo Pets" class="logo">
-            <h1>✓ Booking Confirmed</h1>
-            <p>Your appointment has been scheduled</p>
-        </div>
-        
-        <div class="content">
-            <div class="success-badge">
-                <span>✓</span>
-                <span>Thank you for choosing Novo Pets!</span>
+    <div class="email-wrapper">
+        <div class="email-container">
+            <div class="header">
+                <img src="https://novopets.com/logo_final.png" alt="Novo Pets" class="logo">
+                <h1>✓ Booking Confirmed</h1>
+                <p>Your appointment has been scheduled</p>
             </div>
-
-            <div class="info-grid">
-                <div class="info-item">
-                    <div class="info-label">Date</div>
-                    <div class="info-value">${formattedDate}</div>
+            
+            <div class="content">
+                <div class="success-badge">
+                    <span>✓</span>
+                    <span>Thank you for choosing Novo Pets!</span>
                 </div>
-                <div class="info-item">
-                    <div class="info-label">Time</div>
-                    <div class="info-value">${formattedTime}</div>
+
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">Date</div>
+                        <div class="info-value">${formattedDate}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Time</div>
+                        <div class="info-value">${formattedTime}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Service</div>
+                        <div class="info-value">${serviceType === 'GROOMING' || serviceType === 'grooming' ? 'Grooming' : 'Hotel Stay'}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Pet</div>
+                        <div class="info-value">${petName}</div>
+                    </div>
                 </div>
-                <div class="info-item">
-                    <div class="info-label">Service</div>
-                    <div class="info-value">${serviceType === 'GROOMING' || serviceType === 'grooming' ? 'Grooming' : 'Hotel Stay'}</div>
+
+                <div class="section">
+                    <div class="section-title">Service Details</div>
+                    <div class="section-content">
+                        <strong>${serviceDetails}</strong>
+                        ${addOnsList ? `<div style="margin-top: 12px;">${addOnsList.split('\n').map((item: string) => `<div class="addon-item">${item.replace('• ', '')}</div>`).join('')}</div>` : ''}
+                    </div>
                 </div>
-                <div class="info-item">
-                    <div class="info-label">Pet</div>
-                    <div class="info-value">${petName}</div>
+
+                ${specialRequests ? `
+                <div class="section">
+                    <div class="section-title">Special Requests</div>
+                    <div class="section-content">${specialRequests}</div>
+                </div>
+                ` : ''}
+
+                ${needsTransport ? `
+                <div class="section">
+                    <div class="section-title">Transport</div>
+                    <div class="section-content">${transportType} - ${pickupAddress}</div>
+                </div>
+                ` : ''}
+
+                ${includeTreats ? `
+                <div class="section">
+                    <div class="section-title">Treats</div>
+                    <div class="section-content">${treatType}</div>
+                </div>
+                ` : ''}
+
+                <div class="divider"></div>
+
+                <div class="reminders-section">
+                    <div class="reminders-title">
+                        <span>📋</span>
+                        <span>Important Reminders</span>
+                    </div>
+                    <div class="reminder-item">
+                        <span class="reminder-icon">⏰</span>
+                        <span>Please arrive 10 minutes before your scheduled appointment</span>
+                    </div>
+                    <div class="reminder-item">
+                        <span class="reminder-icon">📄</span>
+                        <span>Bring your pet's vaccination records if this is their first visit</span>
+                    </div>
+                    <div class="reminder-item">
+                        <span class="reminder-icon">🔄</span>
+                        <span>If you need to reschedule, please contact us at least 24 hours in advance</span>
+                    </div>
+                    <div class="reminder-item">
+                        <span class="reminder-icon">🏨</span>
+                        <span>For hotel stays, please bring your pet's food and any medications</span>
+                    </div>
                 </div>
             </div>
 
-            <div class="section">
-                <div class="section-title">Service Details</div>
-                <div class="section-content">
-                    <strong>${serviceDetails}</strong>
-                    ${addOnsList ? `<div style="margin-top: 8px;">${addOnsList.split('\n').map((item: string) => `<div style="margin: 4px 0;">• ${item.replace('• ', '')}</div>`).join('')}</div>` : ''}
+            <div class="footer">
+                <div class="footer-brand">Novo Pets Premium Pet Spa & Wellness</div>
+                <div class="footer-tagline">Where Pets Feel at Home</div>
+                <div class="footer-contact">
+                    <a href="mailto:novopetsph@gmail.com">📧 novopetsph@gmail.com</a>
+                    <a href="https://novopets.com">🌐 novopets.com</a>
                 </div>
             </div>
-
-            ${specialRequests ? `
-            <div class="section">
-                <div class="section-title">Special Requests</div>
-                <div class="section-content">${specialRequests}</div>
-            </div>
-            ` : ''}
-
-            ${needsTransport ? `
-            <div class="section">
-                <div class="section-title">Transport</div>
-                <div class="section-content">${transportType} - ${pickupAddress}</div>
-            </div>
-            ` : ''}
-
-            ${includeTreats ? `
-            <div class="section">
-                <div class="section-title">Treats</div>
-                <div class="section-content">${treatType}</div>
-            </div>
-            ` : ''}
-
-            <div class="divider"></div>
-
-            <div class="reminder">
-                <div class="reminder-title">📋 Reminders</div>
-                <div>• Arrive 10 minutes early</div>
-                <div>• Bring vaccination records (first visit)</div>
-                <div>• Contact us 24h in advance to reschedule</div>
-            </div>
-        </div>
-
-        <div class="footer">
-            <div style="margin-bottom: 8px;"><strong>Novo Pets Premium Pet Spa & Wellness</strong></div>
-            <div>📧 novopetsph@gmail.com | 🌐 <a href="https://novopets.com">novopets.com</a></div>
         </div>
     </div>
 </body>
