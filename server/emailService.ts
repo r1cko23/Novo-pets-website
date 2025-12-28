@@ -106,183 +106,206 @@ const createBookingConfirmationEmail = (bookingData: any) => {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Booking Confirmation - Novo Pets</title>
     <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'Inter', Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.5;
+            color: #1a1a1a;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        .email-container {
             max-width: 600px;
             margin: 0 auto;
-            padding: 20px;
-            background-color: #faf7ee;
+            background: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         .header {
+            background: linear-gradient(135deg, #9a7d62 0%, #8C636A 100%);
+            padding: 24px 20px;
             text-align: center;
-            padding: 30px 0;
-            background: linear-gradient(135deg, #9a7d62, #8C636A);
             color: white;
-            border-radius: 15px 15px 0 0;
-            margin-bottom: 30px;
         }
-        .logo {
-            width: 80px;
-            height: 80px;
-            margin-bottom: 15px;
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin: 8px 0 4px 0;
         }
-        .title {
-            font-size: 28px;
-            font-weight: bold;
-            margin: 0;
-        }
-        .subtitle {
-            font-size: 16px;
-            opacity: 0.9;
-            margin: 10px 0 0 0;
+        .header p {
+            font-size: 14px;
+            opacity: 0.95;
         }
         .content {
-            background: white;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            padding: 24px 20px;
         }
-        .booking-details {
+        .success-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 20px;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .info-item {
             background: #f8f9fa;
-            padding: 20px;
-            border-radius: 10px;
-            margin: 20px 0;
-            border-left: 4px solid #9a7d62;
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 3px solid #9a7d62;
         }
-        .detail-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 10px;
-            padding: 8px 0;
-            border-bottom: 1px solid #eee;
-        }
-        .detail-row:last-child {
-            border-bottom: none;
-        }
-        .detail-label {
+        .info-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            color: #666;
             font-weight: 600;
-            color: #9a7d62;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
         }
-        .detail-value {
-            text-align: right;
+        .info-value {
+            font-size: 15px;
+            color: #1a1a1a;
+            font-weight: 500;
+        }
+        .section {
+            margin-bottom: 16px;
+        }
+        .section-title {
+            font-size: 13px;
+            text-transform: uppercase;
+            color: #666;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        .section-content {
+            font-size: 14px;
             color: #333;
+            line-height: 1.6;
         }
-        .pet-info {
-            background: #e8f5e8;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 15px 0;
-        }
-        .service-info {
-            background: #fff3cd;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 15px 0;
+        .divider {
+            height: 1px;
+            background: #e0e0e0;
+            margin: 20px 0;
         }
         .footer {
-            text-align: center;
-            margin-top: 30px;
-            padding: 20px;
             background: #f8f9fa;
-            border-radius: 10px;
-        }
-        .contact-info {
-            margin-top: 15px;
-            font-size: 14px;
+            padding: 16px 20px;
+            text-align: center;
+            font-size: 12px;
             color: #666;
         }
-        .highlight {
-            background: linear-gradient(135deg, #9a7d62, #8C636A);
-            color: white;
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-            margin: 20px 0;
+        .footer a {
+            color: #9a7d62;
+            text-decoration: none;
         }
-        .addons-list {
-            margin: 10px 0;
-            padding-left: 20px;
+        .reminder {
+            background: #fff9e6;
+            border-left: 3px solid #ffc107;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 16px;
+            font-size: 13px;
+            color: #856404;
         }
-        .addons-list li {
-            margin-bottom: 5px;
+        .reminder-title {
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        @media only screen and (max-width: 600px) {
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+            body {
+                padding: 10px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <img src="https://novopets.com/logo_final.png" alt="Novo Pets" class="logo">
-        <h1 class="title">Booking Confirmation</h1>
-        <p class="subtitle">Your appointment has been successfully scheduled!</p>
-    </div>
-    
-    <div class="content">
-        <div class="highlight">
-            <h2>🎉 Thank you for choosing Novo Pets!</h2>
-            <p>We're excited to pamper your beloved pet!</p>
+    <div class="email-container">
+        <div class="header">
+            <h1>✓ Booking Confirmed</h1>
+            <p>Your appointment has been scheduled</p>
         </div>
+        
+        <div class="content">
+            <div class="success-badge">
+                <span>✓</span>
+                <span>Thank you for choosing Novo Pets!</span>
+            </div>
 
-        <div class="booking-details">
-            <h3>📅 Appointment Details</h3>
-            <div class="detail-row">
-                <span class="detail-label">Date:</span>
-                <span class="detail-value">${formattedDate}</span>
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">Date</div>
+                    <div class="info-value">${formattedDate}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Time</div>
+                    <div class="info-value">${formattedTime}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Service</div>
+                    <div class="info-value">${serviceType === 'GROOMING' || serviceType === 'grooming' ? 'Grooming' : 'Hotel Stay'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Pet</div>
+                    <div class="info-value">${petName}</div>
+                </div>
             </div>
-            <div class="detail-row">
-                <span class="detail-label">Time:</span>
-                <span class="detail-value">${formattedTime}</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">Service Type:</span>
-                <span class="detail-value">${serviceType === 'GROOMING' ? 'Grooming' : 'Hotel Stay'}</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">Payment Method:</span>
-                <span class="detail-value">${paymentMethod}</span>
-            </div>
-        </div>
 
-        <div class="pet-info">
-            <h3>🐾 Pet Information</h3>
-            <div class="detail-row">
-                <span class="detail-label">Pet Name:</span>
-                <span class="detail-value">${petName}</span>
+            <div class="section">
+                <div class="section-title">Service Details</div>
+                <div class="section-content">
+                    <strong>${serviceDetails}</strong>
+                    ${addOnsList ? `<div style="margin-top: 8px;">${addOnsList.split('\n').map((item: string) => `<div style="margin: 4px 0;">• ${item.replace('• ', '')}</div>`).join('')}</div>` : ''}
+                </div>
             </div>
-            <div class="detail-row">
-                <span class="detail-label">Breed:</span>
-                <span class="detail-value">${petBreed}</span>
-            </div>
-        </div>
 
-        <div class="service-info">
-            <h3>🛠️ Service Details</h3>
-            <p><strong>${serviceDetails}</strong></p>
-            ${addOnsList ? `<h4>Add-on Services:</h4><ul class="addons-list">${addOnsList.split('\n').map((item: string) => `<li>${item}</li>`).join('')}</ul>` : ''}
-            ${specialRequestsText}
-            ${transportDetails}
-            ${treatsDetails}
+            ${specialRequests ? `
+            <div class="section">
+                <div class="section-title">Special Requests</div>
+                <div class="section-content">${specialRequests}</div>
+            </div>
+            ` : ''}
+
+            ${needsTransport ? `
+            <div class="section">
+                <div class="section-title">Transport</div>
+                <div class="section-content">${transportType} - ${pickupAddress}</div>
+            </div>
+            ` : ''}
+
+            ${includeTreats ? `
+            <div class="section">
+                <div class="section-title">Treats</div>
+                <div class="section-content">${treatType}</div>
+            </div>
+            ` : ''}
+
+            <div class="divider"></div>
+
+            <div class="reminder">
+                <div class="reminder-title">📋 Reminders</div>
+                <div>• Arrive 10 minutes early</div>
+                <div>• Bring vaccination records (first visit)</div>
+                <div>• Contact us 24h in advance to reschedule</div>
+            </div>
         </div>
 
         <div class="footer">
-            <h3>📍 Location & Contact</h3>
-            <p><strong>Novo Pets Premium Pet Spa & Wellness</strong></p>
-            <p>Where Pets Feel at Home</p>
-            <div class="contact-info">
-                <p>📧 Email: novopetsph@gmail.com</p>
-                <p>📱 Phone: +63 XXX XXX XXXX</p>
-                <p>🌐 Website: <a href="https://novopets.com">novopets.com</a></p>
-            </div>
-        </div>
-
-        <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 10px; text-align: center;">
-            <h3>📋 Important Reminders</h3>
-            <ul style="text-align: left; display: inline-block;">
-                <li>Please arrive 10 minutes before your scheduled appointment</li>
-                <li>Bring your pet's vaccination records if this is their first visit</li>
-                <li>If you need to reschedule, please contact us at least 24 hours in advance</li>
-                <li>For hotel stays, please bring your pet's food and any medications</li>
-            </ul>
+            <div style="margin-bottom: 8px;"><strong>Novo Pets Premium Pet Spa & Wellness</strong></div>
+            <div>📧 novopetsph@gmail.com | 🌐 <a href="https://novopets.com">novopets.com</a></div>
         </div>
     </div>
 </body>
