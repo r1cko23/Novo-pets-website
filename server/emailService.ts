@@ -314,21 +314,45 @@ const createBookingConfirmationEmail = (bookingData: any) => {
             margin-bottom: 14px;
             font-style: italic;
         }
-        .footer-contact {
-            display: flex;
-            justify-content: center;
+        .footer-info {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
             gap: 16px;
-            flex-wrap: wrap;
-            margin-top: 14px;
+            margin-top: 20px;
+            text-align: left;
         }
-        .footer-contact a {
+        .footer-info-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        .footer-icon {
+            font-size: 18px;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        .footer-info-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            color: #868e96;
+            font-weight: 700;
+            letter-spacing: 0.8px;
+            margin-bottom: 4px;
+        }
+        .footer-info-value {
+            font-size: 13px;
+            color: #1a1a1a;
+            font-weight: 500;
+            line-height: 1.5;
+        }
+        .footer-info-value a {
             color: #9a7d62;
             text-decoration: none;
-            font-weight: 500;
-            transition: color 0.2s ease;
+            font-weight: 600;
         }
-        .footer-contact a:hover {
+        .footer-info-value a:hover {
             color: #8C636A;
+            text-decoration: underline;
         }
         .addon-item {
             display: flex;
@@ -356,9 +380,8 @@ const createBookingConfirmationEmail = (bookingData: any) => {
             .header {
                 padding: 24px 16px;
             }
-            .footer-contact {
-                flex-direction: column;
-                gap: 8px;
+            .footer-info {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -471,9 +494,35 @@ const createBookingConfirmationEmail = (bookingData: any) => {
             <div class="footer">
                 <div class="footer-brand">Novo Pets Premium Pet Spa & Wellness</div>
                 <div class="footer-tagline">Where Pets Feel at Home</div>
-                <div class="footer-contact">
-                    <a href="mailto:novopetsph@gmail.com">📧 novopetsph@gmail.com</a>
-                    <a href="https://novopets.com">🌐 novopets.com</a>
+                <div class="footer-info">
+                    <div class="footer-info-item">
+                        <span class="footer-icon">📍</span>
+                        <div>
+                            <div class="footer-info-label">Location</div>
+                            <div class="footer-info-value">White Plains, Katipunan Avenue<br>Quezon City, Philippines</div>
+                        </div>
+                    </div>
+                    <div class="footer-info-item">
+                        <span class="footer-icon">📱</span>
+                        <div>
+                            <div class="footer-info-label">Phone</div>
+                            <div class="footer-info-value"><a href="tel:+639177917671">(0917) 791 7671</a></div>
+                        </div>
+                    </div>
+                    <div class="footer-info-item">
+                        <span class="footer-icon">📧</span>
+                        <div>
+                            <div class="footer-info-label">Email</div>
+                            <div class="footer-info-value"><a href="mailto:novopetsph@gmail.com">novopetsph@gmail.com</a></div>
+                        </div>
+                    </div>
+                    <div class="footer-info-item">
+                        <span class="footer-icon">🌐</span>
+                        <div>
+                            <div class="footer-info-label">Website</div>
+                            <div class="footer-info-value"><a href="https://novopets.com">novopets.com</a></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
