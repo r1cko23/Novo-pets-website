@@ -55,11 +55,41 @@ const createBookingConfirmationEmail = (bookingData: any) => {
     groomer,
   } = bookingData;
 
-  // Format the appointment date
-  const formattedDate = format(new Date(appointmentDate), 'EEEE, MMMM do, yyyy');
+  // Format the appointment date (Philippine timezone)
+  let formattedDate = 'To be determined';
+  try {
+    if (appointmentDate) {
+      // Create date in Philippine timezone (UTC+8)
+      const dateStr = appointmentDate.includes('T') ? appointmentDate.split('T')[0] : appointmentDate;
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const phDate = new Date(Date.UTC(year, month - 1, day, 8, 0, 0)); // 8 AM UTC = 4 PM PHT (adjust as needed)
+      formattedDate = format(phDate, 'EEEE, MMMM do, yyyy');
+    }
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    formattedDate = appointmentDate || 'To be determined';
+  }
   
-  // Format the appointment time
-  const formattedTime = appointmentTime || 'To be determined';
+  // Format the appointment time to 12-hour format
+  const formatTimeTo12Hour = (timeStr: string): string => {
+    if (!timeStr) return 'To be determined';
+    
+    // Remove seconds if present (e.g., "16:00:00" -> "16:00")
+    const timeOnly = timeStr.split(':').slice(0, 2).join(':');
+    
+    // Parse 24-hour format
+    const [hours, minutes] = timeOnly.split(':').map(Number);
+    
+    if (isNaN(hours) || isNaN(minutes)) return timeStr;
+    
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+    const displayMinutes = minutes.toString().padStart(2, '0');
+    
+    return `${displayHours}:${displayMinutes} ${period}`;
+  };
+  
+  const formattedTime = formatTimeTo12Hour(appointmentTime);
 
   // Determine service details
   let serviceDetails = '';
@@ -292,6 +322,10 @@ const createBookingConfirmationEmail = (bookingData: any) => {
             font-size: 18px;
             flex-shrink: 0;
             margin-top: 2px;
+            display: inline-block;
+            vertical-align: middle;
+            width: 24px;
+            text-align: center;
         }
         .footer {
             background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
@@ -330,6 +364,10 @@ const createBookingConfirmationEmail = (bookingData: any) => {
             font-size: 18px;
             flex-shrink: 0;
             margin-top: 2px;
+            display: inline-block;
+            vertical-align: middle;
+            width: 24px;
+            text-align: center;
         }
         .footer-info-label {
             font-size: 11px;
@@ -469,23 +507,23 @@ const createBookingConfirmationEmail = (bookingData: any) => {
 
                 <div class="reminders-section">
                     <div class="reminders-title">
-                        <span>📋</span>
+                        <span style="font-size: 16px; line-height: 1;">📋</span>
                         <span>Important Reminders</span>
                     </div>
                     <div class="reminder-item">
-                        <span class="reminder-icon">⏰</span>
+                        <span class="reminder-icon" style="font-size: 16px; line-height: 1.2;">⏰</span>
                         <span>Please arrive 10 minutes before your scheduled appointment</span>
                     </div>
                     <div class="reminder-item">
-                        <span class="reminder-icon">📄</span>
+                        <span class="reminder-icon" style="font-size: 16px; line-height: 1.2;">📄</span>
                         <span>Bring your pet's vaccination records if this is their first visit</span>
                     </div>
                     <div class="reminder-item">
-                        <span class="reminder-icon">🔄</span>
+                        <span class="reminder-icon" style="font-size: 16px; line-height: 1.2;">🔄</span>
                         <span>If you need to reschedule, please contact us at least 24 hours in advance</span>
                     </div>
                     <div class="reminder-item">
-                        <span class="reminder-icon">🏨</span>
+                        <span class="reminder-icon" style="font-size: 16px; line-height: 1.2;">🏨</span>
                         <span>For hotel stays, please bring your pet's food and any medications</span>
                     </div>
                 </div>
@@ -496,28 +534,28 @@ const createBookingConfirmationEmail = (bookingData: any) => {
                 <div class="footer-tagline">Where Pets Feel at Home</div>
                 <div class="footer-info">
                     <div class="footer-info-item">
-                        <span class="footer-icon">📍</span>
+                        <span class="footer-icon" style="font-size: 18px; line-height: 1.2;">📍</span>
                         <div>
                             <div class="footer-info-label">Location</div>
                             <div class="footer-info-value">White Plains, Katipunan Avenue<br>Quezon City, Philippines</div>
                         </div>
                     </div>
                     <div class="footer-info-item">
-                        <span class="footer-icon">📱</span>
+                        <span class="footer-icon" style="font-size: 18px; line-height: 1.2;">📱</span>
                         <div>
                             <div class="footer-info-label">Phone</div>
                             <div class="footer-info-value"><a href="tel:+639177917671">(0917) 791 7671</a></div>
                         </div>
                     </div>
                     <div class="footer-info-item">
-                        <span class="footer-icon">📧</span>
+                        <span class="footer-icon" style="font-size: 18px; line-height: 1.2;">📧</span>
                         <div>
                             <div class="footer-info-label">Email</div>
                             <div class="footer-info-value"><a href="mailto:novopetsph@gmail.com">novopetsph@gmail.com</a></div>
                         </div>
                     </div>
                     <div class="footer-info-item">
-                        <span class="footer-icon">🌐</span>
+                        <span class="footer-icon" style="font-size: 18px; line-height: 1.2;">🌐</span>
                         <div>
                             <div class="footer-info-label">Website</div>
                             <div class="footer-info-value"><a href="https://novopets.com">novopets.com</a></div>
