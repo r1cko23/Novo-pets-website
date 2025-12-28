@@ -1061,12 +1061,26 @@ app.post('/api/bookings', async (req, res) => {
       
       // Send confirmation email to customer
       console.log('📧 [Booking] Attempting to send customer confirmation email...');
-      const emailResult = await sendBookingConfirmationEmail({
+      const emailData = {
         ...hotelBookingData,
         serviceType: 'hotel',
         appointmentDate: checkInDate,
-        appointmentTime: '9:00 AM'
-      });
+        appointmentTime: '9:00 AM',
+        // Map database fields to email template fields
+        petName: hotelBookingData.pet_name,
+        petBreed: hotelBookingData.pet_breed,
+        petSize: hotelBookingData.pet_size,
+        customerName: hotelBookingData.customer_name,
+        customerEmail: hotelBookingData.customer_email,
+        customerPhone: hotelBookingData.customer_phone,
+        specialRequests: hotelBookingData.special_requests,
+        needsTransport: hotelBookingData.needs_transport || false,
+        transportType: hotelBookingData.transport_type,
+        pickupAddress: hotelBookingData.pickup_address,
+        includeTreats: hotelBookingData.include_treats || false,
+        treatType: hotelBookingData.treat_type
+      };
+      const emailResult = await sendBookingConfirmationEmail(emailData);
       if (emailResult.success) {
         console.log('✅ [Booking] Customer confirmation email sent successfully');
       } else {
@@ -1075,12 +1089,7 @@ app.post('/api/bookings', async (req, res) => {
       
       // Send notification email to admin
       console.log('📧 [Booking] Attempting to send admin notification email...');
-      const adminEmailResult = await sendAdminNotificationEmail({
-        ...hotelBookingData,
-        serviceType: 'hotel',
-        appointmentDate: checkInDate,
-        appointmentTime: '9:00 AM'
-      });
+      const adminEmailResult = await sendAdminNotificationEmail(emailData);
       if (adminEmailResult.success) {
         console.log('✅ [Booking] Admin notification email sent successfully');
       } else {
@@ -1188,8 +1197,14 @@ app.post('/api/bookings', async (req, res) => {
         customerPhone: groomingBookingData.customer_phone,
         petName: groomingBookingData.pet_name,
         petBreed: groomingBookingData.pet_breed,
+        petSize: groomingBookingData.pet_size,
         groomingService: groomingBookingData.grooming_service,
-        specialRequests: groomingBookingData.special_requests
+        specialRequests: groomingBookingData.special_requests,
+        needsTransport: groomingBookingData.needs_transport || false,
+        transportType: groomingBookingData.transport_type,
+        pickupAddress: groomingBookingData.pickup_address,
+        includeTreats: groomingBookingData.include_treats || false,
+        treatType: groomingBookingData.treat_type
       };
       console.log(`[${timestamp}] 📧 [Booking] Email data:`, JSON.stringify(emailData, null, 2));
       const emailResult = await sendBookingConfirmationEmail(emailData);
@@ -1523,6 +1538,7 @@ const createBookingConfirmationEmail = (bookingData) => {
     customerEmail,
     petName,
     petBreed,
+    petSize,
     serviceType,
     appointmentDate,
     appointmentTime,
