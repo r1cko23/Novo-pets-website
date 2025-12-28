@@ -1623,10 +1623,16 @@ const createBookingConfirmationEmail = (bookingData) => {
             text-align: center;
             color: white;
         }
+        .logo {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 12px auto;
+            display: block;
+        }
         .header h1 {
             font-size: 24px;
             font-weight: 600;
-            margin: 8px 0 4px 0;
+            margin: 0 0 4px 0;
         }
         .header p {
             font-size: 14px;
@@ -1730,6 +1736,7 @@ const createBookingConfirmationEmail = (bookingData) => {
 <body>
     <div class="email-container">
         <div class="header">
+            <img src="https://novopets.com/logo_final.png" alt="Novo Pets" class="logo">
             <h1>✓ Booking Confirmed</h1>
             <p>Your appointment has been scheduled</p>
         </div>
