@@ -1533,28 +1533,27 @@ const createTransporter = () => {
 
 // Email templates
 const createBookingConfirmationEmail = (bookingData) => {
-  const {
-    customerName,
-    customerEmail,
-    petName,
-    petBreed,
-    petSize,
-    serviceType,
-    appointmentDate,
-    appointmentTime,
-    groomingService,
-    accommodationType,
-    durationDays,
-    addOnServices,
-    specialRequests,
-    needsTransport,
-    transportType,
-    pickupAddress,
-    includeTreats,
-    treatType,
-    paymentMethod,
-    groomer,
-  } = bookingData;
+  // Extract fields, handling both camelCase and snake_case
+  const customerName = bookingData.customerName || bookingData.customer_name;
+  const customerEmail = bookingData.customerEmail || bookingData.customer_email;
+  const petName = bookingData.petName || bookingData.pet_name;
+  const petBreed = bookingData.petBreed || bookingData.pet_breed;
+  const petSize = bookingData.petSize || bookingData.pet_size;
+  const serviceType = bookingData.serviceType || bookingData.service_type;
+  const appointmentDate = bookingData.appointmentDate || bookingData.appointment_date;
+  const appointmentTime = bookingData.appointmentTime || bookingData.appointment_time;
+  const groomingService = bookingData.groomingService || bookingData.grooming_service;
+  const accommodationType = bookingData.accommodationType || bookingData.accommodation_type;
+  const durationDays = bookingData.durationDays || bookingData.duration_days;
+  const addOnServices = bookingData.addOnServices || bookingData.add_on_services;
+  const specialRequests = bookingData.specialRequests || bookingData.special_requests;
+  const needsTransport = bookingData.needsTransport || bookingData.needs_transport || false;
+  const transportType = bookingData.transportType || bookingData.transport_type;
+  const pickupAddress = bookingData.pickupAddress || bookingData.pickup_address;
+  const includeTreats = bookingData.includeTreats || bookingData.include_treats || false;
+  const treatType = bookingData.treatType || bookingData.treat_type;
+  const paymentMethod = bookingData.paymentMethod || bookingData.payment_method;
+  const groomer = bookingData.groomer;
 
   // Format the appointment date with proper validation
   let formattedDate = 'To be determined';
