@@ -882,6 +882,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test email endpoint (for debugging)
+  app.get("/api/test-email", async (req: Request, res: Response) => {
+    try {
+      const testEmail = req.query.email as string || 'novopetsph@gmail.com';
+      
+      console.log('📧 [Test Email] Testing email configuration...');
+      console.log('📧 [Test Email] EMAIL_PASSWORD configured:', !!process.env.EMAIL_PASSWORD);
+      
+      const testBookingData = {
+        customerName: 'Test Customer',
+        customerEmail: testEmail,
+        petName: 'Test Pet',
+        petBreed: 'Test Breed',
+        serviceType: 'grooming',
+        appointmentDate: new Date().toISOString().split('T')[0],
+        appointmentTime: '10:00',
+        groomingService: 'Basic Groom',
+        paymentMethod: 'cash',
+      };
+      
+      const result = await sendBookingConfirmationEmail(testBookingData);
+      
+      if (result.success) {
+        return res.status(200).json({
+          success: true,
+          message: 'Test email sent successfully!',
+          messageId: result.messageId,
+        });
+      } else {
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to send test email',
+          error: result.error || result.message,
+        });
+      }
+    } catch (error) {
+      console.error('❌ [Test Email] Error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Test email failed',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

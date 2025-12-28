@@ -6,6 +6,10 @@ const getEmailConfig = () => {
   // Remove spaces from EMAIL_PASSWORD (Gmail App Passwords are displayed with spaces but should be used without)
   const emailPassword = process.env.EMAIL_PASSWORD?.replace(/\s+/g, '') || '';
   
+  if (!emailPassword) {
+    console.warn('⚠️ EMAIL_PASSWORD environment variable is not set');
+  }
+  
   return {
     host: 'smtp.gmail.com',
     port: 587,
@@ -14,6 +18,10 @@ const getEmailConfig = () => {
       user: 'novopetsph@gmail.com',
       pass: emailPassword,
     },
+    // Add connection timeout
+    connectionTimeout: 10000, // 10 seconds
+    greetingTimeout: 10000,
+    socketTimeout: 10000,
   };
 };
 
@@ -295,11 +303,14 @@ export const sendBookingConfirmationEmail = async (bookingData: any) => {
     console.log('📧 [Email] Customer name:', bookingData.customerName);
     
     // Check if email password is configured
-    if (!process.env.EMAIL_PASSWORD) {
+    const emailPassword = process.env.EMAIL_PASSWORD?.replace(/\s+/g, '') || '';
+    if (!emailPassword) {
       console.warn('⚠️ EMAIL_PASSWORD not configured. Skipping email sending.');
-      return { success: false, message: 'Email not configured' };
+      console.warn('⚠️ [Email] Make sure EMAIL_PASSWORD is set in Vercel environment variables');
+      return { success: false, message: 'Email not configured - EMAIL_PASSWORD missing' };
     }
 
+    console.log('📧 [Email] Email password configured (length:', emailPassword.length, 'chars)');
     console.log('📧 [Email] Creating email template...');
     const { subject, html } = createBookingConfirmationEmail(bookingData);
     console.log('📧 [Email] Email subject:', subject);
@@ -313,14 +324,48 @@ export const sendBookingConfirmationEmail = async (bookingData: any) => {
 
     console.log('📧 [Email] Creating transporter...');
     const transporter = createTransporter();
+    
+    // Verify connection before sending
+    console.log('📧 [Email] Verifying SMTP connection...');
+    await transporter.verify();
+    console.log('✅ [Email] SMTP connection verified');
+    
     console.log('📧 [Email] Sending email...');
     const info = await transporter.sendMail(mailOptions);
-    console.log('✅ [Email] Booking confirmation email sent successfully:', info.messageId);
+    console.log('✅ [Email] Booking confirmation email sent successfully');
+    console.log('✅ [Email] Message ID:', info.messageId);
+    console.log('✅ [Email] Response:', info.response);
     
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error('❌ [Email] Error sending booking confirmation email:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorCode = (error as any)?.code;
+    const errorCommand = (error as any)?.command;
+    
+    console.error('❌ [Email] Error details:', {
+      message: errorMessage,
+      code: errorCode,
+      command: errorCommand,
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    
+    // Provide helpful error messages
+    if (errorMessage.includes('Invalid login') || errorMessage.includes('authentication failed')) {
+      return { 
+        success: false, 
+        error: 'Email authentication failed. Please check your EMAIL_PASSWORD (Gmail App Password) in Vercel environment variables.' 
+      };
+    }
+    
+    if (errorMessage.includes('timeout') || errorMessage.includes('ETIMEDOUT')) {
+      return { 
+        success: false, 
+        error: 'Email connection timeout. Please check your network connection and try again.' 
+      };
+    }
+    
+    return { success: false, error: errorMessage };
   }
 };
 
@@ -332,9 +377,11 @@ export const sendAdminNotificationEmail = async (bookingData: any) => {
     console.log('📧 [Email] Service type:', bookingData.serviceType);
     
     // Check if email password is configured
-    if (!process.env.EMAIL_PASSWORD) {
+    const emailPassword = process.env.EMAIL_PASSWORD?.replace(/\s+/g, '') || '';
+    if (!emailPassword) {
       console.warn('⚠️ EMAIL_PASSWORD not configured. Skipping admin email.');
-      return { success: false, message: 'Email not configured' };
+      console.warn('⚠️ [Email] Make sure EMAIL_PASSWORD is set in Vercel environment variables');
+      return { success: false, message: 'Email not configured - EMAIL_PASSWORD missing' };
     }
 
     const adminEmailContent = `
@@ -389,14 +436,30 @@ export const sendAdminNotificationEmail = async (bookingData: any) => {
 
     console.log('📧 [Email] Creating admin email template...');
     const transporter = createTransporter();
+    
+    // Verify connection before sending
+    console.log('📧 [Email] Verifying SMTP connection for admin email...');
+    await transporter.verify();
+    console.log('✅ [Email] SMTP connection verified');
+    
     console.log('📧 [Email] Sending admin email...');
     const info = await transporter.sendMail(mailOptions);
-    console.log('✅ [Email] Admin notification email sent successfully:', info.messageId);
+    console.log('✅ [Email] Admin notification email sent successfully');
+    console.log('✅ [Email] Message ID:', info.messageId);
     
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error('❌ [Email] Error sending admin notification email:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    
+    if (errorMessage.includes('Invalid login') || errorMessage.includes('authentication failed')) {
+      return { 
+        success: false, 
+        error: 'Email authentication failed. Please check your EMAIL_PASSWORD (Gmail App Password) in Vercel environment variables.' 
+      };
+    }
+    
+    return { success: false, error: errorMessage };
   }
 };
 
