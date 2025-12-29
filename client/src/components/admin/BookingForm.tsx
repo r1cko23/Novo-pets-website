@@ -517,10 +517,9 @@ export default function BookingForm({ onSuccess, onCancel }: BookingFormProps) {
                             selected={field.value}
                             onSelect={field.onChange}
                             disabled={(date) => {
-                              // Disable past dates, Sundays, and Mondays (closed on Mondays)
+                              // Disable past dates and Mondays (closed on Mondays, open Tuesday-Sunday)
                               return (
                                 date < new Date() || 
-                                date.getDay() === 0 || 
                                 date.getDay() === 1
                               );
                             }}
