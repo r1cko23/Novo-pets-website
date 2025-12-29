@@ -958,6 +958,16 @@ app.post('/api/bookings', async (req, res) => {
       });
     }
     
+    // Validate that the appointment date is not a Monday (closed on Mondays)
+    const appointmentDateObj = new Date(appointmentDate);
+    const dayOfWeek = appointmentDateObj.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    if (dayOfWeek === 1) {
+      return res.status(400).json({
+        success: false,
+        message: "We are closed on Mondays. Please select another date."
+      });
+    }
+    
     // Fix timezone issues by ensuring the date is in YYYY-MM-DD format
     // This corrects for browsers sending dates in local timezone which can cause off-by-one day errors
     console.log(`Original appointment date: ${appointmentDate}`);

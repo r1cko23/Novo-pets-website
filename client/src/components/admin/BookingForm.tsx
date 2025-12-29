@@ -516,7 +516,14 @@ export default function BookingForm({ onSuccess, onCancel }: BookingFormProps) {
                             mode="single"
                             selected={field.value}
                             onSelect={field.onChange}
-                            disabled={(date) => date < new Date()}
+                            disabled={(date) => {
+                              // Disable past dates, Sundays, and Mondays (closed on Mondays)
+                              return (
+                                date < new Date() || 
+                                date.getDay() === 0 || 
+                                date.getDay() === 1
+                              );
+                            }}
                             initialFocus
                           />
                         </PopoverContent>

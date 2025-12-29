@@ -1913,12 +1913,12 @@ export default function BookingForm() {
                                   }
                                 }}
                                 disabled={(date) => {
-                                  // Disable past dates and Sundays
+                                  // Disable past dates, Sundays, and Mondays (closed on Mondays)
                                   return (
                                     date <
                                       new Date(
                                         new Date().setHours(0, 0, 0, 0)
-                                      ) || date.getDay() === 0
+                                      ) || date.getDay() === 0 || date.getDay() === 1
                                   );
                                 }}
                                 modifiers={{

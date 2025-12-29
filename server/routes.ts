@@ -378,6 +378,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log("Processed booking data:", bookingData);
       
+      // Validate that the appointment date is not a Monday (closed on Mondays)
+      const appointmentDateObj = new Date(bookingData.appointmentDate);
+      const dayOfWeek = appointmentDateObj.getDay(); // 0 = Sunday, 1 = Monday, etc.
+      if (dayOfWeek === 1) {
+        return res.status(400).json({
+          success: false,
+          message: "We are closed on Mondays. Please select another date."
+        });
+      }
+      
       // Check if there's a reservation ID
       const reservationId = req.body.reservationId;
       if (reservationId && reservations.has(reservationId)) {
